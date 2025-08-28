@@ -1,0 +1,93 @@
+package com.example.nanaclu.ui.auth;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.TextView;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
+
+import com.example.nanaclu.R;
+import com.example.nanaclu.viewmodel.AuthViewModel;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+
+public class LoginActivity extends AppCompatActivity {
+
+    private AuthViewModel viewModel;
+    private GoogleSignInClient googleClient;
+    private ActivityResultLauncher<Intent> googleLauncher;
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+
+        viewModel = new ViewModelProvider(this).get(AuthViewModel.class);
+
+        EditText edtEmail = findViewById(R.id.edtEmail);
+        EditText edtPassword = findViewById(R.id.edtPassword);
+        CheckBox cbRemember = findViewById(R.id.cbRemember);
+        TextView tvStatus = findViewById(R.id.tvStatus);
+        Button btnLogin = findViewById(R.id.btnLogin);
+        com.google.android.gms.common.SignInButton btnGoogle = findViewById(R.id.btnGoogle);
+        TextView tvGoRegister = findViewById(R.id.tvGoRegister);
+
+        btnLogin.setOnClickListener(v -> {
+            viewModel.loginWithEmail(edtEmail.getText().toString().trim(), edtPassword.getText().toString());
+            getSharedPreferences("auth", MODE_PRIVATE).edit().putBoolean("remember_me", cbRemember.isChecked()).apply();
+        });
+
+        tvGoRegister.setOnClickListener(v -> startActivity(new Intent(this, RegisterActivity.class)));
+
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        googleClient = GoogleSignIn.getClient(this, gso);
+        googleLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            try {
+                com.google.android.gms.tasks.Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+                if (account != null && account.getIdToken() != null) {
+                    viewModel.loginWithGoogleIdToken(account.getIdToken());
+                    getSharedPreferences("auth", MODE_PRIVATE).edit().putBoolean("remember_me", true).apply();
+                } else {
+                    tvStatus.setText("Google trả về tài khoản rỗng hoặc thiếu ID token");
+                    tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                }
+            } catch (ApiException e) {
+                tvStatus.setText("Google Sign-In lỗi: " + e.getStatusCode());
+                tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            }
+        });
+
+        btnGoogle.setOnClickListener(v -> googleLauncher.launch(googleClient.getSignInIntent()));
+
+        viewModel.user.observe(this, user -> {
+            if (user != null) {
+                tvStatus.setText("Đăng nhập thành công");
+                tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                finish();
+            }
+        });
+
+        viewModel.error.observe(this, err -> {
+            if (err != null) {
+                tvStatus.setText(err);
+                tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            }
+        });
+    }
+}
+
+

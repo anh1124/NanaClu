@@ -49,21 +49,24 @@ app/
 ├── data/
 │ ├── model/ # Các model Java (POJO)
 │ │ ├── User.java
+│ │ ├── UserImage.java
 │ │ ├── Group.java
+│ │ ├── Member.java
 │ │ ├── Post.java
-│ │ ├── Event.java
-│ │ ├── Chat.java
-│ │ ├── Message.java
 │ │ ├── Comment.java
 │ │ ├── Like.java
-│ │ └── Participant.java
-│ ├── repository/ # Firestore repository
+│ │ ├── Event.java
+│ │ ├── Participant.java
+│ │ ├── Chat.java
+│ │ ├── ChatMember.java
+│ │ └── Message.java
+│ ├── repository/ # Firestore repository (UserRepository, GroupRepository, ChatRepository, ...)
 │
 ├── ui/
-│ ├── auth/ # Login/Register
+│ ├── auth/ # Login (Google, Email/Password) & Register
 │ ├── home/ # Trang chủ, feed bài viết
-│ ├── group/ # Group list, group view
-│ ├── chat/ # Chat list, chat view
+│ ├── group/ # Group list, group detail
+│ ├── chat/ # Chat list, chat room
 │ ├── event/ # Event list, event detail
 │ └── profile/ # User profile & settings
 │
@@ -74,7 +77,21 @@ app/
 │ ├── EventViewModel.java
 │ └── ChatViewModel.java
 │
-└── utils/ # Helper, constants
+└── utils/ # Helper, constants (Date/time utils, paging helpers)
+
+### 📦 Firestore schema (đề xuất)
+- `users/{userId}` → User
+  - `images/{imageId}` → UserImage
+- `groups/{groupId}` → Group
+  - `members/{userId}` → Member
+  - `posts/{postId}` → Post
+    - `comments/{commentId}` → Comment
+    - `likes/{userId}` → Like
+- `chats/{chatId}` → Chat
+  - `members/{userId}` → ChatMember
+  - `messages/{messageId}` → Message
+- `events/{eventId}` → Event
+  - `participants/{userId}` → Participant
 
 
 ---
