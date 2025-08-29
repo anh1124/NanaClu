@@ -103,13 +103,23 @@
                     app:layout_constraintTop_toTopOf="@id/imgAvatar"
                     app:layout_constraintBottom_toBottomOf="@id/imgAvatar">
 
-                    <com.google.android.material.textfield.TextInputEditText
+                    <TextView
                         android:id="@+id/edtPost"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@android:color/transparent"
-                        android:textColor="#212121"
-                        android:textSize="16sp"/>
+                        android:minHeight="48dp"
+                        android:gravity="center_vertical"
+                        android:text="Bạn đang nghĩ gì?"
+                        android:textColor="#757575"
+                        android:textSize="16sp"
+                        android:background="@null"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="12dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"/>
 
                 </com.google.android.material.textfield.TextInputLayout>
 

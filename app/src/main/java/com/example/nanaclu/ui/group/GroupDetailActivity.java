@@ -5,6 +5,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.content.Intent;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -54,13 +55,29 @@ public class GroupDetailActivity extends AppCompatActivity {
 
         // Setup click listeners
         findViewById(R.id.btnInvite).setOnClickListener(v -> {});
-        View composer = findViewById(R.id.postComposer);
-        View btnImage = findViewById(R.id.btnAddImage);
-        View edt = findViewById(R.id.edtPost);
-        View.OnClickListener openCreatePost = x -> startActivity(new android.content.Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class));
-        composer.setOnClickListener(openCreatePost);
-        btnImage.setOnClickListener(openCreatePost);
-        edt.setOnClickListener(openCreatePost);
+        
+        // Make entire post composer area clickable
+        View postComposerArea = findViewById(R.id.postComposer);
+        postComposerArea.setOnClickListener(v -> {
+            // Open CreatePostActivity when clicking anywhere in the post composer area
+            Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
+            startActivity(intent);
+        });
+        
+        // Also make individual elements clickable for better UX
+        View btnAddImage = findViewById(R.id.btnAddImage);
+        TextView edtPost = findViewById(R.id.edtPost);
+        
+        // These will also open CreatePostActivity
+        btnAddImage.setOnClickListener(v -> {
+            Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
+            startActivity(intent);
+        });
+        
+        edtPost.setOnClickListener(v -> {
+            Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
+            startActivity(intent);
+        });
     }
 
     private void loadGroupData() {
