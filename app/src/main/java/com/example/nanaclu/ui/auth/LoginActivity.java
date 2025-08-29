@@ -77,6 +77,7 @@ public class LoginActivity extends AppCompatActivity {
             if (user != null) {
                 tvStatus.setText("Đăng nhập thành công");
                 tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                startActivity(new Intent(this, com.example.nanaclu.ui.HomeActivity.class));
                 finish();
             }
         });

@@ -10,12 +10,16 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.nanaclu.R;
+import com.example.nanaclu.utils.ThemeUtils;
 
 public class ChatsFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_chats, container, false);
+        View root = inflater.inflate(R.layout.fragment_chats, container, false);
+        androidx.appcompat.widget.Toolbar toolbar = root.findViewById(R.id.toolbar);
+        if (toolbar != null) toolbar.setBackgroundColor(ThemeUtils.getToolbarColor(requireContext()));
+        return root;
     }
 }
 
