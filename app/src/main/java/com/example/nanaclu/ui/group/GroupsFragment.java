@@ -1,95 +1,110 @@
 package com.example.nanaclu.ui.group;
 
-import android.app.Dialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.EditText;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.widget.Toolbar;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.nanaclu.R;
-import com.example.nanaclu.viewmodel.GroupViewModel;
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.switchmaterial.SwitchMaterial;
-import com.google.android.material.snackbar.Snackbar;
 import com.example.nanaclu.utils.ThemeUtils;
+import com.example.nanaclu.viewmodel.GroupViewModel;
+import com.example.nanaclu.data.model.Group;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
 
 public class GroupsFragment extends Fragment {
-    private GroupViewModel viewModel;
+    private GroupViewModel groupViewModel;
+    private GroupsAdapter groupsAdapter;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_groups, container, false);
-        viewModel = new ViewModelProvider(this).get(GroupViewModel.class);
+        return inflater.inflate(R.layout.fragment_groups, container, false);
+    }
 
-        MaterialToolbar toolbar = root.findViewById(R.id.toolbar);
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        // Setup toolbar with theme color and white text
+        MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
         toolbar.setBackgroundColor(ThemeUtils.getToolbarColor(requireContext()));
-        toolbar.setOnMenuItemClickListener(this::onToolbarItemClicked);
-
-        viewModel.createdGroupId.observe(getViewLifecycleOwner(), id -> {
-            if (id != null) {
-                Snackbar.make(root, "Tạo nhóm thành công", Snackbar.LENGTH_SHORT).show();
+        toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
+        toolbar.setTitle("My Groups");
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_add_group) {
+                showCreateGroupDialog();
+                return true;
             }
-        });
-        viewModel.error.observe(getViewLifecycleOwner(), err -> {
-            if (err != null) {
-                Snackbar.make(root, err, Snackbar.LENGTH_SHORT).show();
-            }
+            return false;
         });
 
-        return root;
+        // Setup RecyclerView
+        RecyclerView recyclerView = view.findViewById(R.id.rvGroups);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        groupsAdapter = new GroupsAdapter();
+        recyclerView.setAdapter(groupsAdapter);
+        
+        // Setup click listener
+        groupsAdapter.setOnGroupClickListener(group -> {
+            Intent intent = new Intent(getContext(), GroupDetailActivity.class);
+            intent.putExtra("group_id", group.groupId);
+            startActivity(intent);
+        });
+
+        // Setup ViewModel
+        groupViewModel = new ViewModelProvider(this).get(GroupViewModel.class);
+        
+        // Observe data
+        groupViewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            // Handle loading state if needed
+        });
+        
+        groupViewModel.getError().observe(getViewLifecycleOwner(), error -> {
+            if (error != null) {
+                Toast.makeText(getContext(), error, Toast.LENGTH_LONG).show();
+            }
+        });
+        
+        groupViewModel.getUserGroups().observe(getViewLifecycleOwner(), groups -> {
+            if (groups != null) {
+                groupsAdapter.setGroups(groups);
+                // Debug log
+                Toast.makeText(getContext(), "Loaded " + groups.size() + " groups", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getContext(), "No groups found", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Load groups
+        groupViewModel.loadUserGroups();
     }
 
-    private boolean onToolbarItemClicked(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.action_add_group) {
-            openCreateGroupDialog();
-            return true;
-        }
-        return false;
-    }
+    private void showCreateGroupDialog() {
+        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_create_group, null);
+        TextInputEditText etGroupName = dialogView.findViewById(R.id.etGroupName);
 
-    private void openCreateGroupDialog() {
-        if (getContext() == null) return;
-        Dialog d = new Dialog(getContext());
-        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        d.setContentView(R.layout.dialog_create_group);
-        d.setCancelable(true);
-
-        View btnClose = d.findViewById(R.id.btnClose);
-        EditText edtGroupName = d.findViewById(R.id.edtGroupName);
-        SwitchMaterial swIsPublic = d.findViewById(R.id.swIsPublic);
-        Button btnCreate = d.findViewById(R.id.btnCreate);
-
-        btnClose.setOnClickListener(v -> d.dismiss());
-        btnCreate.setOnClickListener(v -> {
-            String name = edtGroupName.getText().toString().trim();
-            if (name.isEmpty()) {
-                edtGroupName.setError("Tên nhóm không được trống");
-                return;
-            }
-            viewModel.createGroup(name, swIsPublic.isChecked());
-            d.dismiss();
-        });
-
-        d.show();
-        if (d.getWindow() != null) {
-            d.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            d.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            d.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-        }
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Create New Group")
+                .setView(dialogView)
+                .setPositiveButton("Create", (dialog, which) -> {
+                    String groupName = etGroupName.getText().toString().trim();
+                    if (!groupName.isEmpty()) {
+                        groupViewModel.createGroup(groupName, true); // Default to public
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 }
 

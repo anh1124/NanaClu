@@ -22,6 +22,8 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.HomeActivity" android:exported="false" />
+        <activity android:name=".ui.group.GroupDetailActivity" android:exported="false" />
+        <activity android:name=".ui.post.CreatePostActivity" android:exported="false" />
         <activity android:name=".ui.auth.LoginActivity" android:exported="false" />
         <activity android:name=".ui.auth.RegisterActivity" android:exported="false" />
     </application>
