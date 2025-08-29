@@ -94,28 +94,72 @@ public class GroupDetailActivity extends AppCompatActivity {
         ImageView imgAvatar = findViewById(R.id.imgAvatar);
         
         if (currentUser != null) {
+            String displayName = currentUser.getDisplayName();
+            String email = currentUser.getEmail();
+            
+            System.out.println("GroupDetailActivity: Current user - name: " + displayName + ", email: " + email);
+            
             if (currentUser.getPhotoUrl() != null) {
-                // User has a profile photo
+                // User has a profile photo - try to load it
                 System.out.println("GroupDetailActivity: Loading user avatar from: " + currentUser.getPhotoUrl());
-                imgAvatar.setImageURI(currentUser.getPhotoUrl());
-            } else {
-                // User doesn't have a profile photo, show first letter of display name
-                System.out.println("GroupDetailActivity: No profile photo, showing first letter");
-                String displayName = currentUser.getDisplayName();
-                if (displayName != null && !displayName.isEmpty()) {
-                    String firstLetter = displayName.substring(0, 1).toUpperCase();
-                    // Create a text drawable or use a placeholder
-                    imgAvatar.setImageResource(R.mipmap.ic_launcher_round);
-                } else {
-                    // Fallback to default avatar
-                    imgAvatar.setImageResource(R.mipmap.ic_launcher_round);
+                try {
+                    // Try to load the image using a more reliable method
+                    loadImageFromUrl(imgAvatar, currentUser.getPhotoUrl().toString());
+                } catch (Exception e) {
+                    System.out.println("GroupDetailActivity: Failed to load avatar from URI: " + e.getMessage());
+                    // Fallback to text avatar
+                    showTextAvatar(imgAvatar, displayName, email);
                 }
+            } else {
+                // User doesn't have a profile photo, show text avatar
+                System.out.println("GroupDetailActivity: No profile photo, showing text avatar");
+                showTextAvatar(imgAvatar, displayName, email);
             }
         } else {
             // No user logged in, show default avatar
             System.out.println("GroupDetailActivity: No user logged in, showing default avatar");
             imgAvatar.setImageResource(R.mipmap.ic_launcher_round);
         }
+        System.out.println("GroupDetailActivity: === AVATAR SETUP END ===");
+    }
+    
+    private void loadImageFromUrl(ImageView imgAvatar, String imageUrl) {
+        System.out.println("GroupDetailActivity: === LOAD IMAGE FROM URL START ===");
+        System.out.println("GroupDetailActivity: Loading image from: " + imageUrl);
+        
+        try {
+            // Method 1: Try using setImageURI with a delay to check if it works
+            imgAvatar.setImageURI(android.net.Uri.parse(imageUrl));
+            System.out.println("GroupDetailActivity: setImageURI called with: " + imageUrl);
+            
+            // Check if the drawable was set after a short delay
+            imgAvatar.postDelayed(() -> {
+                if (imgAvatar.getDrawable() != null) {
+                    System.out.println("GroupDetailActivity: ✅ Image loaded successfully via setImageURI");
+                } else {
+                    System.out.println("GroupDetailActivity: ❌ setImageURI failed, trying alternative method");
+                    // Try alternative method - create a simple colored avatar with user's first letter
+                    FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                    if (currentUser != null) {
+                        String displayName = currentUser.getDisplayName();
+                        String email = currentUser.getEmail();
+                        showTextAvatar(imgAvatar, displayName, email);
+                    }
+                }
+            }, 1000); // Wait 1 second to see if image loads
+            
+        } catch (Exception e) {
+            System.out.println("GroupDetailActivity: ❌ Error in loadImageFromUrl: " + e.getMessage());
+            // Fallback to text avatar
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                String displayName = currentUser.getDisplayName();
+                String email = currentUser.getEmail();
+                showTextAvatar(imgAvatar, displayName, email);
+            }
+        }
+        
+        System.out.println("GroupDetailActivity: === LOAD IMAGE FROM URL END ===");
     }
 
     private boolean onMenuItemClick(MenuItem item) {
@@ -130,6 +174,65 @@ public class GroupDetailActivity extends AppCompatActivity {
             return true;
         }
         return false;
+    }
+
+    private void showTextAvatar(ImageView imgAvatar, String displayName, String email) {
+        // Create a simple text-based avatar
+        String text = "";
+        if (displayName != null && !displayName.isEmpty()) {
+            text = displayName.substring(0, 1).toUpperCase();
+        } else if (email != null && !email.isEmpty()) {
+            text = email.substring(0, 1).toUpperCase();
+        } else {
+            text = "U"; // User
+        }
+        
+        System.out.println("GroupDetailActivity: Showing text avatar with: " + text);
+        
+        // Create a custom drawable with text
+        try {
+            android.graphics.drawable.Drawable textDrawable = createTextDrawable(text);
+            imgAvatar.setImageDrawable(textDrawable);
+        } catch (Exception e) {
+            System.out.println("GroupDetailActivity: Failed to create text drawable: " + e.getMessage());
+            // Fallback to default avatar
+            imgAvatar.setImageResource(R.mipmap.ic_launcher_round);
+        }
+        
+        // Set content description for accessibility
+        imgAvatar.setContentDescription("Avatar for " + (displayName != null ? displayName : "user"));
+    }
+    
+    private android.graphics.drawable.Drawable createTextDrawable(String text) {
+        // Create a simple colored circle with text
+        android.graphics.drawable.ShapeDrawable shape = new android.graphics.drawable.ShapeDrawable(new android.graphics.drawable.shapes.OvalShape());
+        shape.getPaint().setColor(android.graphics.Color.parseColor("#6200EA")); // Purple color
+        
+        // Create a bitmap with text
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(200, 200, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+        
+        // Draw the circle
+        android.graphics.Paint paint = new android.graphics.Paint();
+        paint.setColor(android.graphics.Color.parseColor("#6200EA"));
+        paint.setAntiAlias(true);
+        canvas.drawCircle(100, 100, 100, paint);
+        
+        // Draw the text
+        paint.setColor(android.graphics.Color.WHITE);
+        paint.setTextSize(80);
+        paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+        paint.setAntiAlias(true);
+        
+        // Center the text
+        android.graphics.Rect bounds = new android.graphics.Rect();
+        paint.getTextBounds(text, 0, text.length(), bounds);
+        int x = 100;
+        int y = 100 + bounds.height() / 2;
+        
+        canvas.drawText(text, x, y, paint);
+        
+        return new android.graphics.drawable.BitmapDrawable(getResources(), bitmap);
     }
 }
 
