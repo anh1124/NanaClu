@@ -21,6 +21,11 @@
         android:title="Cài đặt nhóm"
         android:icon="@android:drawable/ic_menu_preferences"
         app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_create_post"
+        android:title="Tạo bài viết"
+        android:icon="@android:drawable/ic_menu_edit"
+        app:showAsAction="never"/>
     
 </menu>
 

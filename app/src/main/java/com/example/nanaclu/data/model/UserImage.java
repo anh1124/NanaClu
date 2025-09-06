@@ -1,7 +1,7 @@
 package com.example.nanaclu.data.model;
 
 public class UserImage {
-    public String imageId;
+    // Removed imageId field - now using document ID instead
     public long createdAt;
     public String base64Code;
 

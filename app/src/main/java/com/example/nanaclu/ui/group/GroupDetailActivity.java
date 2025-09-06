@@ -29,6 +29,9 @@ public class GroupDetailActivity extends AppCompatActivity {
     private Group currentGroup;
     private String currentUserId;
     private Member currentUserMember;
+    
+    // Backup groupId for debugging
+    private String backupGroupId;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -37,7 +40,11 @@ public class GroupDetailActivity extends AppCompatActivity {
 
         // Get group ID from intent
         groupId = getIntent().getStringExtra("group_id");
+        backupGroupId = groupId; // Store backup
+        System.out.println("GroupDetailActivity: Received groupId = " + groupId);
+        Toast.makeText(this, "onCreate: groupId = " + groupId, Toast.LENGTH_SHORT).show();
         if (groupId == null) {
+            Toast.makeText(this, "Group ID is required", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -80,6 +87,7 @@ public class GroupDetailActivity extends AppCompatActivity {
         postComposerArea.setOnClickListener(v -> {
             // Open CreatePostActivity when clicking anywhere in the post composer area
             Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
+            intent.putExtra("group_id", groupId);
             startActivity(intent);
         });
         
@@ -90,11 +98,13 @@ public class GroupDetailActivity extends AppCompatActivity {
         // These will also open CreatePostActivity
         btnAddImage.setOnClickListener(v -> {
             Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
+            intent.putExtra("group_id", groupId);
             startActivity(intent);
         });
         
         edtPost.setOnClickListener(v -> {
             Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
+            intent.putExtra("group_id", groupId);
             startActivity(intent);
         });
     }
@@ -228,6 +238,8 @@ public class GroupDetailActivity extends AppCompatActivity {
 
     private boolean onMenuItemClick(MenuItem item) {
         int id = item.getItemId();
+        System.out.println("GroupDetailActivity: onMenuItemClick - groupId = " + groupId);
+        
         if (id == R.id.action_leave_group) {
             showLeaveGroupDialog();
             return true;
@@ -246,6 +258,26 @@ public class GroupDetailActivity extends AppCompatActivity {
             intent.putExtra("groupId", groupId);
             intent.putExtra("currentUserId", currentUserId);
             startActivityForResult(intent, 200);
+            return true;
+        } else if (id == R.id.action_create_post) {
+            // Open CreatePostActivity
+            System.out.println("GroupDetailActivity: action_create_post clicked - groupId = " + groupId);
+            
+            // Use backupGroupId if groupId is null
+            if (groupId == null && backupGroupId != null) {
+                groupId = backupGroupId;
+                System.out.println("GroupDetailActivity: Restored groupId from backup = " + groupId);
+            }
+            
+            // Double check groupId is not null
+            if (groupId == null) {
+                Toast.makeText(this, "ERROR: groupId is null in action_create_post!", Toast.LENGTH_LONG).show();
+                return true;
+            }
+            
+            Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
+            intent.putExtra("group_id", groupId);
+            startActivityForResult(intent, 400);
             return true;
         }
         return false;
@@ -379,6 +411,7 @@ public class GroupDetailActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        System.out.println("GroupDetailActivity: onResume() - groupId = " + groupId);
         // Always reload group data when activity resumes
         loadGroupData();
     }
