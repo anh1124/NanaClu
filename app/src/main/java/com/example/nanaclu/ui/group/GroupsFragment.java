@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.nanaclu.R;
 import com.example.nanaclu.utils.ThemeUtils;
@@ -25,6 +26,7 @@ import com.google.android.material.textfield.TextInputEditText;
 public class GroupsFragment extends Fragment {
     private GroupViewModel groupViewModel;
     private GroupsAdapter groupsAdapter;
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     @Nullable
     @Override
@@ -49,6 +51,12 @@ public class GroupsFragment extends Fragment {
             return false;
         });
 
+        // Setup SwipeRefreshLayout
+        swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            groupViewModel.loadUserGroups();
+        });
+        
         // Setup RecyclerView
         RecyclerView recyclerView = view.findViewById(R.id.rvGroups);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -84,10 +92,11 @@ public class GroupsFragment extends Fragment {
             } else {
                 Toast.makeText(getContext(), "No groups found", Toast.LENGTH_SHORT).show();
             }
+            // Stop refresh animation
+            swipeRefreshLayout.setRefreshing(false);
         });
 
-        // Load groups
-        groupViewModel.loadUserGroups();
+        // Groups will be loaded in onStart()
     }
 
     private void showCreateGroupDialog() {
@@ -108,15 +117,17 @@ public class GroupsFragment extends Fragment {
     }
 
     @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        
-        if (requestCode == 100 && resultCode == android.app.Activity.RESULT_OK) {
-            if (data != null && "group_deleted".equals(data.getStringExtra("action"))) {
-                // Group was deleted, reload the groups list
-                groupViewModel.loadUserGroups();
-            }
-        }
+    public void onStart() {
+        super.onStart();
+        // Load groups when fragment starts
+        groupViewModel.loadUserGroups();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Always reload groups when fragment resumes
+        groupViewModel.loadUserGroups();
     }
 }
 

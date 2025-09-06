@@ -1,11 +1,13 @@
 package com.example.nanaclu.ui.group;
 
+import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.content.Intent;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -18,6 +20,8 @@ import com.example.nanaclu.utils.ThemeUtils;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.List;
 
 public class GroupDetailActivity extends AppCompatActivity {
     private GroupRepository groupRepository;
@@ -225,18 +229,12 @@ public class GroupDetailActivity extends AppCompatActivity {
     private boolean onMenuItemClick(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_leave_group) {
-            // TODO: Implement leave group functionality
+            showLeaveGroupDialog();
             return true;
         } else if (id == R.id.action_share_group) {
             // TODO: Implement share group functionality
             return true;
         } else if (id == R.id.action_view_members) {
-            // Open GroupMembersActivity
-            Intent intent = new Intent(this, GroupMembersActivity.class);
-            intent.putExtra("groupId", groupId);
-            startActivity(intent);
-            return true;
-        } else if (id == R.id.action_manage_members) {
             // Open GroupMembersActivity
             Intent intent = new Intent(this, GroupMembersActivity.class);
             intent.putExtra("groupId", groupId);
@@ -253,6 +251,113 @@ public class GroupDetailActivity extends AppCompatActivity {
         return false;
     }
 
+    private void showLeaveGroupDialog() {
+        if (currentUserMember == null) {
+            Toast.makeText(this, "Bạn không phải thành viên của nhóm này", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if ("owner".equals(currentUserMember.role)) {
+            // Owner wants to leave - check if there are other members
+            checkOwnerLeaveConditions();
+        } else {
+            // Member or admin wants to leave
+            showMemberLeaveDialog();
+        }
+    }
+
+    private void checkOwnerLeaveConditions() {
+        groupRepository.getGroupMembers(groupId, new GroupRepository.MembersCallback() {
+            @Override
+            public void onSuccess(List<Member> members) {
+                if (members.size() == 1) {
+                    // Only owner left - show delete group warning
+                    showDeleteGroupWarning();
+                } else {
+                    // Other members exist - must transfer ownership
+                    showTransferOwnershipRequired();
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Toast.makeText(GroupDetailActivity.this, "Lỗi khi kiểm tra thành viên", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showDeleteGroupWarning() {
+        new AlertDialog.Builder(this)
+                .setTitle("Xác nhận rời nhóm")
+                .setMessage("Bạn là người sở hữu duy nhất của nhóm. Nếu bạn rời nhóm, nhóm sẽ bị xóa vĩnh viễn. Bạn có chắc chắn muốn tiếp tục?")
+                .setPositiveButton("Xóa nhóm và rời", (dialog, which) -> {
+                    deleteGroupAndLeave();
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
+    }
+
+    private void showTransferOwnershipRequired() {
+        new AlertDialog.Builder(this)
+                .setTitle("Chuyển quyền sở hữu")
+                .setMessage("Bạn là chủ sở hữu của nhóm. Bạn phải chuyển quyền sở hữu cho thành viên khác trước khi rời nhóm.")
+                .setPositiveButton("Chuyển quyền sở hữu", (dialog, which) -> {
+                    openTransferOwnershipActivity();
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
+    }
+
+    private void showMemberLeaveDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Rời nhóm")
+                .setMessage("Bạn có chắc chắn muốn rời khỏi nhóm này không?")
+                .setPositiveButton("Rời nhóm", (dialog, which) -> {
+                    leaveGroup();
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
+    }
+
+    private void deleteGroupAndLeave() {
+        groupRepository.deleteGroup(groupId, new GroupRepository.UpdateCallback() {
+            @Override
+            public void onSuccess() {
+                Toast.makeText(GroupDetailActivity.this, "Đã xóa nhóm và rời khỏi nhóm", Toast.LENGTH_SHORT).show();
+                setResult(RESULT_OK);
+                finish();
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Toast.makeText(GroupDetailActivity.this, "Lỗi khi xóa nhóm: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void leaveGroup() {
+        groupRepository.removeMember(groupId, currentUserId, new GroupRepository.UpdateCallback() {
+            @Override
+            public void onSuccess() {
+                Toast.makeText(GroupDetailActivity.this, "Đã rời khỏi nhóm", Toast.LENGTH_SHORT).show();
+                setResult(RESULT_OK);
+                finish();
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Toast.makeText(GroupDetailActivity.this, "Lỗi khi rời nhóm: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void openTransferOwnershipActivity() {
+        Intent intent = new Intent(this, TransferOwnershipActivity.class);
+        intent.putExtra("groupId", groupId);
+        intent.putExtra("currentUserId", currentUserId);
+        startActivityForResult(intent, 300);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -264,6 +369,9 @@ public class GroupDetailActivity extends AppCompatActivity {
                 finish();
             }
             // Always reload group data when returning from settings
+            loadGroupData();
+        } else if (requestCode == 300 && resultCode == RESULT_OK) {
+            // Ownership was transferred, reload group data
             loadGroupData();
         }
     }

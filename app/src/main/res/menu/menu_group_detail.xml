@@ -13,13 +13,8 @@
         app:showAsAction="never"/>
     <item
         android:id="@+id/action_view_members"
-        android:title="Xem thành viên"
+        android:title="Thành viên nhóm"
         android:icon="@android:drawable/ic_menu_view"
-        app:showAsAction="never"/>
-    <item
-        android:id="@+id/action_manage_members"
-        android:title="Danh sách thành viên"
-        android:icon="@android:drawable/ic_menu_manage"
         app:showAsAction="never"/>
     <item
         android:id="@+id/action_group_settings"

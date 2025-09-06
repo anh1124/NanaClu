@@ -167,6 +167,64 @@ public class GroupRepository {
                 .addOnFailureListener(callback::onError);
     }
 
+    public void removeMember(String groupId, String userId, UpdateCallback callback) {
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(MEMBERS_COLLECTION)
+                .document(userId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    // Update member count
+                    updateMemberCount(groupId, callback);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    public void transferOwnership(String groupId, String fromUserId, String toUserId, UpdateCallback callback) {
+        // Update old owner to admin
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(MEMBERS_COLLECTION)
+                .document(fromUserId)
+                .update("role", "admin")
+                .addOnSuccessListener(aVoid -> {
+                    // Update new owner
+                    db.collection(GROUPS_COLLECTION)
+                            .document(groupId)
+                            .collection(MEMBERS_COLLECTION)
+                            .document(toUserId)
+                            .update("role", "owner")
+                            .addOnSuccessListener(aVoid1 -> {
+                                // Update group createdBy
+                                db.collection(GROUPS_COLLECTION)
+                                        .document(groupId)
+                                        .update("createdBy", toUserId)
+                                        .addOnSuccessListener(aVoid2 -> callback.onSuccess())
+                                        .addOnFailureListener(callback::onError);
+                            })
+                            .addOnFailureListener(callback::onError);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    private void updateMemberCount(String groupId, UpdateCallback callback) {
+        getGroupMembers(groupId, new MembersCallback() {
+            @Override
+            public void onSuccess(List<Member> members) {
+                db.collection(GROUPS_COLLECTION)
+                        .document(groupId)
+                        .update("memberCount", members.size())
+                        .addOnSuccessListener(aVoid -> callback.onSuccess())
+                        .addOnFailureListener(callback::onError);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                callback.onError(e);
+            }
+        });
+    }
+
     public interface GroupCallback {
         void onSuccess(Group group);
         void onError(Exception e);

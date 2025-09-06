@@ -31,6 +31,7 @@
         <activity android:name=".ui.group.GroupSettingsActivity" android:exported="false" />
         <activity android:name=".ui.group.EditGroupInfoActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupMembersActivity" android:exported="false" />
+        <activity android:name=".ui.group.TransferOwnershipActivity" android:exported="false" />
         <activity android:name=".ui.post.CreatePostActivity" android:exported="false" />
         <activity android:name=".ui.auth.LoginActivity" android:exported="false" />
         <activity android:name=".ui.auth.RegisterActivity" android:exported="false" />
