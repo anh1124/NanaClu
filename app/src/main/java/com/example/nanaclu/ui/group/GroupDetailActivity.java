@@ -231,10 +231,16 @@ public class GroupDetailActivity extends AppCompatActivity {
             // TODO: Implement share group functionality
             return true;
         } else if (id == R.id.action_view_members) {
-            // TODO: Implement view members functionality
+            // Open GroupMembersActivity
+            Intent intent = new Intent(this, GroupMembersActivity.class);
+            intent.putExtra("groupId", groupId);
+            startActivity(intent);
             return true;
         } else if (id == R.id.action_manage_members) {
-            // TODO: Implement manage members functionality
+            // Open GroupMembersActivity
+            Intent intent = new Intent(this, GroupMembersActivity.class);
+            intent.putExtra("groupId", groupId);
+            startActivity(intent);
             return true;
         } else if (id == R.id.action_group_settings) {
             // Open GroupSettingsActivity

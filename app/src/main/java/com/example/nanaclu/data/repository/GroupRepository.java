@@ -149,6 +149,24 @@ public class GroupRepository {
                 .addOnFailureListener(callback::onError);
     }
 
+    public void getGroupMembers(String groupId, MembersCallback callback) {
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(MEMBERS_COLLECTION)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Member> members = new ArrayList<>();
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        Member member = doc.toObject(Member.class);
+                        if (member != null) {
+                            members.add(member);
+                        }
+                    }
+                    callback.onSuccess(members);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
     public interface GroupCallback {
         void onSuccess(Group group);
         void onError(Exception e);
@@ -161,6 +179,11 @@ public class GroupRepository {
 
     public interface UpdateCallback {
         void onSuccess();
+        void onError(Exception e);
+    }
+
+    public interface MembersCallback {
+        void onSuccess(List<Member> members);
         void onError(Exception e);
     }
 }
