@@ -133,6 +133,22 @@ public class GroupRepository {
                 .addOnFailureListener(callback::onError);
     }
 
+    public void updateGroup(Group group, UpdateCallback callback) {
+        db.collection(GROUPS_COLLECTION)
+                .document(group.groupId)
+                .set(group)
+                .addOnSuccessListener(aVoid -> callback.onSuccess())
+                .addOnFailureListener(callback::onError);
+    }
+
+    public void deleteGroup(String groupId, UpdateCallback callback) {
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .delete()
+                .addOnSuccessListener(aVoid -> callback.onSuccess())
+                .addOnFailureListener(callback::onError);
+    }
+
     public interface GroupCallback {
         void onSuccess(Group group);
         void onError(Exception e);
@@ -140,6 +156,11 @@ public class GroupRepository {
 
     public interface MemberCallback {
         void onSuccess(Member member);
+        void onError(Exception e);
+    }
+
+    public interface UpdateCallback {
+        void onSuccess();
         void onError(Exception e);
     }
 }

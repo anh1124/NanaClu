@@ -59,7 +59,7 @@ public class GroupsFragment extends Fragment {
         groupsAdapter.setOnGroupClickListener(group -> {
             Intent intent = new Intent(getContext(), GroupDetailActivity.class);
             intent.putExtra("group_id", group.groupId);
-            startActivity(intent);
+            startActivityForResult(intent, 100);
         });
 
         // Setup ViewModel
@@ -105,6 +105,18 @@ public class GroupsFragment extends Fragment {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        if (requestCode == 100 && resultCode == android.app.Activity.RESULT_OK) {
+            if (data != null && "group_deleted".equals(data.getStringExtra("action"))) {
+                // Group was deleted, reload the groups list
+                groupViewModel.loadUserGroups();
+            }
+        }
     }
 }
 

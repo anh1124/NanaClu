@@ -241,10 +241,32 @@ public class GroupDetailActivity extends AppCompatActivity {
             Intent intent = new Intent(this, GroupSettingsActivity.class);
             intent.putExtra("groupId", groupId);
             intent.putExtra("currentUserId", currentUserId);
-            startActivity(intent);
+            startActivityForResult(intent, 200);
             return true;
         }
         return false;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        if (requestCode == 200 && resultCode == RESULT_OK) {
+            if (data != null && "group_deleted".equals(data.getStringExtra("action"))) {
+                // Group was deleted, finish this activity to go back to My Groups
+                setResult(RESULT_OK, data);
+                finish();
+            }
+            // Always reload group data when returning from settings
+            loadGroupData();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Always reload group data when activity resumes
+        loadGroupData();
     }
 
     private void showTextAvatar(ImageView imgAvatar, String displayName, String email) {

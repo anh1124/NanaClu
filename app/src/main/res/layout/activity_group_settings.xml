@@ -34,6 +34,7 @@
 
             <!-- Đổi tên nhóm -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardEditInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
@@ -62,13 +63,13 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Đổi tên nhóm"
+                            android:text="Chỉnh sửa thông tin nhóm"
                             android:textSize="16sp" />
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Thay đổi tên hiển thị của nhóm"
+                            android:text="Thay đổi tên và mô tả nhóm"
                             android:textSize="12sp"
                             android:textColor="@android:color/darker_gray" />
 
@@ -83,56 +84,6 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Đổi mô tả nhóm -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="2dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_info_details"
-                        android:layout_marginEnd="16dp" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Đổi mô tả nhóm"
-                            android:textSize="16sp" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Cập nhật mô tả về nhóm"
-                            android:textSize="12sp"
-                            android:textColor="@android:color/darker_gray" />
-
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@android:drawable/ic_menu_more" />
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
 
             <!-- Cài đặt quyền riêng tư -->
             <com.google.android.material.card.MaterialCardView
@@ -162,6 +113,7 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvPrivacyStatus"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="Cài đặt quyền riêng tư"
@@ -176,10 +128,10 @@
 
                     </LinearLayout>
 
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@android:drawable/ic_menu_more" />
+                    <Switch
+                        android:id="@+id/switchPrivacy"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
 
                 </LinearLayout>
 
@@ -258,6 +210,7 @@
 
             <!-- Xóa nhóm -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardDeleteGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="8dp"
