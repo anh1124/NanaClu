@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Group;
+import com.example.nanaclu.data.model.Member;
 import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.utils.ThemeUtils;
 import com.google.firebase.auth.FirebaseAuth;
@@ -22,6 +23,8 @@ public class GroupDetailActivity extends AppCompatActivity {
     private GroupRepository groupRepository;
     private String groupId;
     private Group currentGroup;
+    private String currentUserId;
+    private Member currentUserMember;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -31,6 +34,15 @@ public class GroupDetailActivity extends AppCompatActivity {
         // Get group ID from intent
         groupId = getIntent().getStringExtra("group_id");
         if (groupId == null) {
+            finish();
+            return;
+        }
+
+        // Get current user ID
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            currentUserId = currentUser.getUid();
+        } else {
             finish();
             return;
         }
@@ -49,6 +61,9 @@ public class GroupDetailActivity extends AppCompatActivity {
 
         // Load group data
         loadGroupData();
+
+        // Load current user's member info
+        loadCurrentUserMember();
 
         // Setup user avatar
         setupUserAvatar();
@@ -93,6 +108,34 @@ public class GroupDetailActivity extends AppCompatActivity {
                 // Handle error
             }
         });
+    }
+
+    private void loadCurrentUserMember() {
+        groupRepository.getMemberById(groupId, currentUserId, new GroupRepository.MemberCallback() {
+            @Override
+            public void onSuccess(Member member) {
+                currentUserMember = member;
+                updateMenuVisibility();
+            }
+
+            @Override
+            public void onError(Exception e) {
+                // Handle error - user might not be a member
+                currentUserMember = null;
+                updateMenuVisibility();
+            }
+        });
+    }
+
+    private void updateMenuVisibility() {
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        MenuItem settingsItem = toolbar.getMenu().findItem(R.id.action_group_settings);
+        
+        if (settingsItem != null) {
+            boolean isAdminOrOwner = currentUserMember != null && 
+                ("admin".equals(currentUserMember.role) || "owner".equals(currentUserMember.role));
+            settingsItem.setVisible(isAdminOrOwner);
+        }
     }
 
     private void updateUI(Group group) {
@@ -182,12 +225,23 @@ public class GroupDetailActivity extends AppCompatActivity {
     private boolean onMenuItemClick(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_leave_group) {
+            // TODO: Implement leave group functionality
             return true;
         } else if (id == R.id.action_share_group) {
+            // TODO: Implement share group functionality
             return true;
         } else if (id == R.id.action_view_members) {
+            // TODO: Implement view members functionality
             return true;
         } else if (id == R.id.action_manage_members) {
+            // TODO: Implement manage members functionality
+            return true;
+        } else if (id == R.id.action_group_settings) {
+            // Open GroupSettingsActivity
+            Intent intent = new Intent(this, GroupSettingsActivity.class);
+            intent.putExtra("groupId", groupId);
+            intent.putExtra("currentUserId", currentUserId);
+            startActivity(intent);
             return true;
         }
         return false;

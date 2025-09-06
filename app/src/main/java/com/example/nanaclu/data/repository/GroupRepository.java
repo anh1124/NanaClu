@@ -112,8 +112,34 @@ public class GroupRepository {
                 .addOnFailureListener(callback::onError);
     }
 
+    public void getMemberById(String groupId, String userId, MemberCallback callback) {
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(MEMBERS_COLLECTION)
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Member member = documentSnapshot.toObject(Member.class);
+                        if (member != null) {
+                            callback.onSuccess(member);
+                        } else {
+                            callback.onError(new Exception("Failed to parse member data"));
+                        }
+                    } else {
+                        callback.onError(new Exception("Member not found"));
+                    }
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
     public interface GroupCallback {
         void onSuccess(Group group);
+        void onError(Exception e);
+    }
+
+    public interface MemberCallback {
+        void onSuccess(Member member);
         void onError(Exception e);
     }
 }

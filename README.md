@@ -168,7 +168,7 @@ public class Message {
     public String type; // "text" | "image" | "file"
     public String content; // nếu type = "image" => chứa imageId
     public long createdAt;
-    public java.util.List<String> deletedFor; // userId đã xoá,sẽ không hiển thị cho những user này đọcđọc
+    public List<String> deletedFor; // userId đã xoá,sẽ không hiển thị cho những user này đọcđọc
 
     public Message() {}
 }
