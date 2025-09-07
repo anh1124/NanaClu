@@ -21,7 +21,6 @@ Dự án được thiết kế để mô phỏng một hệ thống mạng xã h
 - **Chat**  
   - Chat riêng (private).  
   - Chat nhóm.  
-  - Xóa tin nhắn cho từng người (deletedFor).  
 - **Sự kiện (Events)**  
   - Tạo sự kiện trong nhóm.  
   - Tham gia/hủy tham gia.  
@@ -104,7 +103,7 @@ app/
    - Admin/Owner mới có quyền xóa/chỉnh sửa bài viết trong nhóm.  
    - Chỉ người tạo sự kiện mới có quyền huỷ sự kiện.  
 4. **Ảnh**: Dùng `base64` thay cho Firebase Storage (theo yêu cầu đề tài).  
-5. **Cập nhật dữ liệu (không dùng realtime)**: Không sử dụng `addSnapshotListener`. Dùng chiến lược polling và làm mới thủ công (xem bên dưới).  
+5. **Cập nhật dữ liệu chat với FCM**: Không sử dụng `addSnapshotListener`. Dùng **Firebase Cloud Messaging (FCM)** để nhận thông báo khi có tin nhắn/sự kiện mới và kích hoạt đồng bộ có điều kiện (fetch theo `createdAt > lastReadAt`). Hạn chế/không sử dụng polling định kỳ.  
 6. **Code style**:  
    - Tên class PascalCase (`UserViewModel`)  
    - Tên biến camelCase (`createdAt`, `authorId`)  
@@ -115,9 +114,9 @@ app/
 
 ---
 
-## 🔁 Chiến lược cập nhật dữ liệu khi không dùng Realtime/Storage/FCM
-- **Chat**: Poll mỗi ~5 giây bằng `get()` theo `createdAt > lastSeen` và `orderBy(createdAt) limit N`. Dùng `Handler`/`Coroutine` + `delay` hoặc `WorkManager` (flexible).  
-- **Feed bài viết & bình luận**: Kéo để làm mới (pull-to-refresh) và phân trang `limit/offset` (hoặc `startAfter`).  
+## 🔁 Chiến lược cập nhật dữ liệu với FCM
+- **Chat (ưu tiên FCM)**: Khi có tin nhắn mới, server hoặc Cloud Function gửi FCM tới các thiết bị liên quan. Ứng dụng nhận thông báo (foreground/background) và đồng bộ có điều kiện: `orderBy(createdAt)` + `where(createdAt > lastReadAt)` + `limit N`. Có thể kết hợp `WorkManager` để đảm bảo đồng bộ nền đáng tin cậy.  
+- **Feed bài viết & bình luận**: Kéo để làm mới (pull-to-refresh) và phân trang `limit/offset` hoặc `startAfter`. Có thể cân nhắc FCM cho sự kiện quan trọng (ví dụ: có bình luận mới) để kích hoạt refresh tinh gọn.  
 - **Badge/đếm số**: Tính toán phía client sau mỗi lần fetch; tránh đếm động tốn chi phí.  
 - **Giảm chi phí & hạn chế**: Cache trong `ViewModel`, chỉ gọi lại khi màn hình active; tránh gọi khi app nền; thêm chỉ số/điều kiện truy vấn phù hợp (index, `whereEqualTo`, `orderBy`).  
 
@@ -168,7 +167,6 @@ public class Message {
     public String type; // "text" | "image" | "file"
     public String content; // nếu type = "image" => chứa imageId
     public long createdAt;
-    public List<String> deletedFor; // userId đã xoá,sẽ không hiển thị cho những user này đọcđọc
 
     public Message() {}
 }
