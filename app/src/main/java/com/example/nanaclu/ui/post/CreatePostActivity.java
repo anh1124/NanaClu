@@ -198,14 +198,18 @@ public class CreatePostActivity extends AppCompatActivity {
     private String getImagePathFromUri(Uri uri) {
         try {
             InputStream inputStream = getContentResolver().openInputStream(uri);
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-            
-            // Save to temporary file
-            File tempFile = new File(getCacheDir(), "temp_image_" + UUID.randomUUID().toString() + ".jpg");
+            if (inputStream == null) return null;
+            // Giữ nguyên dữ liệu gốc, không nén lại để không thay đổi kích thước
+            File tempFile = new File(getCacheDir(), "temp_image_" + UUID.randomUUID().toString());
             FileOutputStream outputStream = new FileOutputStream(tempFile);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream);
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, len);
+            }
+            outputStream.flush();
             outputStream.close();
-            
+            inputStream.close();
             return tempFile.getAbsolutePath();
         } catch (Exception e) {
             e.printStackTrace();
@@ -322,35 +326,55 @@ public class CreatePostActivity extends AppCompatActivity {
     private String convertImageToBase64(String imagePath) {
         try {
             System.out.println("CreatePostActivity: convertImageToBase64 - imagePath = " + imagePath);
-            Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-            if (bitmap == null) {
-                System.out.println("CreatePostActivity: convertImageToBase64 - bitmap is null!");
-                return null;
+            // Firestore hạn chế giá trị field ~1MB; base64 tăng ~33%, nên nhắm < ~750KB bytes trước khi encode
+            final int targetMaxBytes = 750 * 1024; // ~750KB
+            final int maxDimension = 1600; // giới hạn cạnh dài để giảm kích thước nhưng giữ tỉ lệ
+
+            // 1) Decode kích thước ban đầu
+            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(imagePath, bounds);
+            int srcW = bounds.outWidth;
+            int srcH = bounds.outHeight;
+
+            // 2) Tính inSampleSize sơ bộ để cạnh dài ~= maxDimension
+            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+            opts.inSampleSize = 1;
+            int longer = Math.max(srcW, srcH);
+            while (longer / opts.inSampleSize > maxDimension) {
+                opts.inSampleSize *= 2;
             }
-            System.out.println("CreatePostActivity: convertImageToBase64 - original bitmap size = " + bitmap.getWidth() + "x" + bitmap.getHeight());
-            
-            // Resize bitmap to 500x500
-            int targetSize = 500;
-            int newWidth = targetSize;
-            int newHeight = targetSize;
-            bitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
-            System.out.println("CreatePostActivity: convertImageToBase64 - resized bitmap size = " + bitmap.getWidth() + "x" + bitmap.getHeight());
-            
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream);
-            byte[] imageBytes = outputStream.toByteArray();
-            String base64 = Base64.encodeToString(imageBytes, Base64.DEFAULT);
-            
-            // Log first 50 characters of base64
-            System.out.println("CreatePostActivity: convertImageToBase64 - base64 first 50 chars = " + base64.substring(0, Math.min(50, base64.length())));
-            System.out.println("CreatePostActivity: convertImageToBase64 - base64 length = " + base64.length());
-            
-            // Create temp variable and log it
-            String temp = base64;
-            System.out.println("CreatePostActivity: convertImageToBase64 - temp variable = " + temp.substring(0, Math.min(50, temp.length())));
-            System.out.println("CreatePostActivity: convertImageToBase64 - temp length = " + temp.length());
-            
-            return temp;
+
+            // 3) Decode bitmap với inSampleSize
+            android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(imagePath, opts);
+            if (bitmap == null) return null;
+
+            // 4) Scale chính xác về maxDimension nếu vẫn vượt
+            int bw = bitmap.getWidth();
+            int bh = bitmap.getHeight();
+            int curLonger = Math.max(bw, bh);
+            if (curLonger > maxDimension) {
+                float scale = (float) maxDimension / (float) curLonger;
+                int newW = Math.round(bw * scale);
+                int newH = Math.round(bh * scale);
+                bitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, newW, newH, true);
+                bw = newW; bh = newH;
+            }
+
+            // 5) Nén JPEG chất lượng động để đạt dưới targetMaxBytes
+            int quality = 90;
+            byte[] jpegBytes;
+            do {
+                java.io.ByteArrayOutputStream jpegOut = new java.io.ByteArrayOutputStream();
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, jpegOut);
+                jpegBytes = jpegOut.toByteArray();
+                quality -= 5;
+            } while (jpegBytes.length > targetMaxBytes && quality >= 60);
+
+            // 6) Encode base64 (NO_WRAP) và trả về
+            String base64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP);
+            System.out.println("CreatePostActivity: convertImageToBase64 - bytes=" + jpegBytes.length + ", base64 length=" + base64.length());
+            return base64;
         } catch (Exception e) {
             System.out.println("CreatePostActivity: convertImageToBase64 - error = " + e.getMessage());
             e.printStackTrace();

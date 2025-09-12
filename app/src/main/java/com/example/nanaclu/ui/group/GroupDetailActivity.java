@@ -4,6 +4,8 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -17,6 +19,9 @@ import com.example.nanaclu.data.model.Group;
 import com.example.nanaclu.data.model.Member;
 import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.utils.ThemeUtils;
+import com.example.nanaclu.data.model.Post;
+import com.example.nanaclu.data.repository.PostRepository;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -29,6 +34,12 @@ public class GroupDetailActivity extends AppCompatActivity {
     private Group currentGroup;
     private String currentUserId;
     private Member currentUserMember;
+    private RecyclerView rvPosts;
+    private PostAdapter postAdapter;
+    private PostRepository postRepository;
+    private boolean isLoadingMore = false;
+    private DocumentSnapshot lastVisible;
+    private boolean reachedEnd = false;
     
     // Backup groupId for debugging
     private String backupGroupId;
@@ -60,6 +71,7 @@ public class GroupDetailActivity extends AppCompatActivity {
 
         // Initialize repository
         groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
+        postRepository = new PostRepository(FirebaseFirestore.getInstance());
 
         // Setup toolbar
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
@@ -107,6 +119,75 @@ public class GroupDetailActivity extends AppCompatActivity {
             intent.putExtra("group_id", groupId);
             startActivity(intent);
         });
+
+        // Setup posts RecyclerView
+        rvPosts = findViewById(R.id.rvPosts);
+        LinearLayoutManager lm = new LinearLayoutManager(this);
+        rvPosts.setLayoutManager(lm);
+        postAdapter = new PostAdapter(postRepository, new PostAdapter.PostActionListener() {
+            @Override
+            public void onLike(Post post) {
+                // TODO: implement like later
+            }
+            @Override
+            public void onComment(Post post) {
+                // TODO: implement comment later
+            }
+            @Override
+            public void onDelete(Post post) {
+                // Xóa post và ảnh của nó
+                if (post.imageIds != null && !post.imageIds.isEmpty()) {
+                    postRepository.deleteUserImages(post.authorId, post.imageIds, aVoid -> {
+                        postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
+                            @Override
+                            public void onSuccess(Post p) {
+                                // refresh list đơn giản: load lại từ đầu
+                                loadInitialPosts();
+                            }
+                            @Override
+                            public void onError(Exception e) {}
+                        });
+                    }, e -> {
+                        // Nếu xóa ảnh fail, vẫn thử xóa post để không kẹt
+                        postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
+                            @Override
+                            public void onSuccess(Post p) { loadInitialPosts(); }
+                            @Override
+                            public void onError(Exception ex) {}
+                        });
+                    });
+                } else {
+                    postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
+                        @Override
+                        public void onSuccess(Post p) { loadInitialPosts(); }
+                        @Override
+                        public void onError(Exception e) {}
+                    });
+                }
+            }
+            @Override
+            public void onReport(Post post) {
+                android.widget.Toast.makeText(GroupDetailActivity.this, "Đã gửi báo cáo", android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
+        rvPosts.setAdapter(postAdapter);
+
+        rvPosts.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@androidx.annotation.NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                if (dy <= 0) return;
+                int visible = lm.getChildCount();
+                int total = lm.getItemCount();
+                int first = lm.findFirstVisibleItemPosition();
+                if (!isLoadingMore && !reachedEnd && (visible + first) >= total - 2) {
+                    loadMorePosts();
+                }
+            }
+        });
+
+        // Initial load
+        loadInitialPosts();
     }
 
     private void loadGroupData() {
@@ -161,6 +242,36 @@ public class GroupDetailActivity extends AppCompatActivity {
         String privacy = group.isPublic ? "Public" : "Private";
         String memberText = group.memberCount + " thành viên";
         tvMeta.setText(privacy + " • " + memberText);
+    }
+
+    private void loadInitialPosts() {
+        isLoadingMore = true;
+        lastVisible = null;
+        reachedEnd = false;
+        postRepository.getGroupPostsPaged(groupId, 5, null, (posts, last) -> {
+            postAdapter.setItems(posts);
+            lastVisible = last;
+            isLoadingMore = false;
+            reachedEnd = posts == null || posts.isEmpty();
+        }, e -> {
+            isLoadingMore = false;
+        });
+    }
+
+    private void loadMorePosts() {
+        if (lastVisible == null) { reachedEnd = true; return; }
+        isLoadingMore = true;
+        postRepository.getGroupPostsPaged(groupId, 5, lastVisible, (posts, last) -> {
+            if (posts == null || posts.isEmpty()) {
+                reachedEnd = true;
+            } else {
+                postAdapter.addItems(posts);
+                lastVisible = last;
+            }
+            isLoadingMore = false;
+        }, e -> {
+            isLoadingMore = false;
+        });
     }
 
     private void setupUserAvatar() {
