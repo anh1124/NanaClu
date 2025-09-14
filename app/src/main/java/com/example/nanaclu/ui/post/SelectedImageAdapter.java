@@ -41,6 +41,7 @@ public class SelectedImageAdapter extends RecyclerView.Adapter<SelectedImageAdap
         if (position >= 0 && position < imagePaths.size()) {
             this.imagePaths.remove(position);
             notifyItemRemoved(position);
+            notifyItemRangeChanged(position, imagePaths.size() - position);
         }
     }
 

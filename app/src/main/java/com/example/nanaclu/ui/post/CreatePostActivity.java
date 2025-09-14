@@ -107,10 +107,13 @@ public class CreatePostActivity extends AppCompatActivity {
     private void setupRecyclerView() {
         imageAdapter = new SelectedImageAdapter();
         imageAdapter.setOnImageRemoveListener(position -> {
-            selectedImagePaths.remove(position);
-            imageAdapter.removeImage(position);
+            if (position >= 0 && position < selectedImagePaths.size()) {
+                selectedImagePaths.remove(position);
+                imageAdapter.notifyItemRemoved(position);
+                imageAdapter.notifyItemRangeChanged(position, selectedImagePaths.size() - position);
+            }
         });
-        
+
         rvImages.setLayoutManager(new GridLayoutManager(this, 3));
         rvImages.setAdapter(imageAdapter);
     }
@@ -406,3 +409,5 @@ public class CreatePostActivity extends AppCompatActivity {
         }
     }
 }
+
+
