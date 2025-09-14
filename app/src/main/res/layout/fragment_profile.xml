@@ -53,6 +53,33 @@
         app:layout_constraintStart_toEndOf="@id/imgAvatar"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Additional Profile Info -->
+    <TextView
+        android:id="@+id/tvCreatedAt"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="4dp"
+        app:layout_constraintTop_toBottomOf="@id/tvEmail"
+        app:layout_constraintStart_toEndOf="@id/imgAvatar"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <TextView
+        android:id="@+id/tvLastLogin"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="2dp"
+        app:layout_constraintTop_toBottomOf="@id/tvCreatedAt"
+        app:layout_constraintStart_toEndOf="@id/imgAvatar"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
     <Button
         android:id="@+id/btnLogout"
         android:layout_width="0dp"
@@ -66,6 +93,32 @@
         android:layout_marginEnd="16dp"/>
 
     <LinearLayout
+        android:id="@+id/rowAutoLogin"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintTop_toBottomOf="@id/btnLogout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Tự động đăng nhập"
+            android:textSize="14sp"/>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switchAutoLogin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/colorRow"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -74,7 +127,7 @@
         android:layout_marginTop="16dp"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        app:layout_constraintTop_toBottomOf="@id/btnLogout"
+        app:layout_constraintTop_toBottomOf="@id/rowAutoLogin"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 

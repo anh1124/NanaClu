@@ -31,6 +31,20 @@ public class UserRepository {
                 .addOnFailureListener(callback::onError);
     }
 
+    public void updateUserPhotoUrl(String userId, String photoUrl) {
+        if (photoUrl != null && !photoUrl.isEmpty()) {
+            db.collection(USERS_COLLECTION)
+                    .document(userId)
+                    .update("photoUrl", photoUrl)
+                    .addOnSuccessListener(aVoid -> {
+                        android.util.Log.d("UserRepository", "Updated photoUrl for user: " + userId);
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.e("UserRepository", "Failed to update photoUrl for user: " + userId, e);
+                    });
+        }
+    }
+
     public interface UserCallback {
         void onSuccess(User user);
         void onError(Exception e);

@@ -348,76 +348,41 @@ public class GroupDetailActivity extends AppCompatActivity {
     }
 
     private void setupUserAvatar() {
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         ImageView imgAvatar = findViewById(R.id.imgAvatar);
-
-        if (currentUser != null) {
-            String displayName = currentUser.getDisplayName();
-            String email = currentUser.getEmail();
-
-            System.out.println("GroupDetailActivity: Current user - name: " + displayName + ", email: " + email);
-
-            if (currentUser.getPhotoUrl() != null) {
-                // User has a profile photo - try to load it
-                System.out.println("GroupDetailActivity: Loading user avatar from: " + currentUser.getPhotoUrl());
-                try {
-                    // Try to load the image using a more reliable method
-                    loadImageFromUrl(imgAvatar, currentUser.getPhotoUrl().toString());
-                } catch (Exception e) {
-                    System.out.println("GroupDetailActivity: Failed to load avatar from URI: " + e.getMessage());
-                    // Fallback to text avatar
-                    showTextAvatar(imgAvatar, displayName, email);
-                }
-            } else {
-                // User doesn't have a profile photo, show text avatar
-                System.out.println("GroupDetailActivity: No profile photo, showing text avatar");
-                showTextAvatar(imgAvatar, displayName, email);
+        android.content.SharedPreferences up = getSharedPreferences("user_profile", MODE_PRIVATE);
+        String name = up.getString("displayName", null);
+        String email = up.getString("email", null);
+        String photo = up.getString("photoUrl", null);
+        if (photo != null && !photo.isEmpty()) {
+            String url = photo;
+            if (url.contains("googleusercontent.com") && !url.contains("sz=")) {
+                url += (url.contains("?")?"&":"?") + "sz=128";
             }
-        } else {
-            // No user logged in, show default avatar
-            System.out.println("GroupDetailActivity: No user logged in, showing default avatar");
-            imgAvatar.setImageResource(R.mipmap.ic_launcher_round);
+            try {
+                com.bumptech.glide.Glide.with(this)
+                        .load(url)
+                        .placeholder(R.mipmap.ic_launcher_round)
+                        .error(R.mipmap.ic_launcher_round)
+                        .circleCrop()
+                        .into(imgAvatar);
+                return;
+            } catch (Exception ignored) {}
         }
-        System.out.println("GroupDetailActivity: === AVATAR SETUP END ===");
+        showTextAvatar(imgAvatar, name, email);
     }
 
     private void loadImageFromUrl(ImageView imgAvatar, String imageUrl) {
-        System.out.println("GroupDetailActivity: === LOAD IMAGE FROM URL START ===");
-        System.out.println("GroupDetailActivity: Loading image from: " + imageUrl);
-
         try {
-            // Method 1: Try using setImageURI with a delay to check if it works
-            imgAvatar.setImageURI(android.net.Uri.parse(imageUrl));
-            System.out.println("GroupDetailActivity: setImageURI called with: " + imageUrl);
-
-            // Check if the drawable was set after a short delay
-            imgAvatar.postDelayed(() -> {
-                if (imgAvatar.getDrawable() != null) {
-                    System.out.println("GroupDetailActivity: ✅ Image loaded successfully via setImageURI");
-                } else {
-                    System.out.println("GroupDetailActivity: ❌ setImageURI failed, trying alternative method");
-                    // Try alternative method - create a simple colored avatar with user's first letter
-                    FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-                    if (currentUser != null) {
-                        String displayName = currentUser.getDisplayName();
-                        String email = currentUser.getEmail();
-                        showTextAvatar(imgAvatar, displayName, email);
-                    }
-                }
-            }, 1000); // Wait 1 second to see if image loads
-
+            com.bumptech.glide.Glide.with(this)
+                    .load(imageUrl)
+                    .placeholder(R.mipmap.ic_launcher_round)
+                    .error(R.mipmap.ic_launcher_round)
+                    .circleCrop()
+                    .into(imgAvatar);
         } catch (Exception e) {
-            System.out.println("GroupDetailActivity: ❌ Error in loadImageFromUrl: " + e.getMessage());
-            // Fallback to text avatar
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            if (currentUser != null) {
-                String displayName = currentUser.getDisplayName();
-                String email = currentUser.getEmail();
-                showTextAvatar(imgAvatar, displayName, email);
-            }
+            if (currentUser != null) showTextAvatar(imgAvatar, currentUser.getDisplayName(), currentUser.getEmail());
         }
-
-        System.out.println("GroupDetailActivity: === LOAD IMAGE FROM URL END ===");
     }
 
     private boolean onMenuItemClick(MenuItem item) {

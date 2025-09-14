@@ -7,6 +7,7 @@ public class User {
     public long createdAt;
     public String email;
     public String displayName;
+    public String photoUrl; // Google photo URL
     public String avatarImageId;
     public long lastLoginAt;
     public String status; // "online" | "offline"

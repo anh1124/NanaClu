@@ -102,7 +102,15 @@ public class GroupRepository {
                     m.status = "active";
                     m.joinedAt = System.currentTimeMillis();
                     return db.collection(GROUPS_COLLECTION).document(groupId)
-                            .collection(MEMBERS_COLLECTION).document(uid).set(m);
+                            .collection(MEMBERS_COLLECTION).document(uid).set(m)
+                            .continueWithTask(task2 -> {
+                                if (task2.isSuccessful()) {
+                                    // Update member count
+                                    return db.collection(GROUPS_COLLECTION).document(groupId)
+                                            .update("memberCount", com.google.firebase.firestore.FieldValue.increment(1));
+                                }
+                                return task2;
+                            });
                 });
     }
 
@@ -124,51 +132,32 @@ public class GroupRepository {
 
 
     public Task<List<Group>> loadUserGroups() {
-        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        System.out.println("GroupRepository: Loading groups for user: " + userId);
+        String userId = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (userId == null) return Tasks.forResult(new ArrayList<>());
+        System.out.println("GroupRepository: Loading groups for user (by membership): " + userId);
 
-        // Simple approach: get all groups and filter by createdBy
-        return db.collection(GROUPS_COLLECTION).get()
+        return loadJoinedGroupIds()
                 .continueWithTask(task -> {
-                    if (task.isSuccessful()) {
-                        QuerySnapshot snapshot = task.getResult();
-                        System.out.println("GroupRepository: Found " + snapshot.size() + " total groups in database");
-
-                        List<Group> userGroups = new ArrayList<>();
-
-                        for (DocumentSnapshot doc : snapshot.getDocuments()) {
-                            System.out.println("GroupRepository: Processing document: " + doc.getId());
-
-                            // Check if document has the required fields
-                            if (doc.contains("name") && doc.contains("createdBy")) {
-                                String docName = doc.getString("name");
-                                String docCreatedBy = doc.getString("createdBy");
-                                System.out.println("GroupRepository: Document " + doc.getId() + " - name: " + docName + ", createdBy: " + docCreatedBy);
-
-                                if (userId.equals(docCreatedBy)) {
-                                    System.out.println("GroupRepository: User created this group, adding to list");
-                                    Group group = doc.toObject(Group.class);
-                                    if (group != null) {
-                                        userGroups.add(group);
-                                        System.out.println("GroupRepository: Successfully added group: " + group.name);
-                                    } else {
-                                        System.out.println("GroupRepository: Failed to convert document to Group object");
-                                    }
-                                } else {
-                                    System.out.println("GroupRepository: User did not create this group, skipping");
-                                }
-                            } else {
-                                System.out.println("GroupRepository: Document " + doc.getId() + " missing required fields");
-                                System.out.println("GroupRepository: Available fields: " + doc.getData().keySet());
-                            }
-                        }
-
-                        System.out.println("GroupRepository: Total user groups found: " + userGroups.size());
-                        return Tasks.forResult(userGroups);
-                    } else {
-                        System.out.println("GroupRepository: Failed to get groups: " + task.getException().getMessage());
-                        return Tasks.forResult(new ArrayList<>());
+                    java.util.Set<String> ids = task.getResult();
+                    if (ids == null || ids.isEmpty()) {
+                        System.out.println("GroupRepository: No joined group IDs found");
+                        return Tasks.forResult(new ArrayList<Group>());
                     }
+                    java.util.List<com.google.android.gms.tasks.Task<DocumentSnapshot>> jobs = new ArrayList<>();
+                    for (String id : ids) {
+                        jobs.add(db.collection(GROUPS_COLLECTION).document(id).get());
+                    }
+                    return Tasks.whenAllSuccess(jobs).continueWith(t -> {
+                        java.util.List<Group> groups = new ArrayList<>();
+                        for (Object o : t.getResult()) {
+                            DocumentSnapshot ds = (DocumentSnapshot) o;
+                            Group g = ds.toObject(Group.class);
+                            if (g != null) groups.add(g);
+                        }
+                        System.out.println("GroupRepository: Loaded groups by membership = " + groups.size());
+                        return groups;
+                    });
                 });
     }
 
@@ -219,11 +208,119 @@ public class GroupRepository {
     }
 
     public void deleteGroup(String groupId, UpdateCallback callback) {
+        // Delete all subcollections first, then delete the group document
+        deleteGroupSubcollections(groupId)
+                .addOnSuccessListener(aVoid -> {
+                    // After subcollections are deleted, delete the main group document
+                    db.collection(GROUPS_COLLECTION)
+                            .document(groupId)
+                            .delete()
+                            .addOnSuccessListener(aVoid2 -> callback.onSuccess())
+                            .addOnFailureListener(callback::onError);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    private com.google.android.gms.tasks.Task<Void> deleteGroupSubcollections(String groupId) {
+        // Delete members, posts, and any other subcollections
+        return deleteMembers(groupId)
+                .continueWithTask(task -> deletePosts(groupId))
+                .continueWithTask(task -> deleteEvents(groupId))
+                .continueWithTask(task -> deleteChats(groupId));
+    }
+
+    private com.google.android.gms.tasks.Task<Void> deleteMembers(String groupId) {
+        return db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(MEMBERS_COLLECTION)
+                .get()
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) throw task.getException();
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult()) {
+                        batch.delete(doc.getReference());
+                    }
+                    return batch.commit();
+                });
+    }
+
+    private com.google.android.gms.tasks.Task<Void> deletePosts(String groupId) {
+        return db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection("posts")
+                .get()
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) throw task.getException();
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult()) {
+                        batch.delete(doc.getReference());
+                        // Also delete post subcollections (likes, comments)
+                        deletePostSubcollections(groupId, doc.getId());
+                    }
+                    return batch.commit();
+                });
+    }
+
+    private com.google.android.gms.tasks.Task<Void> deleteEvents(String groupId) {
+        return db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection("events")
+                .get()
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) throw task.getException();
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult()) {
+                        batch.delete(doc.getReference());
+                    }
+                    return batch.commit();
+                });
+    }
+
+    private com.google.android.gms.tasks.Task<Void> deleteChats(String groupId) {
+        return db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection("chats")
+                .get()
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) throw task.getException();
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : task.getResult()) {
+                        batch.delete(doc.getReference());
+                    }
+                    return batch.commit();
+                });
+    }
+
+    private void deletePostSubcollections(String groupId, String postId) {
+        // Delete likes subcollection
         db.collection(GROUPS_COLLECTION)
                 .document(groupId)
-                .delete()
-                .addOnSuccessListener(aVoid -> callback.onSuccess())
-                .addOnFailureListener(callback::onError);
+                .collection("posts")
+                .document(postId)
+                .collection("likes")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        batch.delete(doc.getReference());
+                    }
+                    batch.commit();
+                });
+
+        // Delete comments subcollection
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection("posts")
+                .document(postId)
+                .collection("comments")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
+                        batch.delete(doc.getReference());
+                    }
+                    batch.commit();
+                });
     }
 
     /**
@@ -301,7 +398,15 @@ public class GroupRepository {
                 .document(groupId)
                 .collection(MEMBERS_COLLECTION)
                 .document(uid)
-                .set(m);
+                .set(m)
+                .continueWithTask(task -> {
+                    if (task.isSuccessful()) {
+                        // Update member count
+                        return db.collection(GROUPS_COLLECTION).document(groupId)
+                                .update("memberCount", com.google.firebase.firestore.FieldValue.increment(1));
+                    }
+                    return task;
+                });
     }
 
     public void transferOwnership(String groupId, String fromUserId, String toUserId, UpdateCallback callback) {

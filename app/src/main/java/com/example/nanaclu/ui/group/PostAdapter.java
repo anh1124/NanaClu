@@ -121,21 +121,51 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             tvContent.setText(post.content);
             tvLikeCount.setText(String.valueOf(post.likeCount));
 
-            // Load author info (name + avatar) giống profile: ưu tiên avatar base64; fallback chữ cái đầu
+            // Load author info (name + avatar). Use photoUrl from User model if available
             userRepository.getUserById(post.authorId, new UserRepository.UserCallback() {
                 @Override
                 public void onSuccess(User user) {
                     tvAuthorName.setText(user.displayName != null ? user.displayName : "Member");
+
+                    // Try photoUrl first (Google photo stored in User model)
+                    if (user.photoUrl != null && !user.photoUrl.isEmpty()) {
+                        String url = user.photoUrl;
+                        if (url.contains("googleusercontent.com") && !url.contains("sz=")) {
+                            url += (url.contains("?")?"&":"?") + "sz=128";
+                        }
+                        Glide.with(itemView.getContext())
+                                .load(url)
+                                .placeholder(R.mipmap.ic_launcher_round)
+                                .error(R.mipmap.ic_launcher_round)
+                                .circleCrop()
+                                .into(ivAuthorAvatar);
+                        return;
+                    }
+
+                    // If no photoUrl, try to get it from Firebase Auth and update the user record
+                    if (user.email != null && !user.email.isEmpty()) {
+                        tryUpdateUserPhotoFromAuth(user);
+                    }
+
+                    // Fallback to avatarImageId (base64)
                     if (user.avatarImageId != null && !user.avatarImageId.isEmpty()) {
-                        // Load avatar base64 by avatarImageId
                         postRepository.getUserImageBase64(user.userId, user.avatarImageId, base64 -> {
-                            if (base64 == null) return;
+                            if (base64 == null) { setTextAvatar(ivAuthorAvatar, user.displayName, user.email); return; }
                             try {
                                 byte[] data = Base64.decode(base64, Base64.DEFAULT);
                                 Bitmap bmp = BitmapFactory.decodeByteArray(data, 0, data.length);
-                                if (bmp != null) ivAuthorAvatar.setImageBitmap(bmp);
-                            } catch (Exception ignored) {}
-                        }, e -> {});
+                                if (bmp != null) {
+                                    Glide.with(itemView.getContext())
+                                            .load(bmp)
+                                            .placeholder(R.mipmap.ic_launcher_round)
+                                            .error(R.mipmap.ic_launcher_round)
+                                            .circleCrop()
+                                            .into(ivAuthorAvatar);
+                                } else {
+                                    setTextAvatar(ivAuthorAvatar, user.displayName, user.email);
+                                }
+                            } catch (Exception ignored) { setTextAvatar(ivAuthorAvatar, user.displayName, user.email); }
+                        }, e -> setTextAvatar(ivAuthorAvatar, user.displayName, user.email));
                     } else {
                         // text avatar fallback
                         setTextAvatar(ivAuthorAvatar, user.displayName, user.email);
@@ -237,6 +267,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 imageView.setMaxHeight(maxImageHeight);
                 loadInto.accept(urls.get(0), imageView);
+                imageView.setOnClickListener(v -> openImageViewer(new ArrayList<>(urls), 0));
                 imageContainer.addView(imageView);
                 return;
             }
@@ -254,6 +285,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     iv.setLayoutParams(p);
                     commonCenterCrop.accept(iv);
                     loadInto.accept(urls.get(i), iv);
+                    final int index = i;
+                    iv.setOnClickListener(v -> openImageViewer(new ArrayList<>(urls), index));
                     row.addView(iv);
                 }
                 imageContainer.addView(row);
@@ -271,6 +304,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 left.setLayoutParams(lpLeft);
                 commonCenterCrop.accept(left);
                 loadInto.accept(urls.get(0), left);
+                left.setOnClickListener(v -> openImageViewer(new ArrayList<>(urls), 0));
                 row.addView(left);
 
                 // Right column two small
@@ -288,6 +322,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     iv.setLayoutParams(lp);
                     commonCenterCrop.accept(iv);
                     loadInto.accept(urls.get(i), iv);
+                    final int index = i;
+                    iv.setOnClickListener(v -> openImageViewer(new ArrayList<>(urls), index));
                     col.addView(iv);
                 }
                 row.addView(col);
@@ -318,6 +354,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     iv.setLayoutParams(params);
                     commonCenterCrop.accept(iv);
                     loadInto.accept(urls.get(i), iv);
+                    final int index = i;
+                    iv.setOnClickListener(v -> openImageViewer(new ArrayList<>(urls), index));
                     grid.addView(iv);
                 } else {
                     // overlay cell
@@ -347,6 +385,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     tParams.gravity = android.view.Gravity.CENTER;
                     tv.setLayoutParams(tParams);
                     overlay.addView(tv);
+                    // Open viewer at 3rd index (the first hidden image)
+                    overlay.setOnClickListener(v -> openImageViewer(new ArrayList<>(urls), 3));
                     grid.addView(overlay);
                 }
             }
@@ -375,6 +415,39 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             } catch (Exception ignored) {
                 img.setImageResource(R.mipmap.ic_launcher_round);
             }
+        }
+        private void openImageViewer(ArrayList<String> urls, int index) {
+            android.content.Intent intent = new android.content.Intent(
+                    itemView.getContext(), com.example.nanaclu.ui.post.ImageViewerActivity.class);
+            intent.putStringArrayListExtra("images", urls);
+            intent.putExtra("index", index);
+            itemView.getContext().startActivity(intent);
+        }
+
+    }
+
+    private void tryUpdateUserPhotoFromAuth(User user) {
+        // Check if this user is currently signed in to Firebase Auth
+        com.google.firebase.auth.FirebaseAuth auth = com.google.firebase.auth.FirebaseAuth.getInstance();
+        com.google.firebase.auth.FirebaseUser currentAuthUser = auth.getCurrentUser();
+
+        if (currentAuthUser != null && currentAuthUser.getUid().equals(user.userId) && currentAuthUser.getPhotoUrl() != null) {
+            // This is the current user and they have a photo URL in Auth
+            String photoUrl = currentAuthUser.getPhotoUrl().toString();
+
+            // Update the user record in Firestore
+            com.example.nanaclu.data.repository.UserRepository userRepo =
+                    new com.example.nanaclu.data.repository.UserRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+            userRepo.updateUserPhotoUrl(user.userId, photoUrl);
+
+            // Update the local user object and reload the avatar
+            user.photoUrl = photoUrl;
+            String url = photoUrl;
+            if (url.contains("googleusercontent.com") && !url.contains("sz=")) {
+                url += (url.contains("?")?"&":"?") + "sz=128";
+            }
+            // Note: We can't reload the avatar here because we're in a different context
+            // The avatar will be updated on the next refresh
         }
     }
 }

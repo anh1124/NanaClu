@@ -27,18 +27,65 @@ public class ProfileFragment extends Fragment {
         View btnPick = root.findViewById(R.id.btnPickColor);
         androidx.appcompat.widget.Toolbar toolbar = root.findViewById(R.id.toolbar);
         android.widget.ImageView imgAvatar = root.findViewById(R.id.imgAvatar);
+        com.google.android.material.materialswitch.MaterialSwitch switchAuto = root.findViewById(R.id.switchAutoLogin);
 
         int currentColor = ThemeUtils.getToolbarColor(requireContext());
         colorPreview.setBackgroundColor(currentColor);
         toolbar.setBackgroundColor(currentColor);
 
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user != null) {
-            tvDisplayName.setText(user.getDisplayName() != null ? user.getDisplayName() : "");
-            tvEmail.setText(user.getEmail() != null ? user.getEmail() : "");
-            
-            // Setup user avatar
-            setupUserAvatar(imgAvatar, user);
+        // Bind auto-login switch
+        android.content.SharedPreferences prefs = requireContext().getSharedPreferences("auth", android.content.Context.MODE_PRIVATE);
+        boolean auto = prefs.getBoolean("auto_login", true);
+        switchAuto.setChecked(auto);
+        switchAuto.setOnCheckedChangeListener((buttonView, isChecked) ->
+                prefs.edit().putBoolean("auto_login", isChecked).apply());
+
+        // Use cached profile first to avoid DB reads; update only on login
+        android.content.SharedPreferences up = requireContext().getSharedPreferences("user_profile", android.content.Context.MODE_PRIVATE);
+        String cachedName = up.getString("displayName", null);
+        String cachedEmail = up.getString("email", null);
+        String cachedPhoto = up.getString("photoUrl", null);
+        if (cachedName != null) tvDisplayName.setText(cachedName);
+        if (cachedEmail != null) tvEmail.setText(cachedEmail);
+        if (cachedPhoto != null) {
+            setupUserAvatar(imgAvatar, cachedName, cachedEmail, cachedPhoto);
+        } else {
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user != null) {
+                String dn = user.getDisplayName();
+                String em = user.getEmail();
+                String pu = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : null;
+                tvDisplayName.setText(dn != null ? dn : tvDisplayName.getText());
+                tvEmail.setText(em != null ? em : tvEmail.getText());
+                setupUserAvatar(imgAvatar, dn, em, pu);
+            }
+        }
+
+        // Load additional profile info
+        TextView tvCreatedAt = root.findViewById(R.id.tvCreatedAt);
+        TextView tvLastLogin = root.findViewById(R.id.tvLastLogin);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(currentUser.getUid())
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        if (doc.exists()) {
+                            Long createdAt = doc.getLong("createdAt");
+                            Long lastLoginAt = doc.getLong("lastLoginAt");
+
+                            if (createdAt != null) {
+                                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
+                                tvCreatedAt.setText("Tham gia: " + sdf.format(new java.util.Date(createdAt)));
+                            }
+
+                            if (lastLoginAt != null) {
+                                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault());
+                                tvLastLogin.setText("Đăng nhập gần nhất: " + sdf.format(new java.util.Date(lastLoginAt)));
+                            }
+                        }
+                    });
         }
 
         btnLogout.setOnClickListener(v -> openConfirmLogoutDialog());
@@ -48,30 +95,80 @@ public class ProfileFragment extends Fragment {
 
     private void openColorPicker(androidx.appcompat.widget.Toolbar toolbar, View preview) {
         if (getContext() == null) return;
-        // đơn giản: chọn nhanh 3 màu preset
         android.app.Dialog d = new android.app.Dialog(getContext());
         d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(getContext());
-        layout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        layout.setPadding(24,24,24,24);
-        int[] colors = new int[]{android.graphics.Color.parseColor("#6200EE"), android.graphics.Color.parseColor("#03DAC5"), android.graphics.Color.parseColor("#FF5722")};
-        for (int c : colors) {
+        android.widget.LinearLayout root = new android.widget.LinearLayout(getContext());
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int)(getResources().getDisplayMetrics().density * 16);
+        root.setPadding(pad,pad,pad,pad);
+
+        android.widget.TextView title = new android.widget.TextView(getContext());
+        title.setText("Chọn màu");
+        title.setTextSize(16f);
+        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        root.addView(title);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(getContext());
+        android.widget.GridLayout grid = new android.widget.GridLayout(getContext());
+        grid.setColumnCount(6);
+        grid.setUseDefaultMargins(true);
+        int[] swatches = buildColorSwatches();
+        for (int c : swatches) {
             android.view.View v = new android.view.View(getContext());
-            android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(80,80);
-            lp.setMargins(16,0,16,0);
-            v.setLayoutParams(lp);
-            v.setBackgroundColor(c);
+            int size = (int)(getResources().getDisplayMetrics().density * 36);
+            android.widget.GridLayout.LayoutParams p = new android.widget.GridLayout.LayoutParams();
+            p.width = size; p.height = size; p.setMargins(pad/4,pad/4,pad/4,pad/4);
+            v.setLayoutParams(p);
+            v.setBackground(createCircleDrawable(c));
             v.setOnClickListener(x -> {
                 ThemeUtils.saveToolbarColor(requireContext(), c);
                 toolbar.setBackgroundColor(c);
                 preview.setBackgroundColor(c);
                 d.dismiss();
             });
-            layout.addView(v);
+            grid.addView(v);
         }
-        d.setContentView(layout);
+        scroll.addView(grid);
+        root.addView(scroll, new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, (int)(getResources().getDisplayMetrics().density * 320)));
+
+        android.widget.Button btnClose = new android.widget.Button(getContext());
+        btnClose.setText("Đóng");
+        btnClose.setOnClickListener(v -> d.dismiss());
+        root.addView(btnClose);
+
+        d.setContentView(root);
         d.show();
     }
+
+    private int[] buildColorSwatches() {
+        java.util.ArrayList<Integer> list = new java.util.ArrayList<>();
+        // Purples
+        list.add(0xFF6200EE); list.add(0xFF7C4DFF); list.add(0xFF536DFE); list.add(0xFF3F51B5);
+        // Blues
+        list.add(0xFF2196F3); list.add(0xFF03A9F4); list.add(0xFF00BCD4); list.add(0xFF009688);
+        // Greens
+        list.add(0xFF4CAF50); list.add(0xFF8BC34A); list.add(0xFFCDDC39); list.add(0xFFFFEB3B);
+        // Oranges/Reds
+        list.add(0xFFFFC107); list.add(0xFFFF9800); list.add(0xFFFF5722); list.add(0xFFF44336);
+        // Greys
+        list.add(0xFF9E9E9E); list.add(0xFF607D8B); list.add(0xFF795548); list.add(0xFF000000);
+        // Extra hues
+        for (int h = 0; h < 360; h += 24) {
+            int c = android.graphics.Color.HSVToColor(new float[]{h, 0.7f, 0.9f});
+            list.add(c);
+        }
+        int[] arr = new int[list.size()];
+        for (int i=0;i<list.size();i++) arr[i] = list.get(i);
+        return arr;
+    }
+
+    private android.graphics.drawable.Drawable createCircleDrawable(int color) {
+        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
+        d.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        d.setColor(color);
+        return d;
+    }
+
 
     private void openConfirmLogoutDialog() {
         if (getContext() == null) return;
@@ -85,13 +182,24 @@ public class ProfileFragment extends Fragment {
         btnCancel.setOnClickListener(v -> d.dismiss());
         btnConfirm.setOnClickListener(v -> {
             FirebaseAuth.getInstance().signOut();
-            if (getActivity() != null) {
-                getActivity().getSharedPreferences("auth", android.content.Context.MODE_PRIVATE)
-                        .edit().putBoolean("remember_me", false).apply();
-                startActivity(new android.content.Intent(getActivity(), com.example.nanaclu.ui.auth.LoginActivity.class));
-                getActivity().finish();
-            }
-            d.dismiss();
+            // Clear Google Sign-In cached account to force account picker next time
+            com.google.android.gms.auth.api.signin.GoogleSignInOptions gso =
+                    new com.google.android.gms.auth.api.signin.GoogleSignInOptions.Builder(
+                            com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN)
+                            .requestIdToken(getString(R.string.default_web_client_id))
+                            .requestEmail()
+                            .build();
+            com.google.android.gms.auth.api.signin.GoogleSignInClient client =
+                    com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(requireContext(), gso);
+            client.signOut().addOnCompleteListener(task1 -> client.revokeAccess().addOnCompleteListener(task2 -> {
+                if (getActivity() != null) {
+                    getActivity().getSharedPreferences("auth", android.content.Context.MODE_PRIVATE)
+                            .edit().putBoolean("remember_me", false).apply();
+                    startActivity(new android.content.Intent(getActivity(), com.example.nanaclu.ui.auth.LoginActivity.class));
+                    getActivity().finish();
+                }
+                d.dismiss();
+            }));
         });
 
         d.show();
@@ -101,48 +209,31 @@ public class ProfileFragment extends Fragment {
         }
     }
     
-    private void setupUserAvatar(android.widget.ImageView imgAvatar, FirebaseUser user) {
-        if (user != null) {
-            String displayName = user.getDisplayName();
-            String email = user.getEmail();
-            
-            android.util.Log.d("ProfileAvatar", "=== AVATAR SETUP START ===");
-            android.util.Log.d("ProfileAvatar", "User ID: " + user.getUid());
-            android.util.Log.d("ProfileAvatar", "Display Name: " + displayName);
-            android.util.Log.d("ProfileAvatar", "Email: " + email);
-            android.util.Log.d("ProfileAvatar", "Photo URL: " + user.getPhotoUrl());
-            android.util.Log.d("ProfileAvatar", "Provider Data Count: " + user.getProviderData().size());
-            
-            // Log all provider data
-            for (com.google.firebase.auth.UserInfo profile : user.getProviderData()) {
-                android.util.Log.d("ProfileAvatar", "Provider: " + profile.getProviderId() + 
-                    ", Photo: " + profile.getPhotoUrl() + 
-                    ", Name: " + profile.getDisplayName());
+    private void setupUserAvatar(android.widget.ImageView imgAvatar, String displayName, String email, String photoUrl) {
+        android.util.Log.d("ProfileAvatar", "=== AVATAR SETUP START ===");
+        android.util.Log.d("ProfileAvatar", "Display Name: " + displayName);
+        android.util.Log.d("ProfileAvatar", "Email: " + email);
+        android.util.Log.d("ProfileAvatar", "Photo URL: " + photoUrl);
+
+        if (photoUrl != null && !photoUrl.isEmpty()) {
+            String url = photoUrl;
+            if (url.contains("googleusercontent.com") && !url.contains("sz=")) {
+                // Request a reasonable size for Google photos
+                url = url + (url.contains("?") ? "&" : "?") + "sz=256";
             }
-            
-            if (user.getPhotoUrl() != null) {
-                // User has a profile photo - try to load it
-                android.util.Log.d("ProfileAvatar", "Attempting to load photo from: " + user.getPhotoUrl());
-                try {
-                    // Try to load the image using a more reliable method
-                    loadImageFromUrl(imgAvatar, user.getPhotoUrl().toString());
-                    
-                } catch (Exception e) {
-                    android.util.Log.e("ProfileAvatar", "❌ Failed to load avatar from URI: " + e.getMessage(), e);
-                    android.util.Log.d("ProfileAvatar", "Stack trace: " + android.util.Log.getStackTraceString(e));
-                    // Fallback to text avatar
-                    android.util.Log.d("ProfileAvatar", "Falling back to text avatar");
-                    showTextAvatar(imgAvatar, displayName, email);
-                }
-            } else {
-                // User doesn't have a profile photo, show text avatar
-                android.util.Log.d("ProfileAvatar", "No profile photo available, showing text avatar");
+            try {
+                com.bumptech.glide.Glide.with(this)
+                        .load(url)
+                        .placeholder(R.mipmap.ic_launcher_round)
+                        .error(R.mipmap.ic_launcher_round)
+                        .circleCrop()
+                        .into(imgAvatar);
+            } catch (Exception e) {
+                android.util.Log.e("ProfileAvatar", "Glide load error: " + e.getMessage());
                 showTextAvatar(imgAvatar, displayName, email);
             }
         } else {
-            // No user logged in, show default avatar
-            android.util.Log.w("ProfileAvatar", "No user logged in, showing default avatar");
-            imgAvatar.setImageResource(R.mipmap.ic_launcher_round);
+            showTextAvatar(imgAvatar, displayName, email);
         }
         android.util.Log.d("ProfileAvatar", "=== AVATAR SETUP END ===");
     }

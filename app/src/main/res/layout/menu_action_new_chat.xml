@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="40dp"
+    android:layout_height="40dp">
+
+    <ImageButton
+        android:id="@+id/btnNewChat"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_gravity="center"
+        android:background="@android:color/transparent"
+        android:src="@drawable/newchat"/>
+</FrameLayout>
+

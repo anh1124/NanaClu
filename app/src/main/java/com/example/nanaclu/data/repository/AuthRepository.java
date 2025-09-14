@@ -43,6 +43,7 @@ public class AuthRepository {
                     userDoc.put("createdAt", now);
                     userDoc.put("email", email);
                     userDoc.put("displayName", displayName);
+                    userDoc.put("photoUrl", null); // No Google photo for email registration
                     userDoc.put("avatarImageId", null);
                     userDoc.put("lastLoginAt", now);
                     userDoc.put("status", "online");
@@ -87,6 +88,7 @@ public class AuthRepository {
                     userDoc.put("userId", fUser.getUid());
                     userDoc.put("email", fUser.getEmail());
                     userDoc.put("displayName", fUser.getDisplayName());
+                    userDoc.put("photoUrl", fUser.getPhotoUrl() != null ? fUser.getPhotoUrl().toString() : null);
                     userDoc.put("avatarImageId", null);
                     userDoc.put("lastLoginAt", now);
                     userDoc.put("status", "online");

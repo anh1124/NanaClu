@@ -71,10 +71,28 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        btnGoogle.setOnClickListener(v -> googleLauncher.launch(googleClient.getSignInIntent()));
+        btnGoogle.setOnClickListener(v -> {
+            // Ensure account picker shows by clearing any cached signed-in account
+            googleClient.signOut().addOnCompleteListener(task -> googleLauncher.launch(googleClient.getSignInIntent()));
+        });
 
         viewModel.user.observe(this, user -> {
             if (user != null) {
+                // Cache frequently-used user fields locally to avoid DB reads
+                android.content.SharedPreferences up = getSharedPreferences("user_profile", MODE_PRIVATE);
+                String photoUrl = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : null;
+                up.edit()
+                        .putString("uid", user.getUid())
+                        .putString("displayName", user.getDisplayName())
+                        .putString("email", user.getEmail())
+                        .putString("photoUrl", photoUrl)
+                        .apply();
+
+                // Update user's photoUrl in Firestore
+                com.example.nanaclu.data.repository.UserRepository userRepo =
+                        new com.example.nanaclu.data.repository.UserRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+                userRepo.updateUserPhotoUrl(user.getUid(), photoUrl);
+
                 tvStatus.setText("Đăng nhập thành công");
                 tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
                 startActivity(new Intent(this, com.example.nanaclu.ui.HomeActivity.class));

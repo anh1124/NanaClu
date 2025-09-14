@@ -83,7 +83,7 @@ public class FeedFragment extends Fragment {
         rvFeed.setLayoutManager(lm);
         adapter = new PostAdapter(postRepository, new PostAdapter.PostActionListener() {
             @Override public void onLike(Post post) {}
-            @Override public void onComment(Post post) {}
+            @Override public void onComment(Post post) { showCommentsDemo(); }
             @Override public void onDelete(Post post) {}
             @Override public void onReport(Post post) {}
         });
@@ -106,15 +106,7 @@ public class FeedFragment extends Fragment {
                             loadMore();
                             return true;
                         }
-                        float dx = upX - downX;
-                        if (Math.abs(dx) > threshold) {
-                            // Horizontal swipe navigation
-                            if (getActivity() instanceof com.example.nanaclu.ui.HomeActivity) {
-                                com.example.nanaclu.ui.HomeActivity act = (com.example.nanaclu.ui.HomeActivity) getActivity();
-                                if (dx < 0) act.navigateToNextTab(); else act.navigateToPrevTab();
-                                return true;
-                            }
-                        }
+                        // Removed horizontal swipe navigation
                         break;
                 }
                 return false;
@@ -312,6 +304,40 @@ public class FeedFragment extends Fragment {
             });
         }
     }
+    private void showCommentsDemo() {
+        if (getContext() == null) return;
+        android.app.Dialog dialog = new android.app.Dialog(getContext());
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        android.view.View content = android.view.LayoutInflater.from(getContext())
+                .inflate(R.layout.dialog_comments_demo, null, false);
+        androidx.recyclerview.widget.RecyclerView rv = content.findViewById(R.id.rvCommentsDemo);
+        rv.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(getContext()));
+        java.util.List<String> samples = java.util.Arrays.asList(
+                "Rất hay! Cảm ơn bạn đã chia sẻ.",
+                "Ảnh đẹp quá!",
+                "Mọi người nghĩ sao về chủ đề này?"
+        );
+        rv.setAdapter(new androidx.recyclerview.widget.RecyclerView.Adapter<androidx.recyclerview.widget.RecyclerView.ViewHolder>(){
+            @Override public int getItemCount(){return samples.size();}
+            @Override public androidx.recyclerview.widget.RecyclerView.ViewHolder onCreateViewHolder(@NonNull android.view.ViewGroup parent, int viewType){
+                android.view.View v = android.view.LayoutInflater.from(parent.getContext()).inflate(R.layout.item_comment, parent, false);
+                return new androidx.recyclerview.widget.RecyclerView.ViewHolder(v){};
+            }
+            @Override public void onBindViewHolder(@NonNull androidx.recyclerview.widget.RecyclerView.ViewHolder h, int pos){
+                android.widget.TextView tv = h.itemView.findViewById(R.id.tvCommentText);
+                tv.setText(samples.get(pos));
+                android.widget.TextView like = h.itemView.findViewById(R.id.tvLikeCount);
+                like.setText(String.valueOf((pos+1)*2));
+            }
+        });
+        dialog.setContentView(content);
+        if (dialog.getWindow()!=null) {
+            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            android.view.WindowManager.LayoutParams lp = new android.view.WindowManager.LayoutParams();
+            lp.copyFrom(dialog.getWindow().getAttributes());
+            lp.width = android.view.WindowManager.LayoutParams.MATCH_PARENT;
+            dialog.getWindow().setAttributes(lp);
+        }
+        dialog.show();
+    }
 }
-
-

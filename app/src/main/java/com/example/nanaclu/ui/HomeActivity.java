@@ -27,7 +27,7 @@ public class HomeActivity extends AppCompatActivity {
                 } else if (id == R.id.nav_group) {
                     f = new com.example.nanaclu.ui.group.GroupsFragment();
                 } else if (id == R.id.nav_chat) {
-                    f = new com.example.nanaclu.ui.chat.ChatsFragment();
+                    f = new com.example.nanaclu.ui.chat.ChatFragment();
                 } else {
                     f = new com.example.nanaclu.ui.profile.ProfileFragment();
                 }

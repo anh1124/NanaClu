@@ -25,15 +25,35 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Route to auth if not logged in or remember-me is off
+        // Auto-login routing based on preference
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        boolean remember = getSharedPreferences("auth", MODE_PRIVATE).getBoolean("remember_me", false);
-        if (user == null || !remember) {
+        boolean auto = getSharedPreferences("auth", MODE_PRIVATE).getBoolean("auto_login", true);
+        if (!auto) {
+            // Always show login screen regardless of previous state
             startActivity(new Intent(this, com.example.nanaclu.ui.auth.LoginActivity.class));
+            finish();
             return;
         }
+        if (user == null) {
+            startActivity(new Intent(this, com.example.nanaclu.ui.auth.LoginActivity.class));
+            finish();
+            return;
+        }
+        // Refresh cached user profile on app start
+        android.content.SharedPreferences up = getSharedPreferences("user_profile", MODE_PRIVATE);
+        String photoUrl = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : null;
+        up.edit()
+                .putString("uid", user.getUid())
+                .putString("displayName", user.getDisplayName())
+                .putString("email", user.getEmail())
+                .putString("photoUrl", photoUrl)
+                .apply();
 
-        // Nếu đã đăng nhập và remember, điều hướng vào HomeActivity (chứa navbar)
+        // Update user's photoUrl in Firestore if it's not already saved
+        com.example.nanaclu.data.repository.UserRepository userRepo =
+                new com.example.nanaclu.data.repository.UserRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+        userRepo.updateUserPhotoUrl(user.getUid(), photoUrl);
+        // Auto-login enabled and user exists -> go Home
         startActivity(new Intent(this, com.example.nanaclu.ui.HomeActivity.class));
         finish();
     }
