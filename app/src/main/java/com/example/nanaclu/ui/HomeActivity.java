@@ -10,6 +10,8 @@ import com.example.nanaclu.R;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class HomeActivity extends AppCompatActivity {
+    private int[] tabOrder = new int[]{R.id.nav_home, R.id.nav_group, R.id.nav_chat, R.id.nav_me};
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -36,6 +38,26 @@ public class HomeActivity extends AppCompatActivity {
             });
             bottom.setSelectedItemId(R.id.nav_home);
         }
+    }
+
+    public void navigateToNextTab() {
+        BottomNavigationView bottom = findViewById(R.id.bottom_nav);
+        if (bottom == null) return;
+        int currentId = bottom.getSelectedItemId();
+        int idx = 0;
+        for (int i = 0; i < tabOrder.length; i++) if (tabOrder[i] == currentId) { idx = i; break; }
+        int nextIdx = (idx + 1) % tabOrder.length;
+        bottom.setSelectedItemId(tabOrder[nextIdx]);
+    }
+
+    public void navigateToPrevTab() {
+        BottomNavigationView bottom = findViewById(R.id.bottom_nav);
+        if (bottom == null) return;
+        int currentId = bottom.getSelectedItemId();
+        int idx = 0;
+        for (int i = 0; i < tabOrder.length; i++) if (tabOrder[i] == currentId) { idx = i; break; }
+        int prevIdx = (idx - 1 + tabOrder.length) % tabOrder.length;
+        bottom.setSelectedItemId(tabOrder[prevIdx]);
     }
 }
 

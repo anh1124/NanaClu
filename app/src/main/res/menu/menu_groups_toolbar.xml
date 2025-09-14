@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_join_group"
+        android:icon="@drawable/joingroup"
+        android:title="Join Group"
+        android:orderInCategory="0"
+        app:showAsAction="always"/>
+
     <item
         android:id="@+id/action_add_group"
         android:icon="@android:drawable/ic_input_add"
         android:title="Add"
+        android:orderInCategory="1"
         app:showAsAction="always"/>
 </menu>
-
-

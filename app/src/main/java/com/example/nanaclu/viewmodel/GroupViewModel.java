@@ -41,19 +41,26 @@ public class GroupViewModel extends ViewModel {
         group.avatarImageId = null;
         group.coverImageId = null;
 
-        System.out.println("GroupViewModel: Group object created: " + group.name + " (ID: " + group.groupId + ", createdBy: " + group.createdBy + ")");
-
-        groupRepository.createGroup(group)
-                .addOnSuccessListener(aVoid -> {
-                    isLoading.setValue(false);
-                    System.out.println("GroupViewModel: Group created successfully, reloading groups");
-                    // Reload user groups after creating
-                    loadUserGroups();
+        // Generate short unique code (6 chars) before creating
+        groupRepository.generateUniqueCode(6)
+                .addOnSuccessListener(code -> {
+                    group.code = code;
+                    System.out.println("GroupViewModel: Generated code for group: " + code);
+                    groupRepository.createGroup(group)
+                            .addOnSuccessListener(aVoid -> {
+                                isLoading.setValue(false);
+                                System.out.println("GroupViewModel: Group created successfully, reloading groups");
+                                loadUserGroups();
+                            })
+                            .addOnFailureListener(e -> {
+                                isLoading.setValue(false);
+                                error.setValue("Failed to create group: " + e.getMessage());
+                                System.out.println("GroupViewModel: Failed to create group: " + e.getMessage());
+                            });
                 })
                 .addOnFailureListener(e -> {
                     isLoading.setValue(false);
-                    error.setValue("Failed to create group: " + e.getMessage());
-                    System.out.println("GroupViewModel: Failed to create group: " + e.getMessage());
+                    error.setValue("Failed to generate code: " + e.getMessage());
                 });
     }
 

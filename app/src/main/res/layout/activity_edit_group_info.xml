@@ -24,6 +24,47 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- Ảnh nền nhóm -->
+            <ImageView
+                android:id="@+id/imgCoverPreview"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:scaleType="centerCrop"
+                android:src="@mipmap/ic_launcher"
+                android:background="#EEEEEE"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnChangeCover"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Đổi ảnh nền"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Ảnh đại diện nhóm + nút đổi -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:id="@+id/imgAvatarPreview"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:src="@mipmap/ic_launcher_round"
+                    android:scaleType="centerCrop"
+                    android:background="@drawable/bg_avatar_circle" />
+
+                <Button
+                    android:id="@+id/btnChangeAvatar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Đổi ảnh đại diện"
+                    android:layout_marginStart="16dp" />
+            </LinearLayout>
+
             <!-- Tên nhóm -->
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"

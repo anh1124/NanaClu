@@ -44,8 +44,12 @@ public class GroupsFragment extends Fragment {
 		toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
 		toolbar.setTitle("My Groups");
 		toolbar.setOnMenuItemClickListener(item -> {
-			if (item.getItemId() == R.id.action_add_group) {
+			int id = item.getItemId();
+			if (id == R.id.action_add_group) {
 				showCreateGroupDialog();
+				return true;
+			} else if (id == R.id.action_join_group) {
+				showJoinGroupDialog();
 				return true;
 			}
 			return false;
@@ -56,14 +60,38 @@ public class GroupsFragment extends Fragment {
 		swipeRefreshLayout.setOnRefreshListener(() -> {
 			groupViewModel.loadUserGroups();
 		});
-		
+
 		// Setup RecyclerView
 		RecyclerView recyclerView = view.findViewById(R.id.rvGroups);
 		recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+		// Add divider between items
+		recyclerView.addItemDecoration(new androidx.recyclerview.widget.DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL));
 		groupsAdapter = new GroupsAdapter();
 		recyclerView.setAdapter(groupsAdapter);
-		
+
 		// Setup click listener
+
+		// Swipe navigation left/right between tabs
+		recyclerView.setOnTouchListener(new android.view.View.OnTouchListener() {
+			float downX;
+			final float threshold = getResources().getDisplayMetrics().density * 80; // ~80dp
+			@Override public boolean onTouch(android.view.View v, android.view.MotionEvent e) {
+				switch (e.getActionMasked()) {
+					case android.view.MotionEvent.ACTION_DOWN:
+						downX = e.getX();
+						break;
+					case android.view.MotionEvent.ACTION_UP:
+						float dx = e.getX() - downX;
+						if (Math.abs(dx) > threshold && getActivity() instanceof com.example.nanaclu.ui.HomeActivity) {
+							com.example.nanaclu.ui.HomeActivity act = (com.example.nanaclu.ui.HomeActivity) getActivity();
+							if (dx < 0) act.navigateToNextTab(); else act.navigateToPrevTab();
+							return true;
+						}
+						break;
+				}
+				return false;
+			}
+		});
 		groupsAdapter.setOnGroupClickListener(group -> {
 			// Hiển thị id group khi click
 			Toast.makeText(getContext(), "groupId: " + group.groupId, Toast.LENGTH_SHORT).show();
@@ -74,18 +102,18 @@ public class GroupsFragment extends Fragment {
 
 		// Setup ViewModel
 		groupViewModel = new ViewModelProvider(this).get(GroupViewModel.class);
-		
+
 		// Observe data
 		groupViewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
 			// Handle loading state if needed
 		});
-		
+
 		groupViewModel.getError().observe(getViewLifecycleOwner(), error -> {
 			if (error != null) {
 				Toast.makeText(getContext(), error, Toast.LENGTH_LONG).show();
 			}
 		});
-		
+
 		groupViewModel.getUserGroups().observe(getViewLifecycleOwner(), groups -> {
 			if (groups != null) {
 				groupsAdapter.setGroups(groups);
@@ -110,7 +138,7 @@ public class GroupsFragment extends Fragment {
 					String groupName = etGroupName.getText().toString().trim();
 					if (!groupName.isEmpty()) {
 						groupViewModel.createGroup(groupName, true); // Default to public
-					}
+				}
 				})
 				.setNegativeButton("Cancel", null)
 				.show();
@@ -129,6 +157,30 @@ public class GroupsFragment extends Fragment {
 		// Always reload groups when fragment resumes
 		groupViewModel.loadUserGroups();
 	}
+
+	private void showJoinGroupDialog() {
+		android.widget.EditText input = new com.google.android.material.textfield.TextInputEditText(requireContext());
+		input.setHint("Nhập mã nhóm (6 ký tự)");
+		new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+				.setTitle("Tham gia nhóm bằng mã")
+				.setView(input)
+				.setPositiveButton("Tham gia", (d, w) -> {
+					String code = input.getText() != null ? input.getText().toString().trim() : "";
+					if (code.isEmpty()) { android.widget.Toast.makeText(requireContext(), "Vui lòng nhập mã", android.widget.Toast.LENGTH_SHORT).show(); return; }
+					com.example.nanaclu.data.repository.GroupRepository repo = new com.example.nanaclu.data.repository.GroupRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+					repo.joinGroupByCode(code.toUpperCase())
+							.addOnSuccessListener(v -> {
+								android.widget.Toast.makeText(requireContext(), "Đã tham gia nhóm", android.widget.Toast.LENGTH_SHORT).show();
+								groupViewModel.loadUserGroups();
+							})
+							.addOnFailureListener(e -> {
+								android.widget.Toast.makeText(requireContext(), e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+							});
+				})
+				.setNegativeButton("Hủy", null)
+				.show();
+	}
+
 }
 
 

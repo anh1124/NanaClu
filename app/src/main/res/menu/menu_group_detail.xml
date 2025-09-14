@@ -6,11 +6,7 @@
         android:title="Rời nhóm"
         android:icon="@android:drawable/ic_menu_close_clear_cancel"
         app:showAsAction="never"/>
-    <item
-        android:id="@+id/action_share_group"
-        android:title="Chia sẻ nhóm"
-        android:icon="@android:drawable/ic_menu_share"
-        app:showAsAction="never"/>
+
     <item
         android:id="@+id/action_view_members"
         android:title="Thành viên nhóm"
@@ -22,10 +18,10 @@
         android:icon="@android:drawable/ic_menu_preferences"
         app:showAsAction="never"/>
     <item
-        android:id="@+id/action_create_post"
-        android:title="Tạo bài viết"
-        android:icon="@android:drawable/ic_menu_edit"
+        android:id="@+id/action_invite_members"
+        android:title="Mời thành viên"
+        android:icon="@android:drawable/ic_menu_share"
         app:showAsAction="never"/>
-    
+
 </menu>
 

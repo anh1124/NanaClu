@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Group;
@@ -40,7 +41,8 @@ public class GroupDetailActivity extends AppCompatActivity {
     private boolean isLoadingMore = false;
     private DocumentSnapshot lastVisible;
     private boolean reachedEnd = false;
-    
+    private SwipeRefreshLayout swipeRefreshLayout;
+
     // Backup groupId for debugging
     private String backupGroupId;
 
@@ -81,6 +83,62 @@ public class GroupDetailActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
         toolbar.inflateMenu(R.menu.menu_group_detail);
         toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
+        // Tint navigation and overflow icons to white
+        android.graphics.PorterDuff.Mode mode = android.graphics.PorterDuff.Mode.SRC_ATOP;
+        if (toolbar.getNavigationIcon() != null) {
+            toolbar.getNavigationIcon().setColorFilter(android.graphics.Color.WHITE, mode);
+        }
+        toolbar.post(() -> {
+            android.graphics.drawable.Drawable ov = toolbar.getOverflowIcon();
+            if (ov != null) {
+                ov.setColorFilter(android.graphics.Color.WHITE, mode);
+            }
+        });
+
+        // Hide/show toolbar on scroll direction and enable bottom pull-up to retry load
+        androidx.core.widget.NestedScrollView nested = findViewById(R.id.nestedScroll);
+        if (nested != null) {
+            nested.setOnScrollChangeListener((androidx.core.widget.NestedScrollView.OnScrollChangeListener)
+                (v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+                    if (scrollY > oldScrollY) {
+                        // scrolling down, hide
+                        toolbar.animate().translationY(-toolbar.getHeight()).setDuration(150).start();
+                    } else if (scrollY < oldScrollY) {
+                        // scrolling up, show
+                        toolbar.animate().translationY(0).setDuration(150).start();
+                    }
+                });
+
+            nested.setOnTouchListener(new android.view.View.OnTouchListener() {
+                float downY;
+                final float threshold = getResources().getDisplayMetrics().density * 80; // ~80dp
+                @Override public boolean onTouch(android.view.View v, android.view.MotionEvent e) {
+                    switch (e.getActionMasked()) {
+                        case android.view.MotionEvent.ACTION_DOWN:
+                            downY = e.getY();
+                            break;
+                        case android.view.MotionEvent.ACTION_UP:
+                            float upY = e.getY();
+                            boolean atBottom = !v.canScrollVertically(1);
+                            if (atBottom && (downY - upY) > threshold && !isLoadingMore && !reachedEnd) {
+                                // User swiped up at bottom: try load more manually
+                                loadMorePosts();
+                                return true;
+                            }
+                            break;
+                    }
+                    return false;
+                }
+            });
+        }
+
+        // Swipe-to-refresh: tải 5 bài mới nhất
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshGroupDetail);
+        if (swipeRefreshLayout != null) {
+            swipeRefreshLayout.setOnRefreshListener(() -> {
+                loadInitialPosts();
+            });
+        }
 
         // Load group data
         loadGroupData();
@@ -92,8 +150,8 @@ public class GroupDetailActivity extends AppCompatActivity {
         setupUserAvatar();
 
         // Setup click listeners
-        findViewById(R.id.btnInvite).setOnClickListener(v -> {});
-        
+        findViewById(R.id.btnInvite).setOnClickListener(v -> showInviteDialog());
+
         // Make entire post composer area clickable
         View postComposerArea = findViewById(R.id.postComposer);
         postComposerArea.setOnClickListener(v -> {
@@ -102,18 +160,18 @@ public class GroupDetailActivity extends AppCompatActivity {
             intent.putExtra("group_id", groupId);
             startActivity(intent);
         });
-        
+
         // Also make individual elements clickable for better UX
         View btnAddImage = findViewById(R.id.btnAddImage);
         TextView edtPost = findViewById(R.id.edtPost);
-        
+
         // These will also open CreatePostActivity
         btnAddImage.setOnClickListener(v -> {
             Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
             intent.putExtra("group_id", groupId);
             startActivity(intent);
         });
-        
+
         edtPost.setOnClickListener(v -> {
             Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
             intent.putExtra("group_id", groupId);
@@ -209,9 +267,9 @@ public class GroupDetailActivity extends AppCompatActivity {
     private void updateMenuVisibility() {
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
         MenuItem settingsItem = toolbar.getMenu().findItem(R.id.action_group_settings);
-        
+
         if (settingsItem != null) {
-            boolean isAdminOrOwner = currentUserMember != null && 
+            boolean isAdminOrOwner = currentUserMember != null &&
                 ("admin".equals(currentUserMember.role) || "owner".equals(currentUserMember.role));
             settingsItem.setVisible(isAdminOrOwner);
         }
@@ -220,23 +278,50 @@ public class GroupDetailActivity extends AppCompatActivity {
     private void updateUI(Group group) {
         TextView tvGroupName = findViewById(R.id.tvGroupName);
         TextView tvMeta = findViewById(R.id.tvMeta);
-        
-        tvGroupName.setText(group.name);
-        
+        ImageView imgCover = findViewById(R.id.imgCover);
+        ImageView imgGroupAvatar = findViewById(R.id.imgGroupAvatar);
+
+        tvGroupName.setText(group.name != null ? group.name : "");
+
         String privacy = group.isPublic ? "Public" : "Private";
         String memberText = group.memberCount + " thành viên";
         tvMeta.setText(privacy + " • " + memberText);
+
+        if (group.coverImageId != null && !group.coverImageId.isEmpty()) {
+            loadImageUrlInto(imgCover, group.coverImageId);
+        }
+        if (group.avatarImageId != null && !group.avatarImageId.isEmpty()) {
+            loadImageUrlInto(imgGroupAvatar, group.avatarImageId);
+        }
     }
+
+    /** Lightweight loader for HTTP(S) image URLs without third-party libs */
+    private void loadImageUrlInto(ImageView view, String url) {
+        new Thread(() -> {
+            try {
+                java.io.InputStream is = new java.net.URL(url).openStream();
+                final android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeStream(is);
+                view.post(() -> view.setImageBitmap(bmp));
+            } catch (Exception ignored) {}
+        }).start();
+    }
+
 
     private void loadInitialPosts() {
         isLoadingMore = true;
         lastVisible = null;
+
+
+
         reachedEnd = false;
         postRepository.getGroupPostsPaged(groupId, 5, null, (posts, last) -> {
             postAdapter.setItems(posts);
             lastVisible = last;
             isLoadingMore = false;
             reachedEnd = posts == null || posts.isEmpty();
+            if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
+                swipeRefreshLayout.setRefreshing(false);
+            }
         }, e -> {
             isLoadingMore = false;
         });
@@ -248,6 +333,7 @@ public class GroupDetailActivity extends AppCompatActivity {
         postRepository.getGroupPostsPaged(groupId, 5, lastVisible, (posts, last) -> {
             if (posts == null || posts.isEmpty()) {
                 reachedEnd = true;
+                android.widget.Toast.makeText(GroupDetailActivity.this, "Bạn đã xem hết bài viết", android.widget.Toast.LENGTH_SHORT).show();
             } else {
                 postAdapter.addItems(posts);
                 lastVisible = last;
@@ -255,19 +341,22 @@ public class GroupDetailActivity extends AppCompatActivity {
             isLoadingMore = false;
         }, e -> {
             isLoadingMore = false;
+            if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
+                swipeRefreshLayout.setRefreshing(false);
+            }
         });
     }
 
     private void setupUserAvatar() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         ImageView imgAvatar = findViewById(R.id.imgAvatar);
-        
+
         if (currentUser != null) {
             String displayName = currentUser.getDisplayName();
             String email = currentUser.getEmail();
-            
+
             System.out.println("GroupDetailActivity: Current user - name: " + displayName + ", email: " + email);
-            
+
             if (currentUser.getPhotoUrl() != null) {
                 // User has a profile photo - try to load it
                 System.out.println("GroupDetailActivity: Loading user avatar from: " + currentUser.getPhotoUrl());
@@ -291,16 +380,16 @@ public class GroupDetailActivity extends AppCompatActivity {
         }
         System.out.println("GroupDetailActivity: === AVATAR SETUP END ===");
     }
-    
+
     private void loadImageFromUrl(ImageView imgAvatar, String imageUrl) {
         System.out.println("GroupDetailActivity: === LOAD IMAGE FROM URL START ===");
         System.out.println("GroupDetailActivity: Loading image from: " + imageUrl);
-        
+
         try {
             // Method 1: Try using setImageURI with a delay to check if it works
             imgAvatar.setImageURI(android.net.Uri.parse(imageUrl));
             System.out.println("GroupDetailActivity: setImageURI called with: " + imageUrl);
-            
+
             // Check if the drawable was set after a short delay
             imgAvatar.postDelayed(() -> {
                 if (imgAvatar.getDrawable() != null) {
@@ -316,7 +405,7 @@ public class GroupDetailActivity extends AppCompatActivity {
                     }
                 }
             }, 1000); // Wait 1 second to see if image loads
-            
+
         } catch (Exception e) {
             System.out.println("GroupDetailActivity: ❌ Error in loadImageFromUrl: " + e.getMessage());
             // Fallback to text avatar
@@ -327,20 +416,18 @@ public class GroupDetailActivity extends AppCompatActivity {
                 showTextAvatar(imgAvatar, displayName, email);
             }
         }
-        
+
         System.out.println("GroupDetailActivity: === LOAD IMAGE FROM URL END ===");
     }
 
     private boolean onMenuItemClick(MenuItem item) {
         int id = item.getItemId();
         System.out.println("GroupDetailActivity: onMenuItemClick - groupId = " + groupId);
-        
+
         if (id == R.id.action_leave_group) {
             showLeaveGroupDialog();
             return true;
-        } else if (id == R.id.action_share_group) {
-            // TODO: Implement share group functionality
-            return true;
+
         } else if (id == R.id.action_view_members) {
             // Open GroupMembersActivity
             Intent intent = new Intent(this, GroupMembersActivity.class);
@@ -354,28 +441,69 @@ public class GroupDetailActivity extends AppCompatActivity {
             intent.putExtra("currentUserId", currentUserId);
             startActivityForResult(intent, 200);
             return true;
-        } else if (id == R.id.action_create_post) {
-            // Open CreatePostActivity
-            System.out.println("GroupDetailActivity: action_create_post clicked - groupId = " + groupId);
-            
-            // Use backupGroupId if groupId is null
-            if (groupId == null && backupGroupId != null) {
-                groupId = backupGroupId;
-                System.out.println("GroupDetailActivity: Restored groupId from backup = " + groupId);
-            }
-            
-            // Double check groupId is not null
-            if (groupId == null) {
-                Toast.makeText(this, "ERROR: groupId is null in action_create_post!", Toast.LENGTH_LONG).show();
-                return true;
-            }
-            
-            Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
-            intent.putExtra("group_id", groupId);
-            startActivityForResult(intent, 400);
+        } else if (id == R.id.action_invite_members) {
+            showInviteDialog();
             return true;
         }
         return false;
+    }
+
+    private void showInviteDialog() {
+        if (currentGroup == null) {
+            Toast.makeText(this, "Đang tải...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String code = currentGroup.code != null ? currentGroup.code : (groupId != null ? groupId : "");
+
+        android.widget.LinearLayout container = new android.widget.LinearLayout(this);
+        container.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 20);
+        container.setPadding(pad, pad, pad, pad);
+
+        android.widget.TextView title = new android.widget.TextView(this);
+        title.setText("Mã nhóm");
+        title.setTextSize(16);
+        title.setTextColor(0xFF000000);
+        title.setPadding(0, 0, 0, pad / 2);
+        container.addView(title);
+
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+        android.widget.TextView tvCode = new android.widget.TextView(this);
+        tvCode.setText(code);
+        tvCode.setTextSize(22);
+        tvCode.setTextIsSelectable(true);
+        tvCode.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        tvCode.setLayoutParams(lp);
+        row.addView(tvCode);
+
+        android.widget.ImageButton btnCopy = new android.widget.ImageButton(this);
+        btnCopy.setBackgroundResource(android.R.color.transparent);
+        btnCopy.setImageResource(R.drawable.iconcopy);
+        int s = (int) (getResources().getDisplayMetrics().density * 36);
+        android.widget.LinearLayout.LayoutParams ilp = new android.widget.LinearLayout.LayoutParams(s, s);
+        btnCopy.setLayoutParams(ilp);
+        btnCopy.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+        int p8 = (int) (getResources().getDisplayMetrics().density * 8);
+        btnCopy.setPadding(p8, p8, p8, p8);
+        btnCopy.setOnClickListener(v -> {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("group_code", code);
+            if (cm != null) cm.setPrimaryClip(clip);
+            Toast.makeText(this, "Đã copy mã nhóm", Toast.LENGTH_SHORT).show();
+        });
+        row.addView(btnCopy);
+
+        container.addView(row);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Mời thành viên")
+                .setView(container)
+                .setPositiveButton("Đóng", null)
+                .show();
     }
 
     private void showLeaveGroupDialog() {
@@ -488,7 +616,7 @@ public class GroupDetailActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        
+
         if (requestCode == 200 && resultCode == RESULT_OK) {
             if (data != null && "group_deleted".equals(data.getStringExtra("action"))) {
                 // Group was deleted, finish this activity to go back to My Groups
@@ -521,9 +649,9 @@ public class GroupDetailActivity extends AppCompatActivity {
         } else {
             text = "U"; // User
         }
-        
+
         System.out.println("GroupDetailActivity: Showing text avatar with: " + text);
-        
+
         // Create a custom drawable with text
         try {
             android.graphics.drawable.Drawable textDrawable = createTextDrawable(text);
@@ -533,40 +661,40 @@ public class GroupDetailActivity extends AppCompatActivity {
             // Fallback to default avatar
             imgAvatar.setImageResource(R.mipmap.ic_launcher_round);
         }
-        
+
         // Set content description for accessibility
         imgAvatar.setContentDescription("Avatar for " + (displayName != null ? displayName : "user"));
     }
-    
+
     private android.graphics.drawable.Drawable createTextDrawable(String text) {
         // Create a simple colored circle with text
         android.graphics.drawable.ShapeDrawable shape = new android.graphics.drawable.ShapeDrawable(new android.graphics.drawable.shapes.OvalShape());
         shape.getPaint().setColor(android.graphics.Color.parseColor("#6200EA")); // Purple color
-        
+
         // Create a bitmap with text
         android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(200, 200, android.graphics.Bitmap.Config.ARGB_8888);
         android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
-        
+
         // Draw the circle
         android.graphics.Paint paint = new android.graphics.Paint();
         paint.setColor(android.graphics.Color.parseColor("#6200EA"));
         paint.setAntiAlias(true);
         canvas.drawCircle(100, 100, 100, paint);
-        
+
         // Draw the text
         paint.setColor(android.graphics.Color.WHITE);
         paint.setTextSize(80);
         paint.setTextAlign(android.graphics.Paint.Align.CENTER);
         paint.setAntiAlias(true);
-        
+
         // Center the text
         android.graphics.Rect bounds = new android.graphics.Rect();
         paint.getTextBounds(text, 0, text.length(), bounds);
         int x = 100;
         int y = 100 + bounds.height() / 2;
-        
+
         canvas.drawText(text, x, y, paint);
-        
+
         return new android.graphics.drawable.BitmapDrawable(getResources(), bitmap);
     }
 }

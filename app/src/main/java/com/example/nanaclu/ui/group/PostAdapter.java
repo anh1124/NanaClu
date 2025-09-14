@@ -209,6 +209,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             android.util.DisplayMetrics metrics = itemView.getResources().getDisplayMetrics();
             int screenHeight = metrics.heightPixels;
             int maxImageHeight = (int) (screenHeight * 0.4f);
+            // Khoảng cách giữa các ảnh ~ 1mm
+            int spacePx = (int) android.util.TypedValue.applyDimension(
+                    android.util.TypedValue.COMPLEX_UNIT_MM, 1, metrics);
 
             java.util.function.Consumer<ImageView> commonCenterCrop = iv -> {
                 iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -245,6 +248,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     ImageView iv = new ImageView(itemView.getContext());
                     LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, maxImageHeight);
                     p.weight = 1f;
+                    // Thêm khoảng cách giữa 2 ảnh
+                    if (i == 0) p.setMargins(0, 0, spacePx / 2, 0);
+                    else p.setMargins(spacePx / 2, 0, 0, 0);
                     iv.setLayoutParams(p);
                     commonCenterCrop.accept(iv);
                     loadInto.accept(urls.get(i), iv);
@@ -261,6 +267,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 ImageView left = new ImageView(itemView.getContext());
                 LinearLayout.LayoutParams lpLeft = new LinearLayout.LayoutParams(0, maxImageHeight);
                 lpLeft.weight = 1f;
+                lpLeft.setMargins(0, 0, spacePx / 2, 0);
                 left.setLayoutParams(lpLeft);
                 commonCenterCrop.accept(left);
                 loadInto.accept(urls.get(0), left);
@@ -271,10 +278,13 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 col.setOrientation(LinearLayout.VERTICAL);
                 LinearLayout.LayoutParams lpCol = new LinearLayout.LayoutParams(0, maxImageHeight);
                 lpCol.weight = 1f;
+                lpCol.setMargins(spacePx / 2, 0, 0, 0);
                 col.setLayoutParams(lpCol);
                 for (int i = 1; i < 3; i++) {
                     ImageView iv = new ImageView(itemView.getContext());
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxImageHeight / 2);
+                    if (i == 1) lp.setMargins(0, 0, 0, spacePx / 2); // khoảng cách giữa 2 ảnh nhỏ
+                    else lp.setMargins(0, spacePx / 2, 0, 0);
                     iv.setLayoutParams(lp);
                     commonCenterCrop.accept(iv);
                     loadInto.accept(urls.get(i), iv);
@@ -290,13 +300,21 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             grid.setColumnCount(2);
             grid.setRowCount(2);
             for (int i = 0; i < 4; i++) {
+                int colIdx = i % 2;
+                int rowIdx = i / 2;
+                int left = colIdx == 0 ? 0 : spacePx / 2;
+                int right = colIdx == 0 ? spacePx / 2 : 0;
+                int top = rowIdx == 0 ? 0 : spacePx / 2;
+                int bottom = rowIdx == 0 ? spacePx / 2 : 0;
+
                 if (i < 3 || count == 4) {
                     ImageView iv = new ImageView(itemView.getContext());
                     android.widget.GridLayout.LayoutParams params = new android.widget.GridLayout.LayoutParams();
                     params.width = 0;
                     params.height = maxImageHeight / 2;
-                    params.columnSpec = android.widget.GridLayout.spec(i % 2, 1f);
-                    params.rowSpec = android.widget.GridLayout.spec(i / 2, 1f);
+                    params.columnSpec = android.widget.GridLayout.spec(colIdx, 1f);
+                    params.rowSpec = android.widget.GridLayout.spec(rowIdx, 1f);
+                    params.setMargins(left, top, right, bottom);
                     iv.setLayoutParams(params);
                     commonCenterCrop.accept(iv);
                     loadInto.accept(urls.get(i), iv);
@@ -307,8 +325,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     android.widget.GridLayout.LayoutParams params = new android.widget.GridLayout.LayoutParams();
                     params.width = 0;
                     params.height = maxImageHeight / 2;
-                    params.columnSpec = android.widget.GridLayout.spec(i % 2, 1f);
-                    params.rowSpec = android.widget.GridLayout.spec(i / 2, 1f);
+                    params.columnSpec = android.widget.GridLayout.spec(colIdx, 1f);
+                    params.rowSpec = android.widget.GridLayout.spec(rowIdx, 1f);
+                    params.setMargins(left, top, right, bottom);
                     overlay.setLayoutParams(params);
                     ImageView iv = new ImageView(itemView.getContext());
                     iv.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
