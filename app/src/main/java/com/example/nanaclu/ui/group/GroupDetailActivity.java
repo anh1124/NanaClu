@@ -135,35 +135,19 @@ public class GroupDetailActivity extends AppCompatActivity {
             }
             @Override
             public void onDelete(Post post) {
-                // Xóa post và ảnh của nó
-                if (post.imageIds != null && !post.imageIds.isEmpty()) {
-                    postRepository.deleteUserImages(post.authorId, post.imageIds, aVoid -> {
-                        postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
-                            @Override
-                            public void onSuccess(Post p) {
-                                // refresh list đơn giản: load lại từ đầu
-                                loadInitialPosts();
-                            }
-                            @Override
-                            public void onError(Exception e) {}
-                        });
-                    }, e -> {
-                        // Nếu xóa ảnh fail, vẫn thử xóa post để không kẹt
-                        postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
-                            @Override
-                            public void onSuccess(Post p) { loadInitialPosts(); }
-                            @Override
-                            public void onError(Exception ex) {}
-                        });
-                    });
-                } else {
-                    postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
-                        @Override
-                        public void onSuccess(Post p) { loadInitialPosts(); }
-                        @Override
-                        public void onError(Exception e) {}
-                    });
-                }
+                // Xóa post (với Firebase Storage, URLs sẽ tự động không accessible khi post bị xóa)
+                // Không cần xóa riêng images vì chúng được lưu trong Storage với URLs
+                postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
+                    @Override
+                    public void onSuccess(Post p) {
+                        // refresh list đơn giản: load lại từ đầu
+                        loadInitialPosts();
+                    }
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(GroupDetailActivity.this, "Lỗi xóa bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
             @Override
             public void onReport(Post post) {
@@ -586,5 +570,3 @@ public class GroupDetailActivity extends AppCompatActivity {
         return new android.graphics.drawable.BitmapDrawable(getResources(), bitmap);
     }
 }
-
-

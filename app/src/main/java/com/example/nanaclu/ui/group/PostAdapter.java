@@ -14,6 +14,10 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.bitmap.CenterCrop;
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
+import com.bumptech.glide.request.RequestOptions;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Post;
 import com.example.nanaclu.data.repository.PostRepository;
@@ -198,8 +202,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
         void setupImagesDynamic(Post post) {
             imageContainer.removeAllViews();
-            List<String> ids = post.imageIds == null ? new ArrayList<>() : post.imageIds;
-            if (ids.isEmpty()) return;
+            List<String> urls = post.imageUrls == null ? new ArrayList<>() : post.imageUrls;
+            if (urls.isEmpty()) return;
 
             // Tính kích thước màn hình và max heights
             android.util.DisplayMetrics metrics = itemView.getResources().getDisplayMetrics();
@@ -211,19 +215,17 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 iv.setAdjustViewBounds(true);
             };
 
-            java.util.function.BiConsumer<String, ImageView> loadInto = (imageId, target) -> {
-                postRepository.getUserImageBase64(post.authorId, imageId,
-                        base64 -> {
-                            if (base64 == null) return;
-                            try {
-                                byte[] data = Base64.decode(base64, Base64.DEFAULT);
-                                Bitmap bmp = BitmapFactory.decodeByteArray(data, 0, data.length);
-                                if (bmp != null) target.setImageBitmap(bmp);
-                            } catch (Exception ignored) {}
-                        }, e -> {});
+            java.util.function.BiConsumer<String, ImageView> loadInto = (imageUrl, target) -> {
+                Glide.with(itemView.getContext())
+                        .load(imageUrl)
+                        .apply(new RequestOptions()
+                                .transform(new CenterCrop())
+                                .placeholder(R.drawable.image_background)
+                                .error(R.drawable.image_background))
+                        .into(target);
             };
 
-            int count = ids.size();
+            int count = urls.size();
             if (count == 1) {
                 ImageView imageView = new ImageView(itemView.getContext());
                 FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -231,7 +233,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 imageView.setAdjustViewBounds(true);
                 imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 imageView.setMaxHeight(maxImageHeight);
-                loadInto.accept(ids.get(0), imageView);
+                loadInto.accept(urls.get(0), imageView);
                 imageContainer.addView(imageView);
                 return;
             }
@@ -245,7 +247,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     p.weight = 1f;
                     iv.setLayoutParams(p);
                     commonCenterCrop.accept(iv);
-                    loadInto.accept(ids.get(i), iv);
+                    loadInto.accept(urls.get(i), iv);
                     row.addView(iv);
                 }
                 imageContainer.addView(row);
@@ -261,7 +263,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 lpLeft.weight = 1f;
                 left.setLayoutParams(lpLeft);
                 commonCenterCrop.accept(left);
-                loadInto.accept(ids.get(0), left);
+                loadInto.accept(urls.get(0), left);
                 row.addView(left);
 
                 // Right column two small
@@ -275,7 +277,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxImageHeight / 2);
                     iv.setLayoutParams(lp);
                     commonCenterCrop.accept(iv);
-                    loadInto.accept(ids.get(i), iv);
+                    loadInto.accept(urls.get(i), iv);
                     col.addView(iv);
                 }
                 row.addView(col);
@@ -297,7 +299,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     params.rowSpec = android.widget.GridLayout.spec(i / 2, 1f);
                     iv.setLayoutParams(params);
                     commonCenterCrop.accept(iv);
-                    loadInto.accept(ids.get(i), iv);
+                    loadInto.accept(urls.get(i), iv);
                     grid.addView(iv);
                 } else {
                     // overlay cell
@@ -311,7 +313,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     ImageView iv = new ImageView(itemView.getContext());
                     iv.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
                     iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                    loadInto.accept(ids.get(3), iv);
+                    loadInto.accept(urls.get(3), iv);
                     overlay.addView(iv);
                     View dim = new View(itemView.getContext());
                     dim.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -357,5 +359,3 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         }
     }
 }
-
-

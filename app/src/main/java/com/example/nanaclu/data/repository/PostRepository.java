@@ -8,6 +8,9 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 import androidx.annotation.Nullable;
 
 import java.util.HashMap;
@@ -20,6 +23,7 @@ import java.util.UUID;
 
 public class PostRepository {
     private FirebaseFirestore db;
+    private FirebaseStorage storage;
     private static final String POSTS_COLLECTION = "posts";
     private static final String LIKES_COLLECTION = "likes";
     private static final String COMMENTS_COLLECTION = "comments";
@@ -28,6 +32,7 @@ public class PostRepository {
 
     public PostRepository(FirebaseFirestore db) {
         this.db = db;
+        this.storage = FirebaseStorage.getInstance();
     }
 
     public interface PostCallback {
@@ -187,7 +192,78 @@ public class PostRepository {
     }
 
     /**
-     * Lấy base64 ảnh người dùng theo imageId
+     * Upload ảnh lên Firebase Storage và trả về URL
+     * @param imageData byte array của ảnh
+     * @param fileName tên file ảnh
+     * @param callback callback trả về URL
+     */
+    public void uploadImageToStorage(byte[] imageData, String fileName, 
+                                   com.google.android.gms.tasks.OnSuccessListener<String> onSuccess,
+                                   com.google.android.gms.tasks.OnFailureListener onFailure) {
+        StorageReference imageRef = storage.getReference()
+                .child("post_images")
+                .child(fileName);
+        
+        UploadTask uploadTask = imageRef.putBytes(imageData);
+        uploadTask.addOnSuccessListener(taskSnapshot -> {
+            // Upload thành công, lấy download URL
+            imageRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                onSuccess.onSuccess(uri.toString());
+            }).addOnFailureListener(onFailure);
+        }).addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Upload nhiều ảnh lên Firebase Storage
+     * @param imageDataList danh sách byte array của các ảnh
+     * @param callback callback trả về danh sách URLs
+     */
+    public void uploadMultipleImages(List<byte[]> imageDataList,
+                                   com.google.android.gms.tasks.OnSuccessListener<List<String>> onSuccess,
+                                   com.google.android.gms.tasks.OnFailureListener onFailure) {
+        if (imageDataList == null || imageDataList.isEmpty()) {
+            onSuccess.onSuccess(new ArrayList<>());
+            return;
+        }
+
+        List<Task<String>> uploadTasks = new ArrayList<>();
+        
+        for (int i = 0; i < imageDataList.size(); i++) {
+            byte[] imageData = imageDataList.get(i);
+            String fileName = "image_" + System.currentTimeMillis() + "_" + i + ".jpg";
+            
+            StorageReference imageRef = storage.getReference()
+                    .child("post_images")
+                    .child(fileName);
+            
+            Task<String> uploadTask = imageRef.putBytes(imageData)
+                    .continueWithTask(task -> {
+                        if (!task.isSuccessful()) {
+                            throw task.getException();
+                        }
+                        return imageRef.getDownloadUrl();
+                    })
+                    .continueWith(task -> {
+                        if (!task.isSuccessful()) {
+                            throw task.getException();
+                        }
+                        return task.getResult().toString();
+                    });
+            
+            uploadTasks.add(uploadTask);
+        }
+        
+        Tasks.whenAllSuccess(uploadTasks).addOnSuccessListener(urls -> {
+            List<String> urlList = new ArrayList<>();
+            for (Object url : urls) {
+                urlList.add((String) url);
+            }
+            onSuccess.onSuccess(urlList);
+        }).addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Lấy base64 ảnh người dùng theo imageId (giữ lại để tương thích với avatar)
      * Ảnh được lưu trong users/{authorId}/images/{imageId}
      */
     public void getUserImageBase64(String authorId, String imageId,
@@ -205,52 +281,6 @@ public class PostRepository {
                     }
                 })
                 .addOnFailureListener(onFailure);
-    }
-
-    public void saveImageData(String authorId, String imageId, String base64Data, PostCallback callback) {
-        // Save image data to Firestore
-
-        // BỎ UserImage object - KHÔNG CẦN THIẾT VÀ GÂY CONFUSION
-        // UserImage userImage = new UserImage();
-        // userImage.imageId = imageId;
-        // userImage.createdAt = System.currentTimeMillis();
-        // userImage.base64Code = base64Data;
-
-        // CHỈ DÙNG MAP
-        Map<String, Object> imageData = new HashMap<>();
-        // Removed imageId field - using document ID instead
-        imageData.put("createdAt", System.currentTimeMillis());
-        imageData.put("base64Code", base64Data);
-
-        try {
-            // Tạo document reference với imageId làm document ID
-            DocumentReference docRef = db.collection("users")
-                    .document(authorId)
-                    .collection(IMAGES_COLLECTION)
-                    .document(imageId); // Sử dụng imageId làm document ID
-
-            // Document ID is now imageId
-            String documentId = imageId;
-
-            // Save data
-            docRef.set(imageData)
-                    .addOnSuccessListener(aVoid -> {
-                        // Success
-
-                        // Image data saved successfully
-
-                        // Create a dummy post to satisfy callback interface
-                        Post dummyPost = new Post();
-                        dummyPost.postId = documentId; // Document ID is now imageId
-                        callback.onSuccess(dummyPost);
-                    })
-                    .addOnFailureListener(e -> {
-                        callback.onError(e);
-                    });
-
-        } catch (Exception e) {
-            callback.onError(e);
-        }
     }
     /**
      * Test Firestore rules với data đơn giản

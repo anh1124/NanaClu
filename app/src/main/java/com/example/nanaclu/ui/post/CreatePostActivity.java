@@ -233,38 +233,13 @@ public class CreatePostActivity extends AppCompatActivity {
         post.authorId = currentUserId;
         post.groupId = groupId;
         post.content = content;
-        post.imageIds = new ArrayList<>();
+        post.imageUrls = new ArrayList<>();
 
         // Process images
         if (!selectedImagePaths.isEmpty()) {
-            processImages(post, 0);
+            processImagesWithStorage(post);
         } else {
             // No images, create post directly
-            postRepository.createPost(post, new PostRepository.PostCallback() {
-                @Override
-                public void onSuccess(Post createdPost) {
-                    runOnUiThread(() -> {
-                        showLoading(false);
-                        Toast.makeText(CreatePostActivity.this, "Đăng bài thành công!", Toast.LENGTH_SHORT).show();
-                        setResult(Activity.RESULT_OK);
-        finish();
-                    });
-    }
-    
-    @Override
-                public void onError(Exception e) {
-                    runOnUiThread(() -> {
-                        showLoading(false);
-                        Toast.makeText(CreatePostActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
-                }
-            });
-        }
-    }
-
-    private void processImages(Post post, int index) {
-        if (index >= selectedImagePaths.size()) {
-            // All images processed, create post
             postRepository.createPost(post, new PostRepository.PostCallback() {
                 @Override
                 public void onSuccess(Post createdPost) {
@@ -275,7 +250,42 @@ public class CreatePostActivity extends AppCompatActivity {
                         finish();
                     });
                 }
+                
+                @Override
+                public void onError(Exception e) {
+                    runOnUiThread(() -> {
+                        showLoading(false);
+                        Toast.makeText(CreatePostActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+                }
+            });
+        }
+    }
 
+    private void processImagesWithStorage(Post post) {
+        // Convert image paths to byte arrays
+        List<byte[]> imageDataList = new ArrayList<>();
+        
+        for (String imagePath : selectedImagePaths) {
+            byte[] imageData = convertImageToByteArray(imagePath);
+            if (imageData != null) {
+                imageDataList.add(imageData);
+            }
+        }
+        
+        if (imageDataList.isEmpty()) {
+            // No valid images, create post without images
+            postRepository.createPost(post, new PostRepository.PostCallback() {
+                @Override
+                public void onSuccess(Post createdPost) {
+                    runOnUiThread(() -> {
+                        showLoading(false);
+                        Toast.makeText(CreatePostActivity.this, "Đăng bài thành công!", Toast.LENGTH_SHORT).show();
+                        setResult(Activity.RESULT_OK);
+                        finish();
+                    });
+                }
+                
                 @Override
                 public void onError(Exception e) {
                     runOnUiThread(() -> {
@@ -286,49 +296,48 @@ public class CreatePostActivity extends AppCompatActivity {
             });
             return;
         }
-
-        String imagePath = selectedImagePaths.get(index);
-        String imageId = UUID.randomUUID().toString();
-        post.imageIds.add(imageId);
-
-        // Convert image to base64
-        System.out.println("CreatePostActivity: About to call convertImageToBase64 for imagePath = " + imagePath);
-        String base64Data = convertImageToBase64(imagePath);
-        System.out.println("CreatePostActivity: convertImageToBase64 returned, base64Data = " + (base64Data != null ? "NOT NULL" : "NULL"));
-        System.out.println("CreatePostActivity: Converting image " + imagePath + " to base64");
-        System.out.println("CreatePostActivity: Base64 data length = " + (base64Data != null ? base64Data.length() : "null"));
-        if (base64Data != null) {
-            // Save image data
-            System.out.println("CreatePostActivity: Saving image data for imageId = " + imageId);
-            postRepository.saveImageData(currentUserId, imageId, base64Data, new PostRepository.PostCallback() {
-                @Override
-                public void onSuccess(Post savedImage) {
-                    System.out.println("CreatePostActivity: saveImageData SUCCESS for imageId = " + imageId);
-                    // Process next image
-                    processImages(post, index + 1);
-                }
-
-                @Override
-                public void onError(Exception e) {
-                    System.out.println("CreatePostActivity: saveImageData ERROR for imageId = " + imageId + ", error = " + e.getMessage());
-                    runOnUiThread(() -> {
-                        showLoading(false);
-                        Toast.makeText(CreatePostActivity.this, "Lỗi lưu hình ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
-                }
-            });
-        } else {
-            // Skip this image and continue
-            processImages(post, index + 1);
-        }
+        
+        // Upload images to Firebase Storage
+        postRepository.uploadMultipleImages(imageDataList, 
+            urls -> {
+                // Upload thành công, set URLs vào post
+                post.imageUrls = urls;
+                
+                // Tạo post với URLs
+                postRepository.createPost(post, new PostRepository.PostCallback() {
+                    @Override
+                    public void onSuccess(Post createdPost) {
+                        runOnUiThread(() -> {
+                            showLoading(false);
+                            Toast.makeText(CreatePostActivity.this, "Đăng bài thành công!", Toast.LENGTH_SHORT).show();
+                            setResult(Activity.RESULT_OK);
+                            finish();
+                        });
+                    }
+                    
+                    @Override
+                    public void onError(Exception e) {
+                        runOnUiThread(() -> {
+                            showLoading(false);
+                            Toast.makeText(CreatePostActivity.this, "Lỗi tạo bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                });
+            },
+            e -> {
+                runOnUiThread(() -> {
+                    showLoading(false);
+                    Toast.makeText(CreatePostActivity.this, "Lỗi upload ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        );
     }
 
-    private String convertImageToBase64(String imagePath) {
+    private byte[] convertImageToByteArray(String imagePath) {
         try {
-            System.out.println("CreatePostActivity: convertImageToBase64 - imagePath = " + imagePath);
-            // Firestore hạn chế giá trị field ~1MB; base64 tăng ~33%, nên nhắm < ~750KB bytes trước khi encode
-            final int targetMaxBytes = 750 * 1024; // ~750KB
-            final int maxDimension = 1600; // giới hạn cạnh dài để giảm kích thước nhưng giữ tỉ lệ
+            // Tối ưu hóa ảnh trước khi upload
+            final int maxDimension = 1600; // giới hạn cạnh dài
+            final int targetMaxBytes = 1024 * 1024; // 1MB
 
             // 1) Decode kích thước ban đầu
             android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
@@ -358,29 +367,25 @@ public class CreatePostActivity extends AppCompatActivity {
                 int newW = Math.round(bw * scale);
                 int newH = Math.round(bh * scale);
                 bitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, newW, newH, true);
-                bw = newW; bh = newH;
             }
 
             // 5) Nén JPEG chất lượng động để đạt dưới targetMaxBytes
             int quality = 90;
             byte[] jpegBytes;
             do {
-                java.io.ByteArrayOutputStream jpegOut = new java.io.ByteArrayOutputStream();
+                ByteArrayOutputStream jpegOut = new ByteArrayOutputStream();
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, jpegOut);
                 jpegBytes = jpegOut.toByteArray();
                 quality -= 5;
             } while (jpegBytes.length > targetMaxBytes && quality >= 60);
 
-            // 6) Encode base64 (NO_WRAP) và trả về
-            String base64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP);
-            System.out.println("CreatePostActivity: convertImageToBase64 - bytes=" + jpegBytes.length + ", base64 length=" + base64.length());
-            return base64;
+            return jpegBytes;
         } catch (Exception e) {
-            System.out.println("CreatePostActivity: convertImageToBase64 - error = " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
+
 
     private void showLoading(boolean show) {
         progressBar.setVisibility(show ? View.VISIBLE : View.GONE);

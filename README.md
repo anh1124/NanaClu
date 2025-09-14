@@ -15,9 +15,9 @@ Dự án được thiết kế để mô phỏng một hệ thống mạng xã h
   - Quản lý thành viên (mời, chấp nhận, từ chối, phân quyền admin/owner).  
   - Xóa/đổi tên nhóm.  
 - **Bài viết (Posts)**  
-  - Tạo bài viết (văn bản + ảnh base64).  
+  - Tạo bài viết (văn bản + ảnh Firebase Storage).  
   - Bình luận, like/unlike.  
-  - Xóa hoặc chỉnh sửa bài viết.  
+  - Xóa hoặc chỉnh sửa bài viết.
 - **Chat**  
   - Chat riêng (private).  
   - Chat nhóm.  
@@ -33,6 +33,8 @@ Dự án được thiết kế để mô phỏng một hệ thống mạng xã h
 - **Kiến trúc:** MVVM (Model - View - ViewModel)  
 - **Database:** Firebase Firestore (NoSQL)  
 - **Authentication:** Firebase Auth (Google, Email/Password)  
+- **Storage:** Firebase Storage (thay thế base64 cho lưu trữ ảnh)  
+- **Realtime:** Firebase Realtime Database (cập nhật trạng thái online/offline)  
   
 
 📌 MVVM flow:
@@ -102,12 +104,13 @@ app/
    - User chỉ được sửa thông tin của chính mình.  
    - Admin/Owner mới có quyền xóa/chỉnh sửa bài viết trong nhóm.  
    - Chỉ người tạo sự kiện mới có quyền huỷ sự kiện.  
-4. **Ảnh**: Dùng `base64` thay cho Firebase Storage (theo yêu cầu đề tài).  
+4. **Ảnh**: Dùng `Firebase Storage` thay cho base64 (cải thiện hiệu suất và giảm kích thước database).
 5. **Cập nhật dữ liệu chat với FCM**: Không sử dụng `addSnapshotListener`. Dùng **Firebase Cloud Messaging (FCM)** để nhận thông báo khi có tin nhắn/sự kiện mới và kích hoạt đồng bộ có điều kiện (fetch theo `createdAt > lastReadAt`). Hạn chế/không sử dụng polling định kỳ.  
-6. **Code style**:  
+6. **Trạng thái online**: Sử dụng **Firebase Realtime Database** để cập nhật và theo dõi trạng thái online/offline của người dùng theo thời gian thực.
+7. **Code style**:  
    - Tên class PascalCase (`UserViewModel`)  
    - Tên biến camelCase (`createdAt`, `authorId`)  
-   - Comment code rõ ràng cho Repository & ViewModel.  
+   - Comment code rõ ràng cho Repository & ViewModel.
 
 ---
 
@@ -125,7 +128,7 @@ app/
 public class UserImage {
     public String imageId;
     public long createdAt;
-    public String base64Code;
+    public String storageUrl; // Firebase Storage URL thay cho base64Code
 
     public UserImage() {}
 }
