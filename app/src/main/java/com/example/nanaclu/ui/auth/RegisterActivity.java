@@ -51,6 +51,29 @@ public class RegisterActivity extends AppCompatActivity {
                 tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
             }
         });
+        viewModel.loading.observe(this, this::showLoading);
+
+    }
+
+    private android.app.Dialog loadingDialog;
+    private void showLoading(boolean show) {
+        if (show) {
+            if (loadingDialog == null) {
+                loadingDialog = new android.app.Dialog(this, android.R.style.Theme_Translucent_NoTitleBar);
+                android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+                root.setBackgroundColor(0x88000000);
+                root.setClickable(true);
+                android.widget.ProgressBar pb = new android.widget.ProgressBar(this);
+                android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.gravity = android.view.Gravity.CENTER;
+                root.addView(pb, lp);
+                loadingDialog.setContentView(root);
+                loadingDialog.setCancelable(false);
+            }
+            if (!loadingDialog.isShowing()) loadingDialog.show();
+        } else if (loadingDialog != null && loadingDialog.isShowing()) {
+            loadingDialog.dismiss();
+        }
     }
 }
 

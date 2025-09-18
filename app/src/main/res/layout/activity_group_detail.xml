@@ -84,6 +84,15 @@
             app:layout_constraintStart_toStartOf="parent"
             android:layout_marginStart="16dp"
             android:layout_marginTop="12dp"/>
+        <Button
+            android:id="@+id/btnChat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Chat"
+            app:layout_constraintTop_toTopOf="@id/btnInvite"
+            app:layout_constraintBottom_toBottomOf="@id/btnInvite"
+            app:layout_constraintStart_toEndOf="@id/btnInvite"
+            android:layout_marginStart="12dp"/>
 
         <androidx.cardview.widget.CardView
             android:id="@+id/postComposer"

@@ -137,8 +137,13 @@ public class EditGroupInfoActivity extends AppCompatActivity {
         currentGroup.name = newName;
         currentGroup.description = newDescription;
 
+
+        // Show blocking overlay while saving
+        showLoading(true);
+
         Runnable doUpdate = () -> groupRepository.updateGroup(currentGroup, new GroupRepository.UpdateCallback() {
             @Override public void onSuccess() {
+                showLoading(false);
                 Toast.makeText(EditGroupInfoActivity.this, "Cập nhật thông tin nhóm thành công", Toast.LENGTH_SHORT).show();
                 hasChanges = false;
                 pendingCoverUri = null;
@@ -147,6 +152,7 @@ public class EditGroupInfoActivity extends AppCompatActivity {
                 finish();
             }
             @Override public void onError(Exception e) {
+                showLoading(false);
                 Toast.makeText(EditGroupInfoActivity.this, "Lỗi khi cập nhật: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
@@ -156,6 +162,7 @@ public class EditGroupInfoActivity extends AppCompatActivity {
             byte[] coverBytes = getBytesFromUri(pendingCoverUri);
             if (coverBytes == null) {
                 Toast.makeText(this, "Không đọc được ảnh nền", Toast.LENGTH_SHORT).show();
+                showLoading(false);
                 return;
             }
             groupRepository.uploadGroupImage(coverBytes, "cover", url -> {
@@ -165,28 +172,39 @@ public class EditGroupInfoActivity extends AppCompatActivity {
                     byte[] avatarBytes = getBytesFromUri(pendingAvatarUri);
                     if (avatarBytes == null) {
                         Toast.makeText(this, "Không đọc được ảnh đại diện", Toast.LENGTH_SHORT).show();
+                        showLoading(false);
                         return;
                     }
                     groupRepository.uploadGroupImage(avatarBytes, "avatar", url2 -> {
                         currentGroup.avatarImageId = url2;
                         pendingAvatarUri = null;
                         doUpdate.run();
-                    }, e -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show());
+                    }, e -> {
+                        showLoading(false);
+                        Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
                 } else {
                     doUpdate.run();
                 }
-            }, e -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show());
+            }, e -> {
+                showLoading(false);
+                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+            });
         } else if (pendingAvatarUri != null) {
             byte[] avatarBytes = getBytesFromUri(pendingAvatarUri);
             if (avatarBytes == null) {
                 Toast.makeText(this, "Không đọc được ảnh đại diện", Toast.LENGTH_SHORT).show();
+                showLoading(false);
                 return;
             }
             groupRepository.uploadGroupImage(avatarBytes, "avatar", url2 -> {
                 currentGroup.avatarImageId = url2;
                 pendingAvatarUri = null;
                 doUpdate.run();
-            }, e -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show());
+            }, e -> {
+                showLoading(false);
+                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+            });
         } else {
             doUpdate.run();
         }
@@ -246,4 +264,29 @@ public class EditGroupInfoActivity extends AppCompatActivity {
         }
         return super.onOptionsItemSelected(item);
     }
+
+    private android.app.Dialog loadingDialog;
+    private void showLoading(boolean show) {
+        if (show) {
+            if (loadingDialog == null) {
+                loadingDialog = new android.app.Dialog(this, android.R.style.Theme_Translucent_NoTitleBar);
+                android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+                root.setBackgroundColor(0x88000000);
+                root.setClickable(true);
+                android.widget.ProgressBar pb = new android.widget.ProgressBar(this);
+                android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                lp.gravity = android.view.Gravity.CENTER;
+                root.addView(pb, lp);
+                loadingDialog.setContentView(root);
+                loadingDialog.setCancelable(false);
+            }
+            if (!loadingDialog.isShowing()) loadingDialog.show();
+        } else if (loadingDialog != null && loadingDialog.isShowing()) {
+            loadingDialog.dismiss();
+        }
+    }
+
 }

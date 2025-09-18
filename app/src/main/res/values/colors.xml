@@ -10,4 +10,6 @@
     <color name="gray_border">#E0E0E0</color>
     <color name="red_error">#F44336</color>
     <color name="background_light">#FAFAFA</color>
+    <color name="purple_500">#a8d7ff</color>
+
 </resources>

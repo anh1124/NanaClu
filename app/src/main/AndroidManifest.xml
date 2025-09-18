@@ -38,6 +38,7 @@
         <activity android:name=".ui.post.ImageViewerActivity" android:exported="false" />
         <activity android:name=".ui.auth.LoginActivity" android:exported="false" />
         <activity android:name=".ui.auth.RegisterActivity" android:exported="false" />
+            <activity android:name=".ui.profile.ProfileActivity" android:exported="false" />
     </application>
 
 </manifest>

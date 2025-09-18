@@ -181,6 +181,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
             setupImagesDynamic(post);
 
+            ivAuthorAvatar.setOnClickListener(v -> openProfile(post.authorId));
+            tvAuthorName.setOnClickListener(v -> openProfile(post.authorId));
+
             // Set icon like ban đầu theo trạng thái
             if (currentUserId != null) {
                 postRepository.isPostLiked(post.groupId, post.postId, currentUserId,
@@ -422,6 +425,12 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             intent.putStringArrayListExtra("images", urls);
             intent.putExtra("index", index);
             itemView.getContext().startActivity(intent);
+        }
+
+        private void openProfile(String uid) {
+            android.content.Intent i = new android.content.Intent(itemView.getContext(), com.example.nanaclu.ui.profile.ProfileActivity.class);
+            i.putExtra("userId", uid);
+            itemView.getContext().startActivity(i);
         }
 
     }

@@ -36,7 +36,16 @@ public class HomeActivity extends AppCompatActivity {
                         .commit();
                 return true;
             });
-            bottom.setSelectedItemId(R.id.nav_home);
+            String startTab = getIntent().getStringExtra("start_tab");
+            if ("chat".equals(startTab)) {
+                bottom.setSelectedItemId(R.id.nav_chat);
+            } else if ("groups".equals(startTab)) {
+                bottom.setSelectedItemId(R.id.nav_group);
+            } else if ("me".equals(startTab)) {
+                bottom.setSelectedItemId(R.id.nav_me);
+            } else {
+                bottom.setSelectedItemId(R.id.nav_home);
+            }
         }
     }
 

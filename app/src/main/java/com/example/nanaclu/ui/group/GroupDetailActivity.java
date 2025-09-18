@@ -151,6 +151,11 @@ public class GroupDetailActivity extends AppCompatActivity {
 
         // Setup click listeners
         findViewById(R.id.btnInvite).setOnClickListener(v -> showInviteDialog());
+        findViewById(R.id.btnChat).setOnClickListener(v -> {
+            Intent it = new Intent(this, com.example.nanaclu.ui.HomeActivity.class);
+            it.putExtra("start_tab", "chat");
+            startActivity(it);
+        });
 
         // Make entire post composer area clickable
         View postComposerArea = findViewById(R.id.postComposer);
