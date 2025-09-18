@@ -428,9 +428,21 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         }
 
         private void openProfile(String uid) {
-            android.content.Intent i = new android.content.Intent(itemView.getContext(), com.example.nanaclu.ui.profile.ProfileActivity.class);
+            if (uid == null || uid.trim().isEmpty()) {
+                android.widget.Toast.makeText(itemView.getContext(), "Không thể mở hồ sơ: thiếu userId", android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            android.content.Context ctx = itemView.getContext();
+            android.content.Intent i = new android.content.Intent(ctx, com.example.nanaclu.ui.profile.ProfileActivity.class);
             i.putExtra("userId", uid);
-            itemView.getContext().startActivity(i);
+            if (!(ctx instanceof android.app.Activity)) {
+                i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+            try {
+                ctx.startActivity(i);
+            } catch (Exception e) {
+                android.widget.Toast.makeText(ctx, "Không thể mở hồ sơ", android.widget.Toast.LENGTH_SHORT).show();
+            }
         }
 
     }

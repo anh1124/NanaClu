@@ -3,6 +3,7 @@ package com.example.nanaclu.ui.profile;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -38,8 +39,8 @@ public class ProfileActivity extends AppCompatActivity {
         ImageView imgAvatar = findViewById(R.id.imgAvatar);
         TextView tvDisplayName = findViewById(R.id.tvDisplayName);
         TextView tvEmail = findViewById(R.id.tvEmail);
-        ViewGroup btnChat = findViewById(R.id.btnChat);
-        ViewGroup btnBack = findViewById(R.id.btnBack);
+        View btnChat = findViewById(R.id.btnChat);
+        View btnBack = findViewById(R.id.btnBack);
 
         // Back
         if (btnBack != null) btnBack.setOnClickListener(v -> finish());

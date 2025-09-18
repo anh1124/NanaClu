@@ -1,77 +1,138 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@drawable/bg_dialog_round"
-    android:layout_margin="16dp">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
+    <!-- Phần trống 1/5 để có thể tắt dialog -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Phần dialog 4/5 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="20dp">
+        android:layout_height="0dp"
+        android:layout_weight="4"
+        android:orientation="vertical"
+        android:background="@drawable/bg_dialog_round"
+        android:layout_marginHorizontal="8dp">
 
-        <TextView
-            android:layout_width="0dp"
+        <!-- Header với indicator -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp">
+
+            <!-- Thanh kéo -->
+            <View
+                android:layout_width="40dp"
+                android:layout_height="4dp"
+                android:background="#E0E0E0"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Tiêu đề -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Bình luận"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="#1A1A1A" />
+
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#F0F0F0"
+                android:layout_marginTop="16dp" />
+
+        </LinearLayout>
+
+        <!-- RecyclerView -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCommentsDemo"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:text="Bình luận"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#333333"/>
+            android:scrollbars="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="8dp"
+            android:clipToPadding="false" />
 
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Input section với shadow -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Demo"
-            android:textSize="12sp"
-            android:textColor="#999999"
-            android:background="#F0F0F0"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"/>
-    </LinearLayout>
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvCommentsDemo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:maxHeight="400dp"
-        android:scrollbars="vertical"
-        android:layout_marginBottom="16dp"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="#F8F8F8"
-        android:padding="12dp">
-
-        <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@mipmap/ic_launcher_round"
-            android:layout_marginEnd="8dp"/>
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Viết bình luận..."
-            android:textColor="#999999"
-            android:textSize="14sp"
-            android:padding="8dp"
+            android:orientation="vertical"
             android:background="#FFFFFF"
-            android:layout_marginEnd="8dp"/>
+            android:elevation="8dp">
 
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/ic_menu_send"
-            android:tint="#6200EE"/>
+            <!-- Shadow line -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E8E8E8" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp">
+
+                <!-- Avatar -->
+                <ImageView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:src="@mipmap/ic_launcher_round"
+                    android:layout_marginEnd="12dp" />
+
+                <!-- Input field với border radius -->
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:text="Viết bình luận..."
+                    android:textColor="#999999"
+                    android:textSize="15sp"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="16dp"
+
+                    android:layout_marginEnd="12dp" />
+                <!--android:background="@drawable/bg_input_comment"-->
+                <!-- Send button -->
+                <LinearLayout
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@android:drawable/ic_menu_send"
+                    android:gravity="center">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@android:drawable/ic_menu_send"
+                        app:tint="#FFFFFF" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </LinearLayout>
+
     </LinearLayout>
 
 </LinearLayout>
