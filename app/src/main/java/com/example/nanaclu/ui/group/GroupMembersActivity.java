@@ -86,9 +86,9 @@ public class GroupMembersActivity extends AppCompatActivity {
         
         // Setup RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new GroupMembersAdapter(filteredMembers, this::onMemberClick);
+        adapter = new GroupMembersAdapter(filteredMembers, this::onMemberClick, currentUserId);
         recyclerView.setAdapter(adapter);
-        
+
         // Setup SearchView
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -225,13 +225,32 @@ public class GroupMembersActivity extends AppCompatActivity {
     }
 
     private void showMemberMenu(Member member, boolean isAdminOrOwner) {
-        String[] menuItems;
-        if (isAdminOrOwner) {
-            menuItems = new String[]{"Thông tin", "Bài đăng", "Nâng quyền", "Kick"};
-        } else {
-            menuItems = new String[]{"Thông tin", "Bài đăng"};
+        // Determine current user's role and target member role
+        String myRole = currentUserMember != null ? currentUserMember.role : null;
+        String targetRole = member.role;
+        boolean isSelf = member.userId.equals(currentUserId);
+
+        List<String> items = new ArrayList<>();
+        items.add("Thông tin");
+        items.add("Bài đăng");
+
+        if (!isSelf) {
+            if ("owner".equals(myRole)) {
+                // Owner: can manage admins and members
+                if (!"owner".equals(targetRole)) {
+                    items.add("Nâng quyền"); // toggle admin/member
+                    items.add("Kick");
+                }
+            } else if ("admin".equals(myRole)) {
+                // Admin: can only act on members; cannot act on owner/admin
+                if ("member".equals(targetRole)) {
+                    items.add("Nâng quyền"); // promote to admin
+                    items.add("Kick");
+                }
+            }
         }
 
+        String[] menuItems = items.toArray(new String[0]);
         new AlertDialog.Builder(this)
                 .setTitle("Chọn hành động")
                 .setItems(menuItems, (dialog, which) -> {

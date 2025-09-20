@@ -11,6 +11,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Member;
+import com.example.nanaclu.data.model.User;
+import com.example.nanaclu.data.repository.UserRepository;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -21,14 +24,22 @@ public class GroupMembersAdapter extends RecyclerView.Adapter<GroupMembersAdapte
     
     private List<Member> members;
     private OnMemberClickListener listener;
+    private UserRepository userRepository;
+    private String currentUserId;
 
     public interface OnMemberClickListener {
         void onMemberClick(Member member);
     }
 
     public GroupMembersAdapter(List<Member> members, OnMemberClickListener listener) {
+        this(members, listener, null);
+    }
+
+    public GroupMembersAdapter(List<Member> members, OnMemberClickListener listener, String currentUserId) {
         this.members = members;
         this.listener = listener;
+        this.userRepository = new UserRepository(FirebaseFirestore.getInstance());
+        this.currentUserId = currentUserId;
     }
 
     @NonNull
@@ -79,45 +90,63 @@ public class GroupMembersAdapter extends RecyclerView.Adapter<GroupMembersAdapte
         }
 
         public void bind(Member member) {
-            // Set member name (truncated if too long)
-            String displayName = member.userName != null && !member.userName.isEmpty() 
-                ? member.userName 
-                : member.userId;
-            tvMemberName.setText(displayName);
-            
-            // Set role
-            String roleText = getRoleText(member.role);
-            tvMemberRole.setText(roleText);
-            
+            // Set default name first
+            tvMemberName.setText("Loading...");
+
+            // Load user info asynchronously
+            userRepository.getUserById(member.userId, new UserRepository.UserCallback() {
+                @Override
+                public void onSuccess(User user) {
+                    if (user != null && user.displayName != null) {
+                        tvMemberName.setText(user.displayName);
+                        // Load user avatar
+                        loadUserAvatar(user);
+                    } else {
+                        tvMemberName.setText(member.userId);
+                        showTextAvatar(member.userId);
+                    }
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    tvMemberName.setText(member.userId);
+                    showTextAvatar(member.userId);
+                }
+            });
+
+            // Hide role text since we have badge
+            tvMemberRole.setVisibility(View.GONE);
+
             // Set role badge
             setRoleBadge(member.role);
-            
+
             // Set join date
             String joinDate = formatDate(member.joinedAt);
             tvJoinDate.setText("Tham gia: " + joinDate);
-            
-            // Set avatar
-            loadAvatar(member);
         }
 
-        private void loadAvatar(Member member) {
-            if (member.avatarImageId != null && !member.avatarImageId.isEmpty()) {
-                // TODO: Load avatar from imageId
-                // For now, show text avatar
-                showTextAvatar(member);
+        private void loadUserAvatar(User user) {
+            if (user.photoUrl != null && !user.photoUrl.isEmpty()) {
+                // Load user photo
+                String photoUrl = user.photoUrl;
+                if (photoUrl.contains("googleusercontent.com") && !photoUrl.contains("sz=")) {
+                    photoUrl += (photoUrl.contains("?")?"&":"?") + "sz=128";
+                }
+                com.bumptech.glide.Glide.with(itemView.getContext())
+                        .load(photoUrl)
+                        .placeholder(R.mipmap.ic_launcher_round)
+                        .error(R.mipmap.ic_launcher_round)
+                        .circleCrop()
+                        .into(imgAvatar);
             } else {
-                // Show text avatar with first letter of name
-                showTextAvatar(member);
+                // Show text avatar
+                showTextAvatar(user.displayName != null ? user.displayName : user.userId);
             }
         }
 
-        private void showTextAvatar(Member member) {
-            String displayName = member.userName != null && !member.userName.isEmpty() 
-                ? member.userName 
-                : member.userId;
-            
+        private void showTextAvatar(String displayName) {
             String firstLetter = "";
-            if (!displayName.isEmpty()) {
+            if (displayName != null && !displayName.isEmpty()) {
                 firstLetter = displayName.substring(0, 1).toUpperCase();
             } else {
                 firstLetter = "U";
@@ -174,18 +203,20 @@ public class GroupMembersAdapter extends RecyclerView.Adapter<GroupMembersAdapte
         }
 
         private void setRoleBadge(String role) {
+            String you = (currentUserId != null && getAdapterPosition() != RecyclerView.NO_POSITION
+                    && members.get(getAdapterPosition()).userId.equals(currentUserId)) ? " • YOU" : "";
             switch (role) {
                 case "owner":
-                    tvRoleBadge.setText("OWNER");
+                    tvRoleBadge.setText("OWNER" + you);
                     tvRoleBadge.setBackgroundResource(R.drawable.role_badge_owner);
                     break;
                 case "admin":
-                    tvRoleBadge.setText("ADMIN");
+                    tvRoleBadge.setText("ADMIN" + you);
                     tvRoleBadge.setBackgroundResource(R.drawable.role_badge_admin);
                     break;
                 case "member":
                 default:
-                    tvRoleBadge.setText("MEMBER");
+                    tvRoleBadge.setText("MEMBER" + you);
                     tvRoleBadge.setBackgroundResource(R.drawable.role_badge_member);
                     break;
             }

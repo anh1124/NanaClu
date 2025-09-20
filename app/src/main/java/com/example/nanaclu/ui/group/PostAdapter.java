@@ -22,7 +22,9 @@ import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Post;
 import com.example.nanaclu.data.repository.PostRepository;
 import com.example.nanaclu.data.repository.UserRepository;
+import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.data.model.User;
+import com.example.nanaclu.data.model.Group;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
@@ -44,13 +46,21 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     private final PostRepository postRepository;
     private final PostActionListener actionListener;
     private final UserRepository userRepository;
+    private final GroupRepository groupRepository;
     private final String currentUserId;
+    private final boolean showGroupName; // true for feed, false for group detail
 
     public PostAdapter(PostRepository postRepository, PostActionListener actionListener) {
+        this(postRepository, actionListener, false); // Default: don't show group name
+    }
+
+    public PostAdapter(PostRepository postRepository, PostActionListener actionListener, boolean showGroupName) {
         this.postRepository = postRepository;
         this.actionListener = actionListener;
         this.userRepository = new UserRepository(FirebaseFirestore.getInstance());
+        this.groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
         this.currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        this.showGroupName = showGroupName;
     }
 
     public void setItems(List<Post> newItems) {
@@ -84,7 +94,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     }
 
     class PostViewHolder extends RecyclerView.ViewHolder {
-        TextView tvAuthorName, tvCreatedAt, tvContent;
+        TextView tvAuthorName, tvCreatedAt, tvContent, tvGroupName;
         ImageView btnLike; View btnComment;
         ImageView ivAuthorAvatar;
         View btnMore;
@@ -104,6 +114,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             tvAuthorName = itemView.findViewById(R.id.tvAuthorName);
             tvCreatedAt = itemView.findViewById(R.id.tvCreatedAt);
             tvContent = itemView.findViewById(R.id.tvContent);
+            tvGroupName = itemView.findViewById(R.id.tvGroupName);
             btnLike = itemView.findViewById(R.id.btnLike);
             btnComment = itemView.findViewById(R.id.btnComment);
             ivAuthorAvatar = itemView.findViewById(R.id.ivAuthorAvatar);
@@ -114,6 +125,21 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         }
 
         void bind(Post post) {
+            android.util.Log.d("PostAdapter", "bind: Post ID: " + post.postId + ", GroupID: " + post.groupId);
+
+            // Group name (only show in feed)
+            if (showGroupName && tvGroupName != null) {
+                tvGroupName.setVisibility(View.VISIBLE);
+                if (post.groupId != null && !post.groupId.isEmpty()) {
+                    loadGroupName(post.groupId);
+                } else {
+                    tvGroupName.setText("No Group");
+                    android.util.Log.w("PostAdapter", "bind: Post has no groupId");
+                }
+            } else if (tvGroupName != null) {
+                tvGroupName.setVisibility(View.GONE);
+            }
+
             // Author name/time
             tvAuthorName.setText("...");
             tvCreatedAt.setText(android.text.format.DateUtils.getRelativeTimeSpanString(post.createdAt));
@@ -432,6 +458,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 android.widget.Toast.makeText(itemView.getContext(), "Không thể mở hồ sơ: thiếu userId", android.widget.Toast.LENGTH_SHORT).show();
                 return;
             }
+
+            // Directly open profile
             android.content.Context ctx = itemView.getContext();
             android.content.Intent i = new android.content.Intent(ctx, com.example.nanaclu.ui.profile.ProfileActivity.class);
             i.putExtra("userId", uid);
@@ -443,6 +471,54 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             } catch (Exception e) {
                 android.widget.Toast.makeText(ctx, "Không thể mở hồ sơ", android.widget.Toast.LENGTH_SHORT).show();
             }
+        }
+
+        private void loadGroupName(String groupId) {
+            if (groupId == null || groupId.isEmpty()) {
+                tvGroupName.setText("Unknown Group");
+                android.util.Log.e("PostAdapter", "loadGroupName: groupId is null or empty");
+                return;
+            }
+
+            android.util.Log.d("PostAdapter", "loadGroupName: Loading group with ID: " + groupId);
+
+            groupRepository.getGroupById(groupId, new GroupRepository.GroupCallback() {
+                @Override
+                public void onSuccess(Group group) {
+                    if (group != null && group.name != null) {
+                        tvGroupName.setText(group.name);
+                        android.util.Log.d("PostAdapter", "loadGroupName: Loaded group name: " + group.name);
+                        // Add click listener to go to group detail
+                        tvGroupName.setOnClickListener(v -> {
+                            android.util.Log.d("PostAdapter", "Group name clicked, groupId: " + groupId);
+                            if (groupId == null || groupId.isEmpty()) {
+                                android.widget.Toast.makeText(itemView.getContext(), "Lỗi: groupId = null", android.widget.Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            android.content.Context ctx = itemView.getContext();
+                            android.content.Intent intent = new android.content.Intent(ctx, GroupDetailActivity.class);
+                            intent.putExtra("groupId", groupId);
+                            if (!(ctx instanceof android.app.Activity)) {
+                                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                            }
+                            try {
+                                ctx.startActivity(intent);
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(ctx, "Không thể mở nhóm: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    } else {
+                        tvGroupName.setText("Unknown Group");
+                        android.util.Log.e("PostAdapter", "loadGroupName: Group is null or has no name");
+                    }
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    tvGroupName.setText("Unknown Group");
+                    android.util.Log.e("PostAdapter", "loadGroupName: Error loading group", e);
+                }
+            });
         }
 
     }

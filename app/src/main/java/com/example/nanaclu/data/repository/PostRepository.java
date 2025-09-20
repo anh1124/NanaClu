@@ -126,6 +126,8 @@ public class PostRepository {
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         Post post = doc.toObject(Post.class);
                         if (post != null) {
+                            // Ensure groupId is set even if missing in old documents
+                            post.groupId = groupId;
                             posts.add(post);
                         }
                     }
@@ -155,7 +157,10 @@ public class PostRepository {
                     List<Post> posts = new ArrayList<>();
                     for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         Post post = doc.toObject(Post.class);
-                        if (post != null) posts.add(post);
+                        if (post != null) {
+                            post.groupId = groupId; // backfill groupId from path
+                            posts.add(post);
+                        }
                     }
                     com.google.firebase.firestore.DocumentSnapshot newLast =
                             querySnapshot.isEmpty() ? null : querySnapshot.getDocuments().get(querySnapshot.size() - 1);

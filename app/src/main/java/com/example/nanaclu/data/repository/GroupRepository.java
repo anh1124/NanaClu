@@ -436,6 +436,16 @@ public class GroupRepository {
                 .addOnFailureListener(callback::onError);
     }
 
+    public void updateMemberRole(String groupId, String userId, String newRole, UpdateCallback callback) {
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(MEMBERS_COLLECTION)
+                .document(userId)
+                .update("role", newRole)
+                .addOnSuccessListener(aVoid -> callback.onSuccess())
+                .addOnFailureListener(callback::onError);
+    }
+
     private void updateMemberCount(String groupId, UpdateCallback callback) {
         getGroupMembers(groupId, new MembersCallback() {
             @Override

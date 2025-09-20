@@ -18,7 +18,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Group;
 import com.example.nanaclu.data.model.Member;
+import com.example.nanaclu.data.repository.ChatRepository;
 import com.example.nanaclu.data.repository.GroupRepository;
+import com.example.nanaclu.ui.chat.ChatRoomActivity;
 import com.example.nanaclu.utils.ThemeUtils;
 import com.example.nanaclu.data.model.Post;
 import com.example.nanaclu.data.repository.PostRepository;
@@ -31,6 +33,7 @@ import java.util.List;
 
 public class GroupDetailActivity extends AppCompatActivity {
     private GroupRepository groupRepository;
+    private ChatRepository chatRepository;
     private String groupId;
     private Group currentGroup;
     private String currentUserId;
@@ -51,10 +54,14 @@ public class GroupDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_group_detail);
 
-        // Get group ID from intent
-        groupId = getIntent().getStringExtra("group_id");
+        // Get group ID from intent (support both keys: "groupId" and legacy "group_id")
+        groupId = getIntent().getStringExtra("groupId");
+        if (groupId == null) {
+            groupId = getIntent().getStringExtra("group_id");
+        }
         backupGroupId = groupId; // Store backup
         System.out.println("GroupDetailActivity: Received groupId = " + groupId);
+        android.util.Log.d("GroupDetailActivity", "onCreate: groupId=" + groupId + " (from intent)");
         Toast.makeText(this, "onCreate: groupId = " + groupId, Toast.LENGTH_SHORT).show();
         if (groupId == null) {
             Toast.makeText(this, "Group ID is required", Toast.LENGTH_SHORT).show();
@@ -74,6 +81,7 @@ public class GroupDetailActivity extends AppCompatActivity {
         // Initialize repository
         groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
         postRepository = new PostRepository(FirebaseFirestore.getInstance());
+        chatRepository = new ChatRepository(FirebaseFirestore.getInstance());
 
         // Setup toolbar
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
@@ -152,9 +160,9 @@ public class GroupDetailActivity extends AppCompatActivity {
         // Setup click listeners
         findViewById(R.id.btnInvite).setOnClickListener(v -> showInviteDialog());
         findViewById(R.id.btnChat).setOnClickListener(v -> {
-            Intent it = new Intent(this, com.example.nanaclu.ui.HomeActivity.class);
-            it.putExtra("start_tab", "chat");
-            startActivity(it);
+            if (groupId != null) {
+                createGroupChatAndOpen(groupId);
+            }
         });
 
         // Make entire post composer area clickable
@@ -282,21 +290,31 @@ public class GroupDetailActivity extends AppCompatActivity {
 
     private void updateUI(Group group) {
         TextView tvGroupName = findViewById(R.id.tvGroupName);
-        TextView tvMeta = findViewById(R.id.tvMeta);
+        TextView tvPrivacy = findViewById(R.id.tvPrivacy);
+        TextView tvMemberCount = findViewById(R.id.tvMemberCount);
         ImageView imgCover = findViewById(R.id.imgCover);
         ImageView imgGroupAvatar = findViewById(R.id.imgGroupAvatar);
 
         tvGroupName.setText(group.name != null ? group.name : "");
 
         String privacy = group.isPublic ? "Public" : "Private";
+        tvPrivacy.setText(privacy);
+
         String memberText = group.memberCount + " thành viên";
-        tvMeta.setText(privacy + " • " + memberText);
+        tvMemberCount.setText(memberText);
+
+        // Make member count clickable
+        tvMemberCount.setOnClickListener(v -> openMembersActivity());
 
         if (group.coverImageId != null && !group.coverImageId.isEmpty()) {
             loadImageUrlInto(imgCover, group.coverImageId);
+            // Add click listener for fullscreen view
+            imgCover.setOnClickListener(v -> showFullscreenImage(group.coverImageId, "Cover Image"));
         }
         if (group.avatarImageId != null && !group.avatarImageId.isEmpty()) {
             loadImageUrlInto(imgGroupAvatar, group.avatarImageId);
+            // Add click listener for fullscreen view
+            imgGroupAvatar.setOnClickListener(v -> showFullscreenImage(group.avatarImageId, "Group Avatar"));
         }
     }
 
@@ -309,6 +327,33 @@ public class GroupDetailActivity extends AppCompatActivity {
                 view.post(() -> view.setImageBitmap(bmp));
             } catch (Exception ignored) {}
         }).start();
+    }
+
+    private void showFullscreenImage(String imageUrl, String title) {
+        if (imageUrl == null || imageUrl.isEmpty()) return;
+
+        // Create fullscreen dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_fullscreen_image, null);
+
+        ImageView imgFullscreen = dialogView.findViewById(R.id.imgFullscreen);
+        TextView tvTitle = dialogView.findViewById(R.id.tvTitle);
+        View btnClose = dialogView.findViewById(R.id.btnClose);
+
+        tvTitle.setText(title);
+
+        // Load image
+        loadImageUrlInto(imgFullscreen, imageUrl);
+
+        AlertDialog dialog = builder.setView(dialogView).create();
+
+        // Close button
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+
+        // Click anywhere to close
+        imgFullscreen.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
     }
 
 
@@ -544,6 +589,12 @@ public class GroupDetailActivity extends AppCompatActivity {
                 .show();
     }
 
+    private void openMembersActivity() {
+        Intent intent = new Intent(this, GroupMembersActivity.class);
+        intent.putExtra("groupId", groupId);
+        startActivity(intent);
+    }
+
     private void deleteGroupAndLeave() {
         groupRepository.deleteGroup(groupId, new GroupRepository.UpdateCallback() {
             @Override
@@ -666,5 +717,20 @@ public class GroupDetailActivity extends AppCompatActivity {
         canvas.drawText(text, x, y, paint);
 
         return new android.graphics.drawable.BitmapDrawable(getResources(), bitmap);
+    }
+
+    private void createGroupChatAndOpen(String groupId) {
+        chatRepository.getOrCreateGroupChat(groupId)
+            .addOnSuccessListener(chatId -> {
+                Intent intent = new Intent(this, ChatRoomActivity.class);
+                intent.putExtra("chatId", chatId);
+                intent.putExtra("chatTitle", currentGroup != null ? currentGroup.name : "Group Chat");
+                intent.putExtra("chatType", "group");
+                intent.putExtra("groupId", groupId);
+                startActivity(intent);
+            })
+            .addOnFailureListener(e -> {
+                Toast.makeText(this, "Failed to create group chat: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            });
     }
 }

@@ -86,7 +86,7 @@ public class FeedFragment extends Fragment {
             @Override public void onComment(Post post) { showCommentsDemo(); }
             @Override public void onDelete(Post post) {}
             @Override public void onReport(Post post) {}
-        });
+        }, true); // Show group name in feed
         rvFeed.setAdapter(adapter);
         // Manual refresh: swipe up at bottom to load more; horizontal swipe to navigate fragments
         rvFeed.setOnTouchListener(new android.view.View.OnTouchListener() {
@@ -306,10 +306,17 @@ public class FeedFragment extends Fragment {
     }
     private void showCommentsDemo() {
         if (getContext() == null) return;
-        android.app.Dialog dialog = new android.app.Dialog(getContext());
-        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        com.google.android.material.bottomsheet.BottomSheetDialog dialog = new com.google.android.material.bottomsheet.BottomSheetDialog(requireContext(), com.google.android.material.R.style.Theme_Material3_Light_BottomSheetDialog);
         android.view.View content = android.view.LayoutInflater.from(getContext())
                 .inflate(R.layout.dialog_comments_demo, null, false);
+        // Dismiss when tapping the top blank area (first child of root)
+        if (content instanceof android.view.ViewGroup) {
+            android.view.ViewGroup vg = (android.view.ViewGroup) content;
+            if (vg.getChildCount() > 0) {
+                android.view.View touchOutside = vg.getChildAt(0);
+                touchOutside.setOnClickListener(v -> dialog.dismiss());
+            }
+        }
         androidx.recyclerview.widget.RecyclerView rv = content.findViewById(R.id.rvCommentsDemo);
         rv.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(getContext()));
         java.util.List<String> samples = java.util.Arrays.asList(
@@ -331,13 +338,17 @@ public class FeedFragment extends Fragment {
             }
         });
         dialog.setContentView(content);
-        if (dialog.getWindow()!=null) {
-            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
-            android.view.WindowManager.LayoutParams lp = new android.view.WindowManager.LayoutParams();
-            lp.copyFrom(dialog.getWindow().getAttributes());
-            lp.width = android.view.WindowManager.LayoutParams.MATCH_PARENT;
-            dialog.getWindow().setAttributes(lp);
-        }
+        dialog.setCancelable(true);
+        dialog.setCanceledOnTouchOutside(true);
+        dialog.setOnShowListener(d -> {
+            android.view.View bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                com.google.android.material.bottomsheet.BottomSheetBehavior<?> behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
+                behavior.setHideable(true);
+                behavior.setDraggable(true);
+                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+            }
+        });
         dialog.show();
     }
 }

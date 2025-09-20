@@ -5,6 +5,9 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 
 import com.example.nanaclu.data.model.Message;
+import com.example.nanaclu.data.model.User;
+import com.example.nanaclu.data.repository.ChatRepository;
+import com.example.nanaclu.data.repository.UserRepository;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
@@ -26,31 +29,74 @@ import java.util.Map;
 public class MessageRepository {
     private final FirebaseFirestore db;
     private final FirebaseStorage storage;
+    private final ChatRepository chatRepository;
+    private final UserRepository userRepository;
     private static final String CHATS = "chats";
     private static final String MESSAGES = "messages";
 
     public MessageRepository(FirebaseFirestore db, FirebaseStorage storage) {
         this.db = db;
         this.storage = storage;
+        this.chatRepository = new ChatRepository(db);
+        this.userRepository = new UserRepository(db);
     }
 
-    public Task<String> sendText(String chatId, String authorId, String text) {
+    public Task<String> sendText(String chatId, String authorId, String text, String chatType, String groupId) {
         if (chatId == null || authorId == null || text == null) return Tasks.forException(new IllegalArgumentException("null"));
-        CollectionReference msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+
+        // For now, use a simple approach - get current user's name from FirebaseAuth
+        String authorName = "Unknown";
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null && currentUser.getDisplayName() != null) {
+            authorName = currentUser.getDisplayName();
+        }
+
+        // Determine correct collection path based on chat type
+        CollectionReference msgs;
+        if ("group".equals(chatType) && groupId != null) {
+            // Group chat: groups/{groupId}/chats/{chatId}/messages
+            msgs = db.collection("groups")
+                    .document(groupId)
+                    .collection("chats")
+                    .document(chatId)
+                    .collection(MESSAGES);
+        } else {
+            // Private chat: chats/{chatId}/messages
+            msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+        }
+
         DocumentReference msgRef = msgs.document();
         Map<String, Object> data = new HashMap<>();
         data.put("messageId", msgRef.getId());
         data.put("authorId", authorId);
+        data.put("authorName", authorName);
         data.put("type", "text");
         data.put("content", text);
         data.put("createdAt", FieldValue.serverTimestamp());
-        return msgRef.set(data).continueWithTask(t -> Tasks.forResult(msgRef.getId()));
+        return msgRef.set(data).continueWithTask(t -> {
+            if (t.isSuccessful()) {
+                // Update last message metadata
+                chatRepository.updateLastMessageMeta(chatId, text, authorId, System.currentTimeMillis());
+            }
+            return Tasks.forResult(msgRef.getId());
+        });
+    }
+
+    // Backward compatibility method
+    public Task<String> sendText(String chatId, String authorId, String text) {
+        return sendText(chatId, authorId, text, "private", null);
     }
 
     public Task<String> sendImage(String chatId, String authorId, Uri imageUri) {
         if (chatId == null || authorId == null || imageUri == null) return Tasks.forException(new IllegalArgumentException("null"));
         String path = "chat_images/" + chatId + "/" + System.currentTimeMillis() + "_" + Math.abs(imageUri.hashCode()) + ".jpg";
         StorageReference ref = storage.getReference().child(path);
+
+        // Get display name once for authorName field
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        final String finalAuthorName = (currentUser != null && currentUser.getDisplayName() != null)
+                ? currentUser.getDisplayName() : "Unknown";
+
         return ref.putFile(imageUri)
                 .continueWithTask(ut -> {
                     if (!ut.isSuccessful()) return Tasks.forException(ut.getException());
@@ -60,15 +106,76 @@ public class MessageRepository {
                     if (!t.isSuccessful()) return Tasks.forException(t.getException());
                     String url = t.getResult() != null ? t.getResult().toString() : null;
                     if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
+
+                    // Use private chat path for backward compatibility
                     CollectionReference msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
                     DocumentReference msgRef = msgs.document();
                     Map<String, Object> data = new HashMap<>();
                     data.put("messageId", msgRef.getId());
                     data.put("authorId", authorId);
+                    data.put("authorName", finalAuthorName);
                     data.put("type", "image");
                     data.put("content", url);
                     data.put("createdAt", FieldValue.serverTimestamp());
-                    return msgRef.set(data).continueWithTask(done -> Tasks.forResult(msgRef.getId()));
+                    return msgRef.set(data).continueWithTask(done -> {
+                        if (done.isSuccessful()) {
+                            // Update last message metadata for image
+                            chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, System.currentTimeMillis());
+                        }
+                        return Tasks.forResult(msgRef.getId());
+                    });
+                });
+    }
+
+    public Task<String> sendImage(String chatId, String authorId, Uri imageUri, String chatType, String groupId) {
+        if (chatId == null || authorId == null || imageUri == null) return Tasks.forException(new IllegalArgumentException("null"));
+        String path = "chat_images/" + chatId + "/" + System.currentTimeMillis() + "_" + Math.abs(imageUri.hashCode()) + ".jpg";
+        StorageReference ref = storage.getReference().child(path);
+
+        // Get display name once for authorName field
+        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        final String finalAuthorName = (currentUser != null && currentUser.getDisplayName() != null)
+                ? currentUser.getDisplayName() : "Unknown";
+
+        return ref.putFile(imageUri)
+                .continueWithTask(ut -> {
+                    if (!ut.isSuccessful()) return Tasks.forException(ut.getException());
+                    return ref.getDownloadUrl();
+                })
+                .continueWithTask(t -> {
+                    if (!t.isSuccessful()) return Tasks.forException(t.getException());
+                    String url = t.getResult() != null ? t.getResult().toString() : null;
+                    if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
+
+                    // Determine correct collection path based on chat type
+                    CollectionReference msgs;
+                    if ("group".equals(chatType) && groupId != null) {
+                        // Group chat: groups/{groupId}/chats/{chatId}/messages
+                        msgs = db.collection("groups")
+                                .document(groupId)
+                                .collection("chats")
+                                .document(chatId)
+                                .collection(MESSAGES);
+                    } else {
+                        // Private chat: chats/{chatId}/messages
+                        msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+                    }
+
+                    DocumentReference msgRef = msgs.document();
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("messageId", msgRef.getId());
+                    data.put("authorId", authorId);
+                    data.put("authorName", finalAuthorName);
+                    data.put("type", "image");
+                    data.put("content", url);
+                    data.put("createdAt", FieldValue.serverTimestamp());
+                    return msgRef.set(data).continueWithTask(done -> {
+                        if (done.isSuccessful()) {
+                            // Update last message metadata for image
+                            chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, System.currentTimeMillis());
+                        }
+                        return Tasks.forResult(msgRef.getId());
+                    });
                 });
     }
 
@@ -78,21 +185,111 @@ public class MessageRepository {
      */
     public Task<List<Message>> listMessages(String chatId, @Nullable Long anchorTs, int limit) {
         if (chatId == null) return Tasks.forResult(new ArrayList<>());
+        android.util.Log.d("MessageRepository", "listMessages: chatId=" + chatId + ", anchorTs=" + anchorTs + ", limit=" + limit);
+
         Query q = db.collection(CHATS).document(chatId).collection(MESSAGES)
-                .orderBy("createdAt", Query.Direction.DESCENDING);
+                .orderBy("createdAt", Query.Direction.ASCENDING);
         if (anchorTs != null) {
-            q = q.whereLessThan("createdAt", anchorTs);
+            q = q.whereGreaterThan("createdAt", anchorTs);
         }
         if (limit > 0) q = q.limit(limit);
+
         return q.get().continueWith(t -> {
             List<Message> list = new ArrayList<>();
             if (t.isSuccessful() && t.getResult() != null) {
+                android.util.Log.d("MessageRepository", "listMessages: found " + t.getResult().size() + " documents");
                 for (DocumentSnapshot ds : t.getResult().getDocuments()) {
                     Message m = ds.toObject(Message.class);
-                    if (m != null) list.add(m);
+                    if (m != null) {
+                        android.util.Log.d("MessageRepository", "Message: " + m.messageId + ", content: " + m.content);
+                        list.add(m);
+                    }
                 }
+            } else {
+                android.util.Log.e("MessageRepository", "listMessages failed: " + (t.getException() != null ? t.getException().getMessage() : "unknown"));
             }
+            android.util.Log.d("MessageRepository", "listMessages: returning " + list.size() + " messages");
             return list;
+        });
+    }
+
+    public Task<List<Message>> listMessages(String chatId, @Nullable Long anchorTs, int limit, String chatType, String groupId) {
+        if (chatId == null) return Tasks.forResult(new ArrayList<>());
+        android.util.Log.d("MessageRepository", "listMessages: chatId=" + chatId + ", chatType=" + chatType + ", groupId=" + groupId);
+
+        // Determine correct collection path based on chat type
+        Query q;
+        if ("group".equals(chatType) && groupId != null) {
+            // Group chat: groups/{groupId}/chats/{chatId}/messages
+            q = db.collection("groups")
+                    .document(groupId)
+                    .collection("chats")
+                    .document(chatId)
+                    .collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.ASCENDING);
+        } else {
+            // Private chat: chats/{chatId}/messages
+            q = db.collection(CHATS).document(chatId).collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.ASCENDING);
+        }
+
+        if (anchorTs != null) {
+            q = q.whereGreaterThan("createdAt", anchorTs);
+        }
+        if (limit > 0) q = q.limit(limit);
+
+        return q.get().continueWith(t -> {
+            List<Message> list = new ArrayList<>();
+            if (t.isSuccessful() && t.getResult() != null) {
+                android.util.Log.d("MessageRepository", "listMessages: found " + t.getResult().size() + " documents");
+                for (DocumentSnapshot ds : t.getResult().getDocuments()) {
+                    Message m = ds.toObject(Message.class);
+                    if (m != null) {
+                        android.util.Log.d("MessageRepository", "Message: " + m.messageId + ", content: " + m.content);
+                        list.add(m);
+                    }
+                }
+            } else {
+                android.util.Log.e("MessageRepository", "listMessages failed: " + (t.getException() != null ? t.getException().getMessage() : "unknown"));
+            }
+            android.util.Log.d("MessageRepository", "listMessages: returning " + list.size() + " messages");
+            return list;
+        });
+    }
+
+    /**
+     * Realtime listener for messages with proper collection path based on chat type.
+     * Order: by createdAt ASC so UI can append.
+     */
+    public com.google.firebase.firestore.ListenerRegistration listenMessages(
+            String chatId,
+            String chatType,
+            String groupId,
+            com.google.firebase.firestore.EventListener<com.google.firebase.firestore.QuerySnapshot> listener
+    ) {
+        android.util.Log.d("MessageRepoRT", "attach: chatId=" + chatId + ", chatType=" + chatType + ", groupId=" + groupId);
+        if (chatId == null) return null;
+        Query q;
+        if ("group".equals(chatType) && groupId != null) {
+            q = db.collection("groups")
+                    .document(groupId)
+                    .collection("chats")
+                    .document(chatId)
+                    .collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.ASCENDING);
+        } else {
+            q = db.collection(CHATS)
+                    .document(chatId)
+                    .collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.ASCENDING);
+        }
+        return q.addSnapshotListener((snap, err) -> {
+            if (err != null) {
+                android.util.Log.e("MessageRepoRT", "onEvent error: " + err.getMessage(), err);
+            } else if (snap != null) {
+                android.util.Log.d("MessageRepoRT", "onEvent: count=" + snap.size());
+            }
+            if (listener != null) listener.onEvent(snap, err);
         });
     }
 
@@ -111,5 +308,54 @@ public class MessageRepository {
         data.put("content", "Tin nhắn đã được thu hồi");
         return db.collection(CHATS).document(chatId).collection(MESSAGES).document(messageId).update(data);
     }
+    // Load messages older than a timestamp (ASC order for UI; uses whereLessThan)
+    public Task<List<Message>> listMessagesBefore(String chatId, @Nullable Long beforeTs, int limit) {
+        if (chatId == null || beforeTs == null) return Tasks.forResult(new ArrayList<>());
+        Query q = db.collection(CHATS).document(chatId)
+                .collection(MESSAGES)
+                .orderBy("createdAt", Query.Direction.ASCENDING)
+                .whereLessThan("createdAt", beforeTs);
+        if (limit > 0) q = q.limit(limit);
+        return q.get().continueWith(t -> {
+            List<Message> list = new ArrayList<>();
+            if (t.isSuccessful() && t.getResult() != null) {
+                for (DocumentSnapshot ds : t.getResult().getDocuments()) {
+                    Message m = ds.toObject(Message.class);
+                    if (m != null) list.add(m);
+                }
+            }
+            return list;
+        });
+    }
+
+    // Overload for group/private based on chatType
+    public Task<List<Message>> listMessagesBefore(String chatId, @Nullable Long beforeTs, int limit, String chatType, String groupId) {
+        if (chatId == null || beforeTs == null) return Tasks.forResult(new ArrayList<>());
+        Query q;
+        if ("group".equals(chatType) && groupId != null) {
+            q = db.collection("groups").document(groupId)
+                    .collection("chats").document(chatId)
+                    .collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.ASCENDING)
+                    .whereLessThan("createdAt", beforeTs);
+        } else {
+            q = db.collection(CHATS).document(chatId)
+                    .collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.ASCENDING)
+                    .whereLessThan("createdAt", beforeTs);
+        }
+        if (limit > 0) q = q.limit(limit);
+        return q.get().continueWith(t -> {
+            List<Message> list = new ArrayList<>();
+            if (t.isSuccessful() && t.getResult() != null) {
+                for (DocumentSnapshot ds : t.getResult().getDocuments()) {
+                    Message m = ds.toObject(Message.class);
+                    if (m != null) list.add(m);
+                }
+            }
+            return list;
+        });
+    }
+
 }
 

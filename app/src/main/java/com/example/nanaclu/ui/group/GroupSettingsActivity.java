@@ -2,6 +2,7 @@ package com.example.nanaclu.ui.group;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.view.View;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.widget.CompoundButton;
@@ -58,11 +59,22 @@ public class GroupSettingsActivity extends AppCompatActivity {
         // Setup click listeners for cards
         findViewById(R.id.cardEditInfo).setOnClickListener(v -> openEditInfoActivity());
         findViewById(R.id.cardDeleteGroup).setOnClickListener(v -> showDeleteGroupDialog());
-        
+        View cardPermissions = findViewById(R.id.cardPermissions);
+        if (cardPermissions != null) {
+            cardPermissions.setOnClickListener(v -> openPermissions());
+        }
+
         // Setup privacy switch
         switchPrivacy = findViewById(R.id.switchPrivacy);
         tvPrivacyStatus = findViewById(R.id.tvPrivacyStatus);
         switchPrivacy.setOnCheckedChangeListener(this::onPrivacySwitchChanged);
+    }
+
+    private void openPermissions() {
+        Intent intent = new Intent(this, TransferOwnershipActivity.class);
+        intent.putExtra("groupId", groupId);
+        intent.putExtra("currentUserId", currentUserId);
+        startActivity(intent);
     }
 
     private void loadGroupData() {

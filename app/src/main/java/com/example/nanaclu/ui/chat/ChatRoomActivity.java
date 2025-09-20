@@ -1,0 +1,298 @@
+package com.example.nanaclu.ui.chat;
+
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import com.example.nanaclu.R;
+import com.example.nanaclu.data.model.Message;
+import com.example.nanaclu.viewmodel.ChatRoomViewModel;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.button.MaterialButton;
+
+import java.util.ArrayList;
+
+public class ChatRoomActivity extends AppCompatActivity {
+    private static final int PICK_IMAGE_REQUEST = 1001;
+
+    private ChatRoomViewModel viewModel;
+    private MessageAdapter adapter;
+    private RecyclerView rvMessages;
+    private SwipeRefreshLayout swipeRefresh;
+    private EditText etMessage;
+    private ImageButton btnSend, btnAttach;
+    private MaterialToolbar toolbar;
+    private MaterialButton btnScrollDown;
+
+    private String chatId;
+    private String chatTitle = "Chat";
+    private String chatType;
+    private String groupId;
+
+    // State for bottom/new messages
+    private boolean isAtBottom = true;
+    private int lastRenderedCount = 0;
+    private int pendingNewCount = 0;
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_chat_room);
+
+        // Get chat info from intent
+        chatId = getIntent().getStringExtra("chatId");
+        chatTitle = getIntent().getStringExtra("chatTitle");
+        chatType = getIntent().getStringExtra("chatType");
+        groupId = getIntent().getStringExtra("groupId");
+        if (chatTitle == null) chatTitle = "Chat";
+
+        if (chatId == null) {
+            Toast.makeText(this, "Invalid chat ID", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        initViews();
+        setupToolbar();
+        setupRecyclerView();
+        setupViewModel();
+        setupClickListeners();
+    }
+
+    private void initViews() {
+        toolbar = findViewById(R.id.toolbar);
+        rvMessages = findViewById(R.id.rvMessages);
+        swipeRefresh = findViewById(R.id.swipeRefresh);
+        etMessage = findViewById(R.id.etMessage);
+        btnSend = findViewById(R.id.btnSend);
+        btnAttach = findViewById(R.id.btnAttach);
+        btnScrollDown = findViewById(R.id.btnScrollDown);
+        if (btnScrollDown != null) btnScrollDown.setVisibility(View.GONE);
+    }
+
+    private void setupToolbar() {
+        setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setTitle(chatTitle);
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(android.view.Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_chat_room, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == android.R.id.home) {
+            finish();
+            return true;
+        } else if (id == R.id.action_more) {
+            showChatMoreOptions();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void setupRecyclerView() {
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        layoutManager.setStackFromEnd(true); // latest at bottom
+        rvMessages.setLayoutManager(layoutManager);
+
+        adapter = new MessageAdapter(new ArrayList<>(), this::onMessageLongClick);
+        rvMessages.setAdapter(adapter);
+
+        // Track bottom state
+        rvMessages.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override public void onScrolled(RecyclerView rv, int dx, int dy) {
+                int lastVisible = layoutManager.findLastVisibleItemPosition();
+                int total = adapter.getItemCount();
+                boolean nowAtBottom = total == 0 || lastVisible >= total - 1;
+                if (nowAtBottom != isAtBottom) {
+                    isAtBottom = nowAtBottom;
+                    if (isAtBottom) {
+                        pendingNewCount = 0;
+                        updateScrollDownButton();
+                    }
+                }
+            }
+        });
+
+        // Pull-to-refresh: load older messages
+        swipeRefresh.setOnRefreshListener(() -> viewModel.loadOlderMessages());
+    }
+
+    private void setupViewModel() {
+        viewModel = new ViewModelProvider(this).get(ChatRoomViewModel.class);
+
+        viewModel.messages.observe(this, messages -> {
+            if (messages == null) return;
+            int newCount = messages.size();
+            adapter.setMessages(messages);
+
+            if (isAtBottom || lastRenderedCount == 0) {
+                rvMessages.scrollToPosition(Math.max(0, newCount - 1));
+                pendingNewCount = 0;
+            } else if (newCount > lastRenderedCount) {
+                pendingNewCount += (newCount - lastRenderedCount);
+            }
+            lastRenderedCount = newCount;
+            updateScrollDownButton();
+        });
+
+        viewModel.sending.observe(this, sending -> {
+            btnSend.setEnabled(!sending);
+            btnAttach.setEnabled(!sending);
+        });
+
+        viewModel.loading.observe(this, loading -> {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(Boolean.TRUE.equals(loading));
+        });
+
+        viewModel.error.observe(this, error -> {
+            if (error != null) {
+                Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
+            }
+            swipeRefresh.setRefreshing(false);
+        });
+
+        // Initialize chat room
+        viewModel.init(chatId, chatType, groupId);
+        viewModel.markRead();
+    }
+
+    private void updateScrollDownButton() {
+        if (btnScrollDown == null) return;
+        if (isAtBottom || pendingNewCount <= 0) {
+            btnScrollDown.setVisibility(View.GONE);
+        } else {
+            btnScrollDown.setText(pendingNewCount > 0 ? ("Tin nhắn mới " + pendingNewCount) : "Xuống");
+            btnScrollDown.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void setupClickListeners() {
+        btnSend.setOnClickListener(v -> sendTextMessage());
+        btnAttach.setOnClickListener(v -> openImagePicker());
+        if (btnScrollDown != null) {
+            btnScrollDown.setOnClickListener(v -> {
+                rvMessages.scrollToPosition(Math.max(0, adapter.getItemCount() - 1));
+                pendingNewCount = 0;
+                isAtBottom = true;
+                updateScrollDownButton();
+            });
+        }
+    }
+
+    private void sendTextMessage() {
+        String text = etMessage.getText().toString().trim();
+        if (TextUtils.isEmpty(text)) return;
+
+        viewModel.sendText(text);
+        etMessage.setText("");
+    }
+
+    private void openImagePicker() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("image/*");
+        startActivityForResult(Intent.createChooser(intent, "Select Image"), PICK_IMAGE_REQUEST);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
+            Uri imageUri = data.getData();
+            if (imageUri != null) {
+                viewModel.sendImage(imageUri);
+            }
+        }
+    }
+
+    private void onMessageLongClick(Message message) {
+        // TODO: Show message actions (edit, reply, delete)
+        Toast.makeText(this, "Message actions coming soon", Toast.LENGTH_SHORT).show();
+    }
+
+    private void showChatMoreOptions() {
+        // Simple menu via AlertDialog; can be upgraded to a bottom sheet with avatar preview
+        java.util.List<String> items = new java.util.ArrayList<>();
+        items.add("Tùy chỉnh chủ đề");
+        items.add("Tìm kiếm trong cuộc trò chuyện");
+        if ("group".equals(chatType)) {
+            items.add("Xem thành viên");
+            items.add("Rời khỏi đoạn chat");
+        } else {
+            items.add("Xóa đoạn chat");
+        }
+        String[] arr = items.toArray(new String[0]);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(chatTitle)
+                .setItems(arr, (d, which) -> {
+                    String sel = arr[which];
+                    if (sel.startsWith("Tùy chỉnh")) {
+                        Toast.makeText(this, "Đổi chủ đề (WIP)", Toast.LENGTH_SHORT).show();
+                    } else if (sel.startsWith("Tìm kiếm")) {
+                        Toast.makeText(this, "Tìm kiếm (WIP)", Toast.LENGTH_SHORT).show();
+                    } else if (sel.startsWith("Xem thành viên")) {
+                        // TODO: open members screen for this group
+                        Toast.makeText(this, "Xem thành viên (WIP)", Toast.LENGTH_SHORT).show();
+                    } else if (sel.startsWith("Rời")) {
+                        new androidx.appcompat.app.AlertDialog.Builder(this)
+                                .setTitle("Rời đoạn chat")
+                                .setMessage("Bạn có chắc muốn rời nhóm này?")
+                                .setPositiveButton("Rời", (dd, w) -> Toast.makeText(this, "Đã rời nhóm", Toast.LENGTH_SHORT).show())
+                                .setNegativeButton("Hủy", null)
+                                .show();
+                    } else if (sel.startsWith("Xóa")) {
+                        new androidx.appcompat.app.AlertDialog.Builder(this)
+                                .setTitle("Xóa đoạn chat")
+                                .setMessage("Bạn chỉ xóa ở phía bạn. Khi cả hai cùng xóa, đoạn chat mới bị xóa khỏi máy chủ. Tiếp tục?")
+                                .setPositiveButton("Xóa", (dd, w) -> {
+                                    String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                                            ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                                    if (uid == null) { Toast.makeText(this, "Chưa đăng nhập", Toast.LENGTH_SHORT).show(); return; }
+                                    new com.example.nanaclu.data.repository.ChatRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance())
+                                            .hideChatForUser(chatId, uid)
+                                            .addOnSuccessListener(aVoid -> {
+                                                Toast.makeText(this, "Đã ẩn đoạn chat", Toast.LENGTH_SHORT).show();
+                                                finish();
+                                            })
+                                            .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                                })
+                                .setNegativeButton("Hủy", null)
+                                .show();
+                    }
+                })
+                .setNegativeButton("Đóng", null)
+                .show();
+    }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        getOnBackPressedDispatcher().onBackPressed();
+        return true;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        viewModel.markRead();
+    }
+}
