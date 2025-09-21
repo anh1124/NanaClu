@@ -48,7 +48,7 @@ public class GroupSettingsActivity extends AppCompatActivity {
     private void setupToolbar() {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        
+
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle("Cài đặt nhóm");
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -63,8 +63,12 @@ public class GroupSettingsActivity extends AppCompatActivity {
         if (cardPermissions != null) {
             cardPermissions.setOnClickListener(v -> openPermissions());
         }
+        View cardBlocked = findViewById(R.id.cardBlockedUsers);
+        if (cardBlocked != null) {
+            cardBlocked.setOnClickListener(v -> openBlockedUsers());
+        }
 
-        // Setup privacy switch
+        // Setup switch: Không cần duyệt (ON) / Cần phê duyệt (OFF)
         switchPrivacy = findViewById(R.id.switchPrivacy);
         tvPrivacyStatus = findViewById(R.id.tvPrivacyStatus);
         switchPrivacy.setOnCheckedChangeListener(this::onPrivacySwitchChanged);
@@ -97,7 +101,8 @@ public class GroupSettingsActivity extends AppCompatActivity {
         if (currentGroup != null) {
             // Temporarily disable listener to avoid triggering dialog
             switchPrivacy.setOnCheckedChangeListener(null);
-            switchPrivacy.setChecked(currentGroup.isPublic);
+            boolean noApprovalNeeded = currentGroup.requireApproval == false;
+            switchPrivacy.setChecked(noApprovalNeeded);
             switchPrivacy.setOnCheckedChangeListener(this::onPrivacySwitchChanged);
             updatePrivacyStatusText();
         }
@@ -105,8 +110,9 @@ public class GroupSettingsActivity extends AppCompatActivity {
 
     private void updatePrivacyStatusText() {
         if (currentGroup != null) {
-            String status = currentGroup.isPublic ? "Công khai" : "Riêng tư";
-            tvPrivacyStatus.setText("Nhóm " + status);
+            boolean noApprovalNeeded = currentGroup.requireApproval == false;
+            String status = noApprovalNeeded ? "Không cần duyệt" : "Cần phê duyệt";
+            tvPrivacyStatus.setText("Tham gia nhóm: " + status);
         }
     }
 
@@ -119,19 +125,22 @@ public class GroupSettingsActivity extends AppCompatActivity {
     private void onPrivacySwitchChanged(CompoundButton buttonView, boolean isChecked) {
         if (currentGroup == null) return;
 
-        String currentStatus = currentGroup.isPublic ? "Công khai" : "Riêng tư";
-        String newStatus = isChecked ? "Công khai" : "Riêng tư";
+        // isChecked = Không cần duyệt; !isChecked = Cần phê duyệt
+        String currentStatus = (currentGroup.requireApproval == false) ? "Không cần duyệt" : "Cần phê duyệt";
+        String newStatus = isChecked ? "Không cần duyệt" : "Cần phê duyệt";
 
         new AlertDialog.Builder(this)
                 .setTitle("Xác nhận thay đổi")
-                .setMessage("Bạn có muốn thay đổi nhóm từ " + currentStatus + " thành " + newStatus + " không?")
+                .setMessage("Bạn có muốn thay đổi chính sách tham gia từ '" + currentStatus + "' thành '" + newStatus + "' không?")
                 .setPositiveButton("Xác nhận", (dialog, which) -> {
+                    currentGroup.requireApproval = !isChecked;
+                    // Optional: keep isPublic synced for legacy displays
                     currentGroup.isPublic = isChecked;
                     groupRepository.updateGroup(currentGroup, new GroupRepository.UpdateCallback() {
                         @Override
                         public void onSuccess() {
-                            Toast.makeText(GroupSettingsActivity.this, "Đã thay đổi quyền riêng tư thành công", Toast.LENGTH_SHORT).show();
-                            updatePrivacyStatusText();
+                            Toast.makeText(GroupSettingsActivity.this, "Đã cập nhật chính sách tham gia", Toast.LENGTH_SHORT).show();
+                            updateUI();
                         }
 
                         @Override
@@ -167,6 +176,7 @@ public class GroupSettingsActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Toast.makeText(GroupSettingsActivity.this, "Đã xóa nhóm thành công", Toast.LENGTH_SHORT).show();
+
                 // Navigate back to My Groups fragment
                 Intent resultIntent = new Intent();
                 resultIntent.putExtra("action", "group_deleted");
@@ -186,14 +196,22 @@ public class GroupSettingsActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 100 && resultCode == RESULT_OK) {
             // Group info was updated, reload group data
+
             loadGroupData();
         }
+    }
+
+    private void openBlockedUsers() {
+        Intent i = new Intent(this, GroupBlockedUsersActivity.class);
+        i.putExtra("groupId", groupId);
+        startActivity(i);
     }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
             finish();
+
             return true;
         }
         return super.onOptionsItemSelected(item);

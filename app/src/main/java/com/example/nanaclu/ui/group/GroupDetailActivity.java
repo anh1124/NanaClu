@@ -7,6 +7,7 @@ import android.view.MenuItem;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -45,6 +46,9 @@ public class GroupDetailActivity extends AppCompatActivity {
     private DocumentSnapshot lastVisible;
     private boolean reachedEnd = false;
     private SwipeRefreshLayout swipeRefreshLayout;
+
+    // Demo: notification icon state (notification0/notification1)
+    private boolean groupHasNotifications = false;
 
     // Backup groupId for debugging
     private String backupGroupId;
@@ -91,6 +95,7 @@ public class GroupDetailActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
         toolbar.inflateMenu(R.menu.menu_group_detail);
         toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
+        updateMenuVisibility();
         // Tint navigation and overflow icons to white
         android.graphics.PorterDuff.Mode mode = android.graphics.PorterDuff.Mode.SRC_ATOP;
         if (toolbar.getNavigationIcon() != null) {
@@ -279,12 +284,26 @@ public class GroupDetailActivity extends AppCompatActivity {
 
     private void updateMenuVisibility() {
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
-        MenuItem settingsItem = toolbar.getMenu().findItem(R.id.action_group_settings);
+        if (toolbar == null) return;
+        android.view.Menu menu = toolbar.getMenu();
+        if (menu == null) return;
 
-        if (settingsItem != null) {
-            boolean isAdminOrOwner = currentUserMember != null &&
+        boolean isAdminOrOwner = currentUserMember != null &&
                 ("admin".equals(currentUserMember.role) || "owner".equals(currentUserMember.role));
+
+        MenuItem settingsItem = menu.findItem(R.id.action_group_settings);
+        if (settingsItem != null) {
             settingsItem.setVisible(isAdminOrOwner);
+        }
+        MenuItem approveItem = menu.findItem(R.id.action_approve_members);
+        if (approveItem != null) {
+            approveItem.setVisible(isAdminOrOwner);
+        }
+
+        // Update notification icon 0/1
+        MenuItem notiItem = menu.findItem(R.id.action_group_notifications);
+        if (notiItem != null) {
+            notiItem.setIcon(groupHasNotifications ? R.drawable.ic_notifications_active_24 : R.drawable.ic_notifications_none_24);
         }
     }
 
@@ -295,10 +314,16 @@ public class GroupDetailActivity extends AppCompatActivity {
         ImageView imgCover = findViewById(R.id.imgCover);
         ImageView imgGroupAvatar = findViewById(R.id.imgGroupAvatar);
 
+        // Update toolbar title to group name
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        if (toolbar != null) toolbar.setTitle(group.name != null ? group.name : "Group");
+
         tvGroupName.setText(group.name != null ? group.name : "");
 
-        String privacy = group.isPublic ? "Public" : "Private";
-        tvPrivacy.setText(privacy);
+        // Approval mode display
+        boolean requireApproval = group.requireApproval;
+        String approvalText = requireApproval ? "Can phaf duyt" : "Kh f4ng can duyt";
+        tvPrivacy.setText(approvalText);
 
         String memberText = group.memberCount + " thành viên";
         tvMemberCount.setText(memberText);
@@ -439,13 +464,19 @@ public class GroupDetailActivity extends AppCompatActivity {
         int id = item.getItemId();
         System.out.println("GroupDetailActivity: onMenuItemClick - groupId = " + groupId);
 
-        if (id == R.id.action_leave_group) {
-            showLeaveGroupDialog();
+        if (id == R.id.action_group_notifications) {
+            Intent intent = new Intent(this, GroupNotificationsActivity.class);
+            intent.putExtra("groupId", groupId);
+            startActivity(intent);
             return true;
-
         } else if (id == R.id.action_view_members) {
             // Open GroupMembersActivity
             Intent intent = new Intent(this, GroupMembersActivity.class);
+            intent.putExtra("groupId", groupId);
+            startActivity(intent);
+            return true;
+        } else if (id == R.id.action_approve_members) {
+            Intent intent = new Intent(this, GroupPendingMembersActivity.class);
             intent.putExtra("groupId", groupId);
             startActivity(intent);
             return true;
@@ -459,6 +490,9 @@ public class GroupDetailActivity extends AppCompatActivity {
         } else if (id == R.id.action_invite_members) {
             showInviteDialog();
             return true;
+        } else if (id == R.id.action_leave_group) {
+            showLeaveGroupDialog();
+            return true;
         }
         return false;
     }
@@ -470,53 +504,28 @@ public class GroupDetailActivity extends AppCompatActivity {
         }
         String code = currentGroup.code != null ? currentGroup.code : (groupId != null ? groupId : "");
 
-        android.widget.LinearLayout container = new android.widget.LinearLayout(this);
-        container.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = (int) (getResources().getDisplayMetrics().density * 20);
-        container.setPadding(pad, pad, pad, pad);
-
-        android.widget.TextView title = new android.widget.TextView(this);
-        title.setText("Mã nhóm");
-        title.setTextSize(16);
-        title.setTextColor(0xFF000000);
-        title.setPadding(0, 0, 0, pad / 2);
-        container.addView(title);
-
-        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
-        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-
-        android.widget.TextView tvCode = new android.widget.TextView(this);
-        tvCode.setText(code);
-        tvCode.setTextSize(22);
-        tvCode.setTextIsSelectable(true);
-        tvCode.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
-        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        tvCode.setLayoutParams(lp);
-        row.addView(tvCode);
-
-        android.widget.ImageButton btnCopy = new android.widget.ImageButton(this);
-        btnCopy.setBackgroundResource(android.R.color.transparent);
-        btnCopy.setImageResource(R.drawable.iconcopy);
-        int s = (int) (getResources().getDisplayMetrics().density * 36);
-        android.widget.LinearLayout.LayoutParams ilp = new android.widget.LinearLayout.LayoutParams(s, s);
-        btnCopy.setLayoutParams(ilp);
-        btnCopy.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
-        int p8 = (int) (getResources().getDisplayMetrics().density * 8);
-        btnCopy.setPadding(p8, p8, p8, p8);
-        btnCopy.setOnClickListener(v -> {
+        // Inflate dialog layout
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_invite_member, null);
+        
+        // Get views from layout
+        TextView tvGroupCode = dialogView.findViewById(R.id.tvGroupCode);
+        ImageButton btnCopyCode = dialogView.findViewById(R.id.btnCopyCode);
+        
+        // Set group code
+        tvGroupCode.setText(code);
+        
+        // Set copy button click listener
+        btnCopyCode.setOnClickListener(v -> {
             android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             android.content.ClipData clip = android.content.ClipData.newPlainText("group_code", code);
             if (cm != null) cm.setPrimaryClip(clip);
             Toast.makeText(this, "Đã copy mã nhóm", Toast.LENGTH_SHORT).show();
         });
-        row.addView(btnCopy);
 
-        container.addView(row);
-
+        // Show dialog
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Mời thành viên")
-                .setView(container)
+                .setView(dialogView)
                 .setPositiveButton("Đóng", null)
                 .show();
     }

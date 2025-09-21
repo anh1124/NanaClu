@@ -153,52 +153,48 @@ public class GroupsFragment extends Fragment {
 	}
 
 	private void showJoinGroupDialog() {
-		android.widget.LinearLayout row = new android.widget.LinearLayout(requireContext());
-		row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-		int pad = (int) (getResources().getDisplayMetrics().density * 12);
-		row.setPadding(pad, pad, pad, pad);
-
-		com.google.android.material.textfield.TextInputLayout til = new com.google.android.material.textfield.TextInputLayout(requireContext());
-		com.google.android.material.textfield.TextInputEditText input = new com.google.android.material.textfield.TextInputEditText(requireContext());
-		input.setHint("Nhập mã nhóm (6 ký tự)");
-		input.setMaxLines(1);
-		input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
-		til.addView(input, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-		android.widget.ImageButton btnPaste = new android.widget.ImageButton(requireContext());
-		btnPaste.setImageResource(R.drawable.iconpaste);
-		btnPaste.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-		btnPaste.setContentDescription("Paste");
-		int size = (int) (getResources().getDisplayMetrics().density * 40);
-		android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(size, size);
-		lp.setMargins(pad, 0, 0, 0);
-		row.addView(til, new android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-		row.addView(btnPaste, lp);
-
+		// Inflate dialog layout
+		View dialogView = getLayoutInflater().inflate(R.layout.dialog_join_group, null);
+		
+		// Get views from layout
+		android.widget.EditText etGroupCode = dialogView.findViewById(R.id.etGroupCode);
+		android.widget.ImageButton btnPaste = dialogView.findViewById(R.id.btnPaste);
+		
+		// Set input filter for 6 characters
+		etGroupCode.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
+		
+		// Set paste button click listener
 		btnPaste.setOnClickListener(v -> {
 			android.content.ClipboardManager cm = (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
 			if (cm != null && cm.hasPrimaryClip()) {
 				android.content.ClipData cd = cm.getPrimaryClip();
 				if (cd != null && cd.getItemCount() > 0) {
 					CharSequence text = cd.getItemAt(0).coerceToText(requireContext());
-					if (text != null) input.setText(text.toString().trim());
+					if (text != null) etGroupCode.setText(text.toString().trim());
 				}
 			}
 		});
 
+		// Show dialog
 		new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
 				.setTitle("Tham gia nhóm bằng mã")
-				.setView(row)
+				.setView(dialogView)
 				.setPositiveButton("Tham gia", (d, w) -> {
-					String code = input.getText() != null ? input.getText().toString().trim() : "";
-					if (code.isEmpty()) { android.widget.Toast.makeText(requireContext(), "Vui lòng nhập mã", android.widget.Toast.LENGTH_SHORT).show(); return; }
+					String code = etGroupCode.getText() != null ? etGroupCode.getText().toString().trim() : "";
+					if (code.isEmpty()) { 
+						android.widget.Toast.makeText(requireContext(), "Vui lòng nhập mã", android.widget.Toast.LENGTH_SHORT).show(); 
+						return; 
+					}
+					android.util.Log.d("GroupsFragment", "Joining group with code: " + code);
 					com.example.nanaclu.data.repository.GroupRepository repo = new com.example.nanaclu.data.repository.GroupRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
 					repo.joinGroupByCode(code.toUpperCase())
 							.addOnSuccessListener(v -> {
+								android.util.Log.d("GroupsFragment", "Successfully joined group");
 								android.widget.Toast.makeText(requireContext(), "Đã tham gia nhóm", android.widget.Toast.LENGTH_SHORT).show();
 								groupViewModel.loadUserGroups();
 							})
 							.addOnFailureListener(e -> {
+								android.util.Log.e("GroupsFragment", "Failed to join group: " + e.getMessage());
 								android.widget.Toast.makeText(requireContext(), e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
 							});
 				})

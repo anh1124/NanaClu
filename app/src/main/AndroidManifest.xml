@@ -40,6 +40,10 @@
         <activity android:name=".ui.auth.RegisterActivity" android:exported="false" />
         <activity android:name=".ui.profile.ProfileActivity" android:exported="false" />
         <activity android:name=".ui.chat.ChatRoomActivity" android:exported="false" />
+        <activity android:name=".ui.group.GroupNotificationsActivity" android:exported="false" />
+        <activity android:name=".ui.group.GroupBlockedUsersActivity" android:exported="false" />
+        <activity android:name=".ui.group.GroupPendingMembersActivity" android:exported="false" />
+
     </application>
 
 </manifest>

@@ -116,13 +116,13 @@
                             android:id="@+id/tvPrivacyStatus"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Cài đặt quyền riêng tư"
+                            android:text="Tham gia nhóm"
                             android:textSize="16sp" />
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Thay đổi nhóm công khai/riêng tư"
+                            android:text="Không cần duyệt khi tham gia"
                             android:textSize="12sp"
                             android:textColor="@android:color/darker_gray" />
 
@@ -184,6 +184,66 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="Phân quyền quản trị, chuyển owner, xóa thành viên"
+                            android:textSize="12sp"
+                            android:textColor="@android:color/darker_gray" />
+
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@android:drawable/ic_menu_more" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Thành viên đã chặn -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Thành viên đã chặn"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardBlockedUsers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        android:layout_marginEnd="16dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Quản lý danh sách đã chặn"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Xem và bỏ chặn thành viên"
                             android:textSize="12sp"
                             android:textColor="@android:color/darker_gray" />
 

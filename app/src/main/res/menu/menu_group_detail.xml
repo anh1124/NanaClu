@@ -1,27 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+
     <item
-        android:id="@+id/action_leave_group"
-        android:title="Rời nhóm"
-        android:icon="@android:drawable/ic_menu_close_clear_cancel"
-        app:showAsAction="never"/>
+        android:id="@+id/action_group_notifications"
+        android:title="Thông báo nhóm"
+        android:icon="@drawable/ic_notifications_none_24"
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/action_view_members"
         android:title="Thành viên nhóm"
         android:icon="@android:drawable/ic_menu_view"
         app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_approve_members"
+        android:title="Duyệt thành viên"
+        android:icon="@android:drawable/ic_menu_agenda"
+        app:showAsAction="never"/>
+
     <item
         android:id="@+id/action_group_settings"
         android:title="Cài đặt nhóm"
         android:icon="@android:drawable/ic_menu_preferences"
         app:showAsAction="never"/>
+
     <item
         android:id="@+id/action_invite_members"
         android:title="Mời thành viên"
         android:icon="@android:drawable/ic_menu_share"
         app:showAsAction="never"/>
 
-</menu>
+    <item
+        android:id="@+id/action_leave_group"
+        android:title="Rời nhóm"
+        android:icon="@android:drawable/ic_menu_close_clear_cancel"
+        app:showAsAction="never"/>
 
+</menu>
