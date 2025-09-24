@@ -83,7 +83,7 @@ public class FeedFragment extends Fragment {
         rvFeed.setLayoutManager(lm);
         adapter = new PostAdapter(postRepository, new PostAdapter.PostActionListener() {
             @Override public void onLike(Post post) {}
-            @Override public void onComment(Post post) { showCommentsDemo(); }
+            @Override public void onComment(Post post) { showComments(post); }
             @Override public void onDelete(Post post) {}
             @Override public void onReport(Post post) {}
         }, true); // Show group name in feed
@@ -307,51 +307,7 @@ public class FeedFragment extends Fragment {
             });
         }
     }
-    private void showCommentsDemo() {
-        if (getContext() == null) return;
-        com.google.android.material.bottomsheet.BottomSheetDialog dialog = new com.google.android.material.bottomsheet.BottomSheetDialog(requireContext(), com.google.android.material.R.style.Theme_Material3_Light_BottomSheetDialog);
-        android.view.View content = android.view.LayoutInflater.from(getContext())
-                .inflate(R.layout.dialog_comments_demo, null, false);
-        // Dismiss when tapping the top blank area (first child of root)
-        if (content instanceof android.view.ViewGroup) {
-            android.view.ViewGroup vg = (android.view.ViewGroup) content;
-            if (vg.getChildCount() > 0) {
-                android.view.View touchOutside = vg.getChildAt(0);
-                touchOutside.setOnClickListener(v -> dialog.dismiss());
-            }
-        }
-        androidx.recyclerview.widget.RecyclerView rv = content.findViewById(R.id.rvCommentsDemo);
-        rv.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(getContext()));
-        java.util.List<String> samples = java.util.Arrays.asList(
-                "Rất hay! Cảm ơn bạn đã chia sẻ.",
-                "Ảnh đẹp quá!",
-                "Mọi người nghĩ sao về chủ đề này?"
-        );
-        rv.setAdapter(new androidx.recyclerview.widget.RecyclerView.Adapter<androidx.recyclerview.widget.RecyclerView.ViewHolder>(){
-            @Override public int getItemCount(){return samples.size();}
-            @Override public androidx.recyclerview.widget.RecyclerView.ViewHolder onCreateViewHolder(@NonNull android.view.ViewGroup parent, int viewType){
-                android.view.View v = android.view.LayoutInflater.from(parent.getContext()).inflate(R.layout.item_comment, parent, false);
-                return new androidx.recyclerview.widget.RecyclerView.ViewHolder(v){};
-            }
-            @Override public void onBindViewHolder(@NonNull androidx.recyclerview.widget.RecyclerView.ViewHolder h, int pos){
-                android.widget.TextView tv = h.itemView.findViewById(R.id.tvCommentText);
-                tv.setText(samples.get(pos));
-                android.widget.TextView like = h.itemView.findViewById(R.id.tvLikeCount);
-                like.setText(String.valueOf((pos+1)*2));
-            }
-        });
-        dialog.setContentView(content);
-        dialog.setCancelable(true);
-        dialog.setCanceledOnTouchOutside(true);
-        dialog.setOnShowListener(d -> {
-            android.view.View bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                com.google.android.material.bottomsheet.BottomSheetBehavior<?> behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
-                behavior.setHideable(true);
-                behavior.setDraggable(true);
-                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
-            }
-        });
-        dialog.show();
+    private void showComments(Post post) {
+        com.example.nanaclu.ui.common.CommentsBottomSheet.show(this, post);
     }
 }

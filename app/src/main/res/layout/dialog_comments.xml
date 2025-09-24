@@ -1,24 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- TikTok-style Comments Dialog -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
-    <!-- Phần trống 1/5 để có thể tắt dialog -->
+    <!-- Overlay mờ đen phủ toàn màn hình -->
     <View
+        android:id="@+id/overlayView"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:clickable="true"
+        android:focusable="true"/>
 
-    <!-- Phần dialog 4/5 -->
+    <!-- Comment box chiếm 4/5 màn hình ở dưới -->
     <LinearLayout
+        android:id="@+id/commentBox"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="4"
+        android:layout_height="match_parent"
+        android:layout_marginTop="120dp"
         android:orientation="vertical"
-        android:background="@drawable/bg_dialog_round"
-        android:layout_marginHorizontal="8dp">
+        android:background="@drawable/bg_comment_dialog"
+        android:elevation="16dp">
 
         <!-- Header với indicator -->
         <LinearLayout
@@ -66,7 +70,7 @@
 
         <!-- RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvCommentsDemo"
+            android:id="@+id/rvComments"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
@@ -104,24 +108,27 @@
                     android:layout_marginEnd="12dp" />
 
                 <!-- Input field với border radius -->
-                <TextView
+                <EditText
+                    android:id="@+id/edtComment"
                     android:layout_width="0dp"
                     android:layout_height="40dp"
                     android:layout_weight="1"
-                    android:text="Viết bình luận..."
-                    android:textColor="#999999"
+                    android:hint="Viết bình luận..."
+                    android:textColorHint="#999999"
                     android:textSize="15sp"
-                    android:gravity="center_vertical"
                     android:paddingHorizontal="16dp"
-
+                    android:background="@drawable/bg_input_rounded"
                     android:layout_marginEnd="12dp" />
-                <!--android:background="@drawable/bg_input_comment"-->
+
                 <!-- Send button -->
                 <LinearLayout
+                    android:id="@+id/btnSendComment"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:src="@android:drawable/ic_menu_send"
-                    android:gravity="center">
+                    android:background="@drawable/bg_send_button"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -135,4 +142,4 @@
 
     </LinearLayout>
 
-</LinearLayout>
+</FrameLayout>
