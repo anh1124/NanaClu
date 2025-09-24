@@ -13,10 +13,34 @@
         android:theme="@style/ThemeOverlay.MaterialComponents.ActionBar"
         app:navigationIcon="@drawable/ic_arrow_back"/>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <Button
+            android:id="@+id/btnUnblock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/label_unblock" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:text="@string/label_no_blocked_members"
+        android:gravity="center"
+        android:visibility="gone"/>
+
     <ListView
         android:id="@+id/listView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:choiceMode="multipleChoice"/>
 
 </LinearLayout>
 

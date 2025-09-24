@@ -67,6 +67,14 @@ public class GroupSettingsActivity extends AppCompatActivity {
         if (cardBlocked != null) {
             cardBlocked.setOnClickListener(v -> openBlockedUsers());
         }
+        View cardPending = findViewById(R.id.cardPendingMembers);
+        if (cardPending != null) {
+            cardPending.setOnClickListener(v -> openPendingMembers());
+        }
+        View cardMembers = findViewById(R.id.cardMembersList);
+        if (cardMembers != null) {
+            cardMembers.setOnClickListener(v -> openMembers());
+        }
 
         // Setup switch: Không cần duyệt (ON) / Cần phê duyệt (OFF)
         switchPrivacy = findViewById(R.id.switchPrivacy);
@@ -196,13 +204,24 @@ public class GroupSettingsActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 100 && resultCode == RESULT_OK) {
             // Group info was updated, reload group data
-
             loadGroupData();
         }
     }
 
+    private void openPendingMembers() {
+        Intent i = new Intent(this, GroupPendingMembersActivity.class);
+        i.putExtra("groupId", groupId);
+        startActivity(i);
+    }
+
     private void openBlockedUsers() {
         Intent i = new Intent(this, GroupBlockedUsersActivity.class);
+        i.putExtra("groupId", groupId);
+        startActivity(i);
+    }
+
+    private void openMembers() {
+        Intent i = new Intent(this, GroupMembersActivity.class);
         i.putExtra("groupId", groupId);
         startActivity(i);
     }

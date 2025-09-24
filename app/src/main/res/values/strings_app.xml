@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NANACLU</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">H\u1ee7y</string>
+
+    <!-- Members / Roles -->
+    <string name="tag_you"> \u2022 B\u1ea1n</string>
+    <string name="label_tag_you"> \u2022 B\u1ea1n</string>
+    <string name="role_owner">OWNER</string>
+    <string name="role_admin">ADMIN</string>
+    <string name="role_member">Th\u00e0nh vi\u00ean</string>
+    <string name="role_member_vi">Th\u00e0nh vi\u00ean</string>
+
+    <!-- Group detail / settings -->
+    <string name="pending_members_title">Duy\u1ec7t th\u00e0nh vi\u00ean</string>
+    <string name="blocked_members_title">Th\u00e0nh vi\u00ean \u0111\u00e3 ch\u1eb7n</string>
+    <string name="no_blocked_members">Ch\u01b0a c\u00f3 th\u00e0nh vi\u00ean n\u00e0o b\u1ecb ch\u1eb7n</string>
+    <string name="no_pending_members">Ch\u01b0a c\u00f3 y\u00eau c\u1ea7u n\u00e0o</string>
+
+    <!-- Actions -->
+    <string name="approve">Duy\u1ec7t</string>
+    <string name="reject">T\u1eeb ch\u1ed1i</string>
+    <string name="unblock">B\u1ecf ch\u1eb7n</string>
+
+    <!-- Dialogs / messages -->
+    <string name="dialog_block_title">Ch\u1eb7n th\u00e0nh vi\u00ean</string>
+    <string name="dialog_block_msg">B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n ch\u1eb7n ng\u01b0\u1eddi d\u00f9ng n\u00e0y?</string>
+    <string name="dialog_unblock_title">B\u1ecf ch\u1eb7n th\u00e0nh vi\u00ean</string>
+    <string name="dialog_unblock_msg">B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n b\u1ecf ch\u1eb7n ng\u01b0\u1eddi d\u00f9ng n\u00e0y?</string>
+
+    <string name="toast_unblocked">\u0110\u00e3 b\u1ecf ch\u1eb7n</string>
+    <string name="toast_approved">\u0110\u00e3 duy\u1ec7t</string>
+    <string name="toast_rejected">\u0110\u00e3 t\u1eeb ch\u1ed1i</string>
+
+    <string name="error_loading_list">L\u1ed7i t\u1ea3i danh s\u00e1ch: %1$s</string>
+    <string name="error_action">L\u1ed7i: %1$s</string>
+
+    <!-- Join group by code (approval required) -->
+    <string name="join_group_need_approval_title">C\u1ea7n ph\u00ea duy\u1ec7t</string>
+    <string name="join_group_need_approval_msg">\u0110\u00e2y l\u00e0 nh\u00f3m k\u00edn, b\u1ea1n c\u1ea7n \u0111\u01b0\u1ee3c qu\u1ea3n tr\u1ecb vi\u00ean nh\u00f3m ph\u00ea duy\u1ec7t \u0111\u1ec3 tham gia.</string>
+    <string name="toast_joined_group">\u0110\u00e3 tham gia nh\u00f3m</string>
+
+    <!-- Clean duplicates referenced in some code -->
+    <string name="title_pending_members">Duy\u1ec7t th\u00e0nh vi\u00ean</string>
+    <string name="title_blocked_members">Th\u00e0nh vi\u00ean \u0111\u00e3 ch\u1eb7n</string>
+    <string name="label_no_blocked_members">Ch\u01b0a c\u00f3 th\u00e0nh vi\u00ean n\u00e0o b\u1ecb ch\u1eb7n</string>
+    <string name="label_no_pending_members">Ch\u01b0a c\u00f3 y\u00eau c\u1ea7u n\u00e0o</string>
+
+    <string name="label_approve">Duy\u1ec7t</string>
+    <string name="label_reject">T\u1eeb ch\u1ed1i</string>
+    <string name="label_unblock">B\u1ecf ch\u1eb7n</string>
+
+    <string name="msg_block_title">Ch\u1eb7n th\u00e0nh vi\u00ean</string>
+    <string name="msg_block_text">B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n ch\u1eb7n ng\u01b0\u1eddi d\u00f9ng n\u00e0y?</string>
+    <string name="msg_unblock_title">B\u1ecf ch\u1eb7n th\u00e0nh vi\u00ean</string>
+    <string name="msg_unblock_text">B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n b\u1ecf ch\u1eb7n ng\u01b0\u1eddi d\u00f9ng n\u00e0y?</string>
+
+    <string name="toast_unblocked_clean">\u0110\u00e3 b\u1ecf ch\u1eb7n</string>
+    <string name="toast_approved_clean">\u0110\u00e3 duy\u1ec7t</string>
+    <string name="toast_rejected_clean">\u0110\u00e3 t\u1eeb ch\u1ed1i</string>
+
+    <string name="error_loading_list_clean">L\u1ed7i t\u1ea3i danh s\u00e1ch: %1$s</string>
+    <string name="error_action_clean">L\u1ed7i: %1$s</string>
+
+    <string name="join_need_approval_title">C\u1ea7n ph\u00ea duy\u1ec7t</string>
+    <string name="join_need_approval_text">\u0110\u00e2y l\u00e0 nh\u00f3m k\u00edn, b\u1ea1n c\u1ea7n \u0111\u01b0\u1ee3c qu\u1ea3n tr\u1ecb vi\u00ean nh\u00f3m ph\u00ea duy\u1ec7t \u0111\u1ec3 tham gia.</string>
+    <string name="toast_joined_group_clean">\u0110\u00e3 tham gia nh\u00f3m</string>
+
+</resources>
+

@@ -96,6 +96,18 @@ public class GroupDetailActivity extends AppCompatActivity {
         toolbar.inflateMenu(R.menu.menu_group_detail);
         toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
         updateMenuVisibility();
+        // Style the "Rời nhóm" menu item title in red
+        {
+            android.view.Menu m = toolbar.getMenu();
+            if (m != null) {
+                android.view.MenuItem leave = m.findItem(R.id.action_leave_group);
+                if (leave != null) {
+                    android.text.SpannableString title = new android.text.SpannableString(leave.getTitle());
+                    title.setSpan(new android.text.style.ForegroundColorSpan(0xFFFF3B30), 0, title.length(), 0);
+                    leave.setTitle(title);
+                }
+            }
+        }
         // Tint navigation and overflow icons to white
         android.graphics.PorterDuff.Mode mode = android.graphics.PorterDuff.Mode.SRC_ATOP;
         if (toolbar.getNavigationIcon() != null) {
@@ -323,7 +335,7 @@ public class GroupDetailActivity extends AppCompatActivity {
         // Approval mode display
         boolean requireApproval = group.requireApproval;
         String approvalText = requireApproval ? "Can phaf duyt" : "Kh f4ng can duyt";
-        tvPrivacy.setText(approvalText);
+        tvPrivacy.setVisibility(View.GONE);
 
         String memberText = group.memberCount + " thành viên";
         tvMemberCount.setText(memberText);
@@ -506,14 +518,14 @@ public class GroupDetailActivity extends AppCompatActivity {
 
         // Inflate dialog layout
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_invite_member, null);
-        
+
         // Get views from layout
         TextView tvGroupCode = dialogView.findViewById(R.id.tvGroupCode);
         ImageButton btnCopyCode = dialogView.findViewById(R.id.btnCopyCode);
-        
+
         // Set group code
         tvGroupCode.setText(code);
-        
+
         // Set copy button click listener
         btnCopyCode.setOnClickListener(v -> {
             android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);

@@ -14,6 +14,10 @@ import androidx.appcompat.widget.Toolbar;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.repository.GroupRepository;
 
+import android.widget.Button;
+import android.widget.TextView;
+import com.google.firebase.auth.FirebaseAuth;
+
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
@@ -22,7 +26,7 @@ import java.util.List;
 public class GroupBlockedUsersActivity extends AppCompatActivity {
     private String groupId;
     private GroupRepository groupRepository;
-    private ArrayAdapter<String> adapter;
+    private UserSelectAdapter adapter;
     private final List<String> blockedIds = new ArrayList<>();
 
     @Override
@@ -40,20 +44,16 @@ public class GroupBlockedUsersActivity extends AppCompatActivity {
         groupId = getIntent().getStringExtra("groupId");
         groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
 
+        TextView tvEmpty = findViewById(R.id.tvEmpty);
         ListView listView = findViewById(R.id.listView);
-        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, blockedIds);
+        String currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        adapter = new UserSelectAdapter(this, blockedIds, currentUserId);
         listView.setAdapter(adapter);
+        listView.setEmptyView(tvEmpty);
 
-        listView.setOnItemLongClickListener((parent, view, position, id) -> {
-            String userId = blockedIds.get(position);
-            new AlertDialog.Builder(this)
-                    .setTitle("Bỏ chặn thành viên")
-                    .setMessage("Bạn có chắc muốn bỏ chặn người dùng này?")
-                    .setPositiveButton("Bỏ chặn", (dialog, which) -> unblock(userId))
-                    .setNegativeButton("Hủy", null)
-                    .show();
-            return true;
-        });
+        Button btnUnblock = findViewById(R.id.btnUnblock);
+        btnUnblock.setOnClickListener(v -> actUnblockSelected());
 
         loadBlocked();
     }
@@ -64,12 +64,12 @@ public class GroupBlockedUsersActivity extends AppCompatActivity {
             public void onSuccess(List<String> ids) {
                 blockedIds.clear();
                 blockedIds.addAll(ids);
-                adapter.notifyDataSetChanged();
+                adapter.setItems(blockedIds);
             }
 
             @Override
             public void onError(Exception e) {
-                Toast.makeText(GroupBlockedUsersActivity.this, "Lỗi tải danh sách: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(GroupBlockedUsersActivity.this, getString(R.string.error_loading_list_clean, e.getMessage()), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -87,6 +87,33 @@ public class GroupBlockedUsersActivity extends AppCompatActivity {
                 Toast.makeText(GroupBlockedUsersActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void actUnblockSelected() {
+        List<String> selected = adapter.getSelected();
+        if (selected.isEmpty()) {
+            Toast.makeText(this, "Chưa chọn thành viên", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final int total = selected.size();
+        final int[] done = {0};
+        for (String userId : selected) {
+            groupRepository.unblockUser(groupId, userId, new GroupRepository.UpdateCallback() {
+                @Override
+                public void onSuccess() {
+                    done[0]++;
+                    if (done[0] == total) {
+                        Toast.makeText(GroupBlockedUsersActivity.this, R.string.toast_unblocked_clean, Toast.LENGTH_SHORT).show();
+                        loadBlocked();
+                    }
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    Toast.makeText(GroupBlockedUsersActivity.this, getString(R.string.error_action_clean, e.getMessage()), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     @Override

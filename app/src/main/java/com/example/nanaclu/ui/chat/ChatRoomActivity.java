@@ -42,6 +42,7 @@ public class ChatRoomActivity extends AppCompatActivity {
     private String chatType;
     private String groupId;
 
+    private boolean canDeleteGroupChat = false;
     // State for bottom/new messages
     private boolean isAtBottom = true;
     private int lastRenderedCount = 0;
@@ -58,6 +59,20 @@ public class ChatRoomActivity extends AppCompatActivity {
         chatType = getIntent().getStringExtra("chatType");
         groupId = getIntent().getStringExtra("groupId");
         if (chatTitle == null) chatTitle = "Chat";
+        // Preload permissions for group chat to decide showing delete option
+        if ("group".equals(chatType) && groupId != null) {
+            String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                    ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+            if (uid != null) {
+                new com.example.nanaclu.data.repository.GroupRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance())
+                        .getMemberById(groupId, uid, new com.example.nanaclu.data.repository.GroupRepository.MemberCallback() {
+                            @Override public void onSuccess(com.example.nanaclu.data.model.Member member) {
+                                canDeleteGroupChat = (member != null && ("admin".equals(member.role) || "owner".equals(member.role)));
+                            }
+                            @Override public void onError(Exception e) { canDeleteGroupChat = false; }
+                        });
+            }
+        }
 
         if (chatId == null) {
             Toast.makeText(this, "Invalid chat ID", Toast.LENGTH_SHORT).show();
@@ -238,6 +253,7 @@ public class ChatRoomActivity extends AppCompatActivity {
         if ("group".equals(chatType)) {
             items.add("Xem thành viên");
             items.add("Rời khỏi đoạn chat");
+            if (canDeleteGroupChat) items.add("Xóa đoạn chat");
         } else {
             items.add("Xóa đoạn chat");
         }
@@ -261,23 +277,45 @@ public class ChatRoomActivity extends AppCompatActivity {
                                 .setNegativeButton("Hủy", null)
                                 .show();
                     } else if (sel.startsWith("Xóa")) {
-                        new androidx.appcompat.app.AlertDialog.Builder(this)
-                                .setTitle("Xóa đoạn chat")
-                                .setMessage("Bạn chỉ xóa ở phía bạn. Khi cả hai cùng xóa, đoạn chat mới bị xóa khỏi máy chủ. Tiếp tục?")
-                                .setPositiveButton("Xóa", (dd, w) -> {
-                                    String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-                                            ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-                                    if (uid == null) { Toast.makeText(this, "Chưa đăng nhập", Toast.LENGTH_SHORT).show(); return; }
-                                    new com.example.nanaclu.data.repository.ChatRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance())
-                                            .hideChatForUser(chatId, uid)
-                                            .addOnSuccessListener(aVoid -> {
-                                                Toast.makeText(this, "Đã ẩn đoạn chat", Toast.LENGTH_SHORT).show();
-                                                finish();
-                                            })
-                                            .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
-                                })
-                                .setNegativeButton("Hủy", null)
-                                .show();
+                        if ("group".equals(chatType)) {
+                            // For group chat, show final warning and only allow admin/owner
+                            new androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("Cảnh báo lần cuối!")
+                                    .setMessage("Bạn có chắc chắn muốn xóa đoạn chat này không? Hành động này sẽ xóa đoạn chat cho tất cả thành viên và không thể hoàn tác!")
+                                    .setPositiveButton("Xóa", (dd, w) -> {
+                                        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                                                ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                                        if (uid == null) { Toast.makeText(this, "Chưa đăng nhập", Toast.LENGTH_SHORT).show(); return; }
+                                        new com.example.nanaclu.data.repository.ChatRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance())
+                                                .deleteGroupChat(chatId, groupId)
+                                                .addOnSuccessListener(aVoid -> {
+                                                    Toast.makeText(this, "Đã xóa đoạn chat cho tất cả thành viên", Toast.LENGTH_SHORT).show();
+                                                    finish();
+                                                })
+                                                .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                                    })
+                                    .setNegativeButton("Hủy", null)
+                                    .show();
+                        } else {
+                            // For private chat, use original logic
+                            new androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("Xóa đoạn chat")
+                                    .setMessage("Bạn chỉ xóa ở phía bạn. Khi cả hai cùng xóa, đoạn chat mới bị xóa khỏi máy chủ. Tiếp tục?")
+                                    .setPositiveButton("Xóa", (dd, w) -> {
+                                        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                                                ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                                        if (uid == null) { Toast.makeText(this, "Chưa đăng nhập", Toast.LENGTH_SHORT).show(); return; }
+                                        new com.example.nanaclu.data.repository.ChatRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance())
+                                                .hideChatForUser(chatId, uid)
+                                                .addOnSuccessListener(aVoid -> {
+                                                    Toast.makeText(this, "Đã ẩn đoạn chat", Toast.LENGTH_SHORT).show();
+                                                    finish();
+                                                })
+                                                .addOnFailureListener(e -> Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                                    })
+                                    .setNegativeButton("Hủy", null)
+                                    .show();
+                        }
                     }
                 })
                 .setNegativeButton("Đóng", null)

@@ -45,7 +45,7 @@ public class GroupsFragment extends Fragment {
 		MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
 		toolbar.setBackgroundColor(ThemeUtils.getToolbarColor(requireContext()));
 		toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
-		toolbar.setTitle("My Groups");
+		toolbar.setTitle("NANACLUB");
 		toolbar.setOnMenuItemClickListener(item -> {
 			int id = item.getItemId();
 			if (id == R.id.action_add_group) {
@@ -186,15 +186,50 @@ public class GroupsFragment extends Fragment {
 						return; 
 					}
 					android.util.Log.d("GroupsFragment", "Joining group with code: " + code);
-					com.example.nanaclu.data.repository.GroupRepository repo = new com.example.nanaclu.data.repository.GroupRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
-					repo.joinGroupByCode(code.toUpperCase())
-							.addOnSuccessListener(v -> {
-								android.util.Log.d("GroupsFragment", "Successfully joined group");
-								android.widget.Toast.makeText(requireContext(), "Đã tham gia nhóm", android.widget.Toast.LENGTH_SHORT).show();
-								groupViewModel.loadUserGroups();
+					final String upper = code.toUpperCase();
+					com.google.firebase.firestore.FirebaseFirestore.getInstance()
+							.collection("groups").whereEqualTo("code", upper).limit(1).get()
+							.addOnSuccessListener(qs -> {
+								final boolean needApproval;
+								if (!qs.isEmpty()) {
+									com.google.firebase.firestore.DocumentSnapshot ddoc = qs.getDocuments().get(0);
+									Boolean ra = ddoc.getBoolean("requireApproval");
+									needApproval = ra != null && ra;
+								} else {
+									needApproval = false;
+								}
+								
+								Runnable doJoin = () -> {
+									com.example.nanaclu.data.repository.GroupRepository repo = new com.example.nanaclu.data.repository.GroupRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+									repo.joinGroupByCode(upper)
+											.addOnSuccessListener(vv -> {
+												android.util.Log.d("GroupsFragment", "Join request success");
+												if (needApproval) {
+													android.widget.Toast.makeText(requireContext(), "Đã gửi yêu cầu tham gia", android.widget.Toast.LENGTH_SHORT).show();
+												} else {
+													android.widget.Toast.makeText(requireContext(), "Đã tham gia nhóm", android.widget.Toast.LENGTH_SHORT).show();
+												}
+												groupViewModel.loadUserGroups();
+											})
+											.addOnFailureListener(e2 -> {
+												android.util.Log.e("GroupsFragment", "Failed to join group: " + e2.getMessage());
+												android.widget.Toast.makeText(requireContext(), e2.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+											});
+								};
+								
+								if (needApproval) {
+									new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+											.setTitle(getString(R.string.join_need_approval_title))
+											.setMessage(getString(R.string.join_need_approval_text))
+											.setPositiveButton(getString(R.string.ok), (dd, ww) -> doJoin.run())
+											.setNegativeButton(getString(R.string.cancel), null)
+											.show();
+								} else {
+									doJoin.run();
+								}
 							})
 							.addOnFailureListener(e -> {
-								android.util.Log.e("GroupsFragment", "Failed to join group: " + e.getMessage());
+								android.util.Log.e("GroupsFragment", "Failed to check code: " + e.getMessage());
 								android.widget.Toast.makeText(requireContext(), e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
 							});
 				})

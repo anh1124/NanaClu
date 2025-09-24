@@ -94,7 +94,32 @@ public class ChatRepository {
                 .continueWithTask(task -> {
                     if (!task.isSuccessful()) return Tasks.forException(task.getException());
                     if (task.getResult() != null && !task.getResult().isEmpty()) {
-                        return Tasks.forResult(task.getResult().getDocuments().get(0).getId());
+                        // Chat exists, but ensure current user is a member
+                        String existingChatId = task.getResult().getDocuments().get(0).getId();
+                        String uid = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                        if (uid != null) {
+                            DocumentReference chatRef = task.getResult().getDocuments().get(0).getReference();
+                            return chatRef.collection(MEMBERS).document(uid).get().continueWithTask(memberTask -> {
+                                if (!memberTask.isSuccessful() || memberTask.getResult() == null || !memberTask.getResult().exists()) {
+                                    // User is not a member, add them to both locations
+                                    android.util.Log.d("ChatRepository", "Adding user " + uid + " to existing group chat " + existingChatId);
+                                    ChatMember newMember = new ChatMember();
+                                    newMember.userId = uid;
+                                    newMember.joinedAt = System.currentTimeMillis();
+
+                                    DocumentReference mainChatRef = db.collection(CHATS).document(existingChatId);
+                                    Task<Void> groupMember = chatRef.collection(MEMBERS).document(uid).set(newMember);
+                                    Task<Void> mainMember = mainChatRef.collection(MEMBERS).document(uid).set(newMember);
+                                    return Tasks.whenAll(groupMember, mainMember)
+                                            .continueWithTask(t -> Tasks.forResult(existingChatId));
+                                } else {
+                                    android.util.Log.d("ChatRepository", "User " + uid + " already member of group chat " + existingChatId);
+                                    return Tasks.forResult(existingChatId);
+                                }
+                            });
+                        } else {
+                            return Tasks.forResult(existingChatId);
+                        }
                     }
 
                     // Create new group chat in groups/{groupId}/chats/{chatId}
@@ -103,6 +128,7 @@ public class ChatRepository {
                             .collection("chats")
                             .document();
                     String chatId = chatRef.getId();
+                    android.util.Log.d("ChatRepository", "Creating new group chat " + chatId + " for group " + groupId);
                     Map<String, Object> chatMap = new HashMap<>();
                     chatMap.put("chatId", chatId);
                     chatMap.put("type", "group");
@@ -116,10 +142,17 @@ public class ChatRepository {
                     self.userId = uid;
                     self.joinedAt = System.currentTimeMillis();
 
-                    return chatRef.set(chatMap)
+                    // Also create in main chats collection for consistency
+                    DocumentReference mainChatRef = db.collection(CHATS).document(chatId);
+
+                    return Tasks.whenAll(chatRef.set(chatMap), mainChatRef.set(chatMap))
                             .continueWithTask(t -> {
                                 if (uid != null) {
-                                    return chatRef.collection(MEMBERS).document(uid).set(self);
+                                    android.util.Log.d("ChatRepository", "Adding creator " + uid + " as member of new group chat");
+                                    // Add member to both locations
+                                    Task<Void> groupMember = chatRef.collection(MEMBERS).document(uid).set(self);
+                                    Task<Void> mainMember = mainChatRef.collection(MEMBERS).document(uid).set(self);
+                                    return Tasks.whenAll(groupMember, mainMember);
                                 } else {
                                     return Tasks.forResult(null);
                                 }
@@ -270,6 +303,7 @@ public class ChatRepository {
     /** Hide chat for current user (soft delete). Only when all members hide (private) then delete chat doc. */
     public Task<Void> hideChatForUser(String chatId, String userId) {
         if (chatId == null || userId == null) return Tasks.forException(new IllegalArgumentException("null"));
+        android.util.Log.d("ChatRepository", "hideChatForUser: chatId=" + chatId + ", userId=" + userId);
         DocumentReference rootMemberRef = db.collection(CHATS).document(chatId).collection(MEMBERS).document(userId);
         Task<Void> root = rootMemberRef.update("hidden", true);
         Task<Void> group = db.collectionGroup("chats")
@@ -277,11 +311,18 @@ public class ChatRepository {
                 .limit(1)
                 .get()
                 .continueWithTask(t -> {
-                    if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) return Tasks.forResult(null);
+                    if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) {
+                        android.util.Log.d("ChatRepository", "No group chat found for chatId: " + chatId);
+                        return Tasks.forResult(null);
+                    }
                     com.google.firebase.firestore.DocumentSnapshot chatDoc = t.getResult().getDocuments().get(0);
+                    android.util.Log.d("ChatRepository", "Updating group chat member hidden for: " + chatDoc.getReference().getPath());
                     return chatDoc.getReference().collection(MEMBERS).document(userId).update("hidden", true);
                 });
-        return Tasks.whenAll(root, group).continueWithTask(t -> tryDeleteIfBothHidden(chatId));
+        return Tasks.whenAll(root, group).continueWithTask(t -> {
+            android.util.Log.d("ChatRepository", "Both updates completed, checking if should delete chat");
+            return tryDeleteIfBothHidden(chatId);
+        });
     }
 
     private Task<Void> tryDeleteIfBothHidden(String chatId) {
@@ -290,24 +331,58 @@ public class ChatRepository {
             if (!t.isSuccessful() || t.getResult() == null) return Tasks.forResult(null);
             com.google.firebase.firestore.DocumentSnapshot chatDoc = t.getResult();
             String type = chatDoc.getString("type");
+            android.util.Log.d("ChatRepository", "tryDeleteIfBothHidden: chatId=" + chatId + ", type=" + type);
             if (!"private".equals(type)) {
                 // Only auto-delete private chats when both sides hide
+                android.util.Log.d("ChatRepository", "Not a private chat, skipping auto-delete");
                 return Tasks.forResult(null);
             }
             return chatRef.collection(MEMBERS).get().continueWithTask(mt -> {
                 if (!mt.isSuccessful() || mt.getResult() == null) return Tasks.forResult(null);
                 int total = mt.getResult().size();
                 int hidden = 0;
+                android.util.Log.d("ChatRepository", "Checking members: total=" + total);
                 for (com.google.firebase.firestore.DocumentSnapshot md : mt.getResult().getDocuments()) {
                     Boolean h = md.getBoolean("hidden");
+                    android.util.Log.d("ChatRepository", "Member " + md.getId() + " hidden=" + h);
                     if (h != null && h) hidden++;
                 }
+                android.util.Log.d("ChatRepository", "Hidden count: " + hidden + "/" + total);
                 if (total > 0 && hidden == total) {
-                    return chatRef.delete();
+                    android.util.Log.d("ChatRepository", "All members hidden, deleting chat document");
+                    // Also delete messages subcollection
+                    return chatRef.collection("messages").get().continueWithTask(msgTask -> {
+                        if (msgTask.isSuccessful() && msgTask.getResult() != null) {
+                            com.google.firebase.firestore.WriteBatch batch = db.batch();
+                            for (com.google.firebase.firestore.DocumentSnapshot msgDoc : msgTask.getResult().getDocuments()) {
+                                batch.delete(msgDoc.getReference());
+                            }
+                            return batch.commit().continueWithTask(batchTask -> chatRef.delete());
+                        } else {
+                            return chatRef.delete();
+                        }
+                    });
+                } else {
+                    android.util.Log.d("ChatRepository", "Not all members hidden, keeping chat document");
                 }
                 return Tasks.forResult(null);
             });
         });
+    }
+
+    /** Delete group chat completely (for admin/owner) */
+    public Task<Void> deleteGroupChat(String chatId, String groupId) {
+        if (chatId == null || groupId == null) return Tasks.forException(new IllegalArgumentException("null"));
+
+        // Delete from both locations: main chats collection and group's chats subcollection
+        Task<Void> deleteMain = db.collection(CHATS).document(chatId).delete();
+        Task<Void> deleteGroup = db.collection("groups")
+                .document(groupId)
+                .collection("chats")
+                .document(chatId)
+                .delete();
+
+        return Tasks.whenAll(deleteMain, deleteGroup);
     }
 }
 

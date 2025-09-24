@@ -216,6 +216,9 @@ public class FeedFragment extends Fragment {
                     if (root != null) {
                         android.widget.TextView tvEmpty = root.findViewById(R.id.tvEmpty);
                         if (top.isEmpty()) {
+                            tvEmpty.setText(joinedGroupIds.isEmpty()
+                                    ? "Hãy tham gia group để xem bài viết của thành viên khác!"
+                                    : "Ở đây hơi trống thì phải, group của bạn chưa có ai đăng bài");
                             tvEmpty.setVisibility(View.VISIBLE);
                             rvFeed.setVisibility(View.GONE);
                         } else {

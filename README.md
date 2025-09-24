@@ -34,7 +34,7 @@ Dự án được thiết kế để mô phỏng một hệ thống mạng xã h
 - **Database:** Firebase Firestore (NoSQL)  
 - **Authentication:** Firebase Auth (Google, Email/Password)  
 - **Storage:** Firebase Storage (thay thế base64 cho lưu trữ ảnh)  
-- **Realtime:** Firebase Realtime Database (cập nhật trạng thái online/offline)  
+- **Realtime:** Firestore snapshot listeners cho chat/bình luận; Realtime Database (tuỳ chọn) cho trạng thái online/offline
   
 
 📌 MVVM flow:
@@ -105,9 +105,9 @@ app/
    - Admin/Owner mới có quyền xóa/chỉnh sửa bài viết trong nhóm.  
    - Chỉ người tạo sự kiện mới có quyền huỷ sự kiện.  
 4. **Ảnh**: Dùng `Firebase Storage` thay cho base64 (cải thiện hiệu suất và giảm kích thước database).
-5. **Cập nhật dữ liệu chat với FCM**: Không sử dụng `addSnapshotListener`. Dùng **Firebase Cloud Messaging (FCM)** để nhận thông báo khi có tin nhắn/sự kiện mới và kích hoạt đồng bộ có điều kiện (fetch theo `createdAt > lastReadAt`). Hạn chế/không sử dụng polling định kỳ.  
-6. **Trạng thái online**: Sử dụng **Firebase Realtime Database** để cập nhật và theo dõi trạng thái online/offline của người dùng theo thời gian thực.
-7. **Code style**:  
+5. **Chat realtime**: Sử dụng Firestore `addSnapshotListener` để đồng bộ tin nhắn theo thời gian thực. FCM dùng cho thông báo hệ thống (kick/block/mention) và đánh thức app khi cần, không truyền nội dung chat.
+6. **Trạng thái online**: (Tuỳ chọn) dùng Realtime Database hoặc Firestore presence; hiện tại dự án chưa bật Realtime Database mặc định.
+7. **Code style**:
    - Tên class PascalCase (`UserViewModel`)  
    - Tên biến camelCase (`createdAt`, `authorId`)  
    - Comment code rõ ràng cho Repository & ViewModel.
@@ -117,11 +117,11 @@ app/
 
 ---
 
-## 🔁 Chiến lược cập nhật dữ liệu với FCM
-- **Chat (ưu tiên FCM)**: Khi có tin nhắn mới, server hoặc Cloud Function gửi FCM tới các thiết bị liên quan. Ứng dụng nhận thông báo (foreground/background) và đồng bộ có điều kiện: `orderBy(createdAt)` + `where(createdAt > lastReadAt)` + `limit N`. Có thể kết hợp `WorkManager` để đảm bảo đồng bộ nền đáng tin cậy.  
-- **Feed bài viết & bình luận**: Kéo để làm mới (pull-to-refresh) và phân trang `limit/offset` hoặc `startAfter`. Có thể cân nhắc FCM cho sự kiện quan trọng (ví dụ: có bình luận mới) để kích hoạt refresh tinh gọn.  
-- **Badge/đếm số**: Tính toán phía client sau mỗi lần fetch; tránh đếm động tốn chi phí.  
-- **Giảm chi phí & hạn chế**: Cache trong `ViewModel`, chỉ gọi lại khi màn hình active; tránh gọi khi app nền; thêm chỉ số/điều kiện truy vấn phù hợp (index, `whereEqualTo`, `orderBy`).  
+## 🔁 Chiến lược cập nhật dữ liệu (hiện tại)
+- **Chat**: Realtime bằng Firestore `addSnapshotListener`; danh sách hội thoại dựa trên metadata `lastMessage`/`lastMessageAt` (có fallback lấy message cuối nếu thiếu metadata cũ). FCM dùng cho thông báo hệ thống (kick/block/mention), không mang nội dung chat.
+- **Feed & bình luận**: Kéo để làm mới (pull-to-refresh) + phân trang `startAfter`. Có thể cân nhắc listener ở GroupDetail để auto-refresh khi cần (đánh đổi chi phí).
+- **Badge/đếm số**: Tính toán phía client sau mỗi lần fetch; tránh đếm động tốn chi phí.
+- **Giảm chi phí & hạn chế**: Cache trong `ViewModel`, chỉ gọi lại khi màn hình active; tránh gọi khi app nền; thêm chỉ số/điều kiện truy vấn phù hợp (index, `whereEqualTo`, `orderBy`).
 
 ---
 // ---------------- Image (subcollection of User) ----------------

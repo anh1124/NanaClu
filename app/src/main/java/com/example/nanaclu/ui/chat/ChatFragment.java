@@ -85,6 +85,15 @@ public class ChatFragment extends Fragment {
         return root;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Refresh chat list to update any changes (like group avatars)
+        if (viewModel != null) {
+            viewModel.refresh();
+        }
+    }
+
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(ChatListViewModel.class);
 
@@ -119,13 +128,26 @@ public class ChatFragment extends Fragment {
                     thread.time = chat.lastMessageAt != null ? chat.lastMessageAt : chat.createdAt;
                     thread.chat = chat; // Store chat reference
 
-                    // Load display name asynchronously; only add to list when ready for private
-                    if ("group".equals(chat.type)) {
-                        allThreads.add(thread);
-                        loadChatDisplayName(chat, thread);
-                    } else {
-                        loadChatDisplayName(chat, thread);
+                    // Fallback: nếu chat nhóm chưa có lastMessage (tài liệu cũ), lấy 1 message mới nhất để hiển thị preview
+                    if ("group".equals(chat.type) && (thread.lastMessage == null || "No messages yet".equals(thread.lastMessage))) {
+                        if (chat.groupId != null) {
+                            new com.example.nanaclu.data.repository.MessageRepository(
+                                    com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                    com.google.firebase.storage.FirebaseStorage.getInstance()
+                            ).listMessages(chat.chatId, null, 1, "group", chat.groupId)
+                             .addOnSuccessListener(list -> {
+                                 if (list != null && !list.isEmpty()) {
+                                     com.example.nanaclu.data.model.Message m = list.get(list.size() - 1);
+                                     thread.lastMessage = "image".equals(m.type) ? "📷 Image" : (m.content != null ? m.content : "");
+                                     thread.time = m.createdAt;
+                                     adapter.notifyDataSetChanged();
+                                 }
+                             });
+                        }
                     }
+
+                    // Load display name asynchronously for all chat types
+                    loadChatDisplayName(chat, thread);
                 }
                 adapter.setItems(new ArrayList<>(allThreads));
             }
@@ -145,19 +167,21 @@ public class ChatFragment extends Fragment {
                         if (group != null) {
                             thread.name = group.name != null ? group.name : "Group Chat";
                             thread.avatarUrl = group.avatarImageId; // Use avatar image
-                            adapter.notifyDataSetChanged();
+                        } else {
+                            thread.name = "Group Chat";
                         }
+                        addThreadToListIfNotExists(thread);
                     }
 
                     @Override
                     public void onError(Exception e) {
                         thread.name = "Group Chat";
-                        adapter.notifyDataSetChanged();
+                        addThreadToListIfNotExists(thread);
                     }
                 });
             } else {
                 thread.name = "Group Chat";
-                adapter.notifyDataSetChanged();
+                addThreadToListIfNotExists(thread);
             }
         } else {
             // For private chat, find the other user
@@ -182,12 +206,7 @@ public class ChatFragment extends Fragment {
                     if (user != null) {
                         thread.name = (user.displayName != null ? user.displayName : "");
                         thread.avatarUrl = user.photoUrl; // Use user's photo
-                        if (!allThreads.contains(thread)) {
-                            allThreads.add(thread);
-                            adapter.setItems(new ArrayList<>(allThreads));
-                        } else {
-                            adapter.notifyDataSetChanged();
-                        }
+                        addThreadToListIfNotExists(thread);
                     }
                 }
 
@@ -199,7 +218,21 @@ public class ChatFragment extends Fragment {
         }
     }
 
-
+    private void addThreadToListIfNotExists(ChatThread thread) {
+        if (!allThreads.contains(thread)) {
+            allThreads.add(thread);
+            adapter.setItems(new ArrayList<>(allThreads));
+        } else {
+            // Update existing thread data
+            for (int i = 0; i < allThreads.size(); i++) {
+                if (allThreads.get(i).equals(thread)) {
+                    allThreads.set(i, thread);
+                    break;
+                }
+            }
+            adapter.notifyDataSetChanged();
+        }
+    }
 
     private void filter(String q) {
         if (q == null || q.trim().isEmpty()) {
@@ -255,6 +288,19 @@ public class ChatFragment extends Fragment {
         Chat chat; // Store chat reference for navigation
         ChatThread() {}
         ChatThread(String n, String lm, long t) { name=n; lastMessage=lm; time=t; }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            ChatThread that = (ChatThread) obj;
+            return chatId != null ? chatId.equals(that.chatId) : that.chatId == null;
+        }
+
+        @Override
+        public int hashCode() {
+            return chatId != null ? chatId.hashCode() : 0;
+        }
     }
 
     static class ChatThreadAdapter extends RecyclerView.Adapter<ChatThreadAdapter.VH> {
@@ -316,9 +362,28 @@ public class ChatFragment extends Fragment {
                 });
             }
 
-            private void loadGroupAvatar(String imageId) {
-                // TODO: Load group image from storage using imageId
-                avatar.setImageResource(R.mipmap.ic_launcher_round);
+            private void loadGroupAvatar(String imageUrl) {
+                if (imageUrl == null || imageUrl.isEmpty()) {
+                    avatar.setImageResource(R.mipmap.ic_launcher_round);
+                    return;
+                }
+
+                try {
+                    // Check if it's a Firebase Storage URL (starts with https://)
+                    if (imageUrl.startsWith("https://")) {
+                        com.bumptech.glide.Glide.with(itemView.getContext())
+                                .load(imageUrl)
+                                .placeholder(R.mipmap.ic_launcher_round)
+                                .error(R.mipmap.ic_launcher_round)
+                                .circleCrop()
+                                .into(avatar);
+                    } else {
+                        // Fallback to default avatar for invalid URLs
+                        avatar.setImageResource(R.mipmap.ic_launcher_round);
+                    }
+                } catch (Exception e) {
+                    avatar.setImageResource(R.mipmap.ic_launcher_round);
+                }
             }
 
             private void loadUserAvatar(String photoUrl) {

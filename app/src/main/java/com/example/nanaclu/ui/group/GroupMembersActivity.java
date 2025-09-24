@@ -126,15 +126,18 @@ public class GroupMembersActivity extends AppCompatActivity {
     }
 
     private void loadCurrentUserMember() {
+        android.util.Log.d("GroupMembers", "Loading current user member: " + currentUserId + " in group: " + groupId);
         groupRepository.getMemberById(groupId, currentUserId, new GroupRepository.MemberCallback() {
             @Override
             public void onSuccess(Member member) {
+                android.util.Log.d("GroupMembers", "Current user member found: " + member.role);
                 currentUserMember = member;
                 loadMembers();
             }
 
             @Override
             public void onError(Exception e) {
+                android.util.Log.e("GroupMembers", "Current user member NOT found: " + e.getMessage());
                 // User might not be a member
                 currentUserMember = null;
                 loadMembers();
@@ -146,6 +149,25 @@ public class GroupMembersActivity extends AppCompatActivity {
         groupRepository.getGroupMembers(groupId, new GroupRepository.MembersCallback() {
             @Override
             public void onSuccess(List<Member> members) {
+                android.util.Log.d("GroupMembers", "Loaded " + members.size() + " members");
+                boolean currentUserFound = false;
+                for (Member member : members) {
+                    android.util.Log.d("GroupMembers", "Member: " + member.userId + ", role: " + member.role);
+                    if (member.userId.equals(currentUserId)) {
+                        currentUserFound = true;
+                        android.util.Log.d("GroupMembers", "Current user found in members list");
+                    }
+                }
+                if (!currentUserFound) {
+                    android.util.Log.w("GroupMembers", "Current user NOT found in members list!");
+                    // If current user is not in the list but has access to this activity,
+                    // they should be added (this can happen in edge cases)
+                    if (currentUserMember != null) {
+                        android.util.Log.d("GroupMembers", "Adding current user to members list");
+                        members.add(currentUserMember);
+                    }
+                }
+
                 allMembers = members;
                 filteredMembers = new ArrayList<>(members);
                 loadUserDataForMembers();
@@ -153,6 +175,7 @@ public class GroupMembersActivity extends AppCompatActivity {
 
             @Override
             public void onError(Exception e) {
+                android.util.Log.e("GroupMembers", "Error loading members: " + e.getMessage());
                 Toast.makeText(GroupMembersActivity.this, "Lỗi khi tải danh sách thành viên", Toast.LENGTH_SHORT).show();
             }
         });
@@ -215,16 +238,9 @@ public class GroupMembersActivity extends AppCompatActivity {
         boolean isAdminOrOwner = "admin".equals(currentUserMember.role) || "owner".equals(currentUserMember.role);
         boolean isOwnProfile = member.userId.equals(currentUserId);
 
-        if (isOwnProfile) {
-            // Show limited menu for own profile
-            showMemberMenu(member, false);
-        } else if (isAdminOrOwner) {
-            // Show full menu for admin/owner
-            showMemberMenu(member, true);
-        } else {
-            // Show limited menu for regular members
-            showMemberMenu(member, false);
-        }
+        // Always show menu with admin/owner privileges if user has them
+        // regardless of whether they're viewing their own profile or others
+        showMemberMenu(member, isAdminOrOwner);
     }
 
     private void showMemberMenu(Member member, boolean isAdminOrOwner) {
@@ -237,18 +253,21 @@ public class GroupMembersActivity extends AppCompatActivity {
         items.add("Thông tin");
         items.add("Bài đăng");
 
-        if (!isSelf) {
-            if ("owner".equals(myRole)) {
-                // Owner: can manage admins and members; can transfer ownership
-                if (!"owner".equals(targetRole)) {
-                    items.add("Thay đổi vai trò"); // choose owner/admin/member
+        // Show role management options for admin/owner
+        if ("owner".equals(myRole)) {
+            // Owner: can manage admins and members; can transfer ownership
+            if (!"owner".equals(targetRole)) {
+                items.add("Thay đổi vai trò"); // choose owner/admin/member
+                if (!isSelf) { // Can't kick or block themselves
                     items.add("Kick");
                     if ("member".equals(targetRole)) items.add("Block");
                 }
-            } else if ("admin".equals(myRole)) {
-                // Admin: can only act on members
-                if ("member".equals(targetRole)) {
-                    items.add("Thay đổi vai trò"); // promote to admin
+            }
+        } else if ("admin".equals(myRole)) {
+            // Admin: can only act on members
+            if ("member".equals(targetRole)) {
+                items.add("Thay đổi vai trò"); // promote to admin
+                if (!isSelf) { // Can't kick or block themselves
                     items.add("Kick");
                     items.add("Block");
                 }
@@ -355,6 +374,10 @@ public class GroupMembersActivity extends AppCompatActivity {
                         int idx = ad.getListView().getCheckedItemPosition();
                         if (idx == 0) {
                             // Transfer ownership: current owner -> admin; target -> owner
+                            if (member.userId.equals(currentUserId)) {
+                                Toast.makeText(GroupMembersActivity.this, "Không thể chuyển quyền owner cho chính mình", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
                             groupRepository.transferOwnership(groupId, currentUserId, member.userId, new GroupRepository.UpdateCallback() {
                                 @Override public void onSuccess() {
                                     Toast.makeText(GroupMembersActivity.this, "0t chuyfn owner", Toast.LENGTH_SHORT).show();

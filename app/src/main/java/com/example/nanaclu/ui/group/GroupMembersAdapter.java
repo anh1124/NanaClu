@@ -203,8 +203,9 @@ public class GroupMembersAdapter extends RecyclerView.Adapter<GroupMembersAdapte
         }
 
         private void setRoleBadge(String role) {
-            String you = (currentUserId != null && getAdapterPosition() != RecyclerView.NO_POSITION
-                    && members.get(getAdapterPosition()).userId.equals(currentUserId)) ? " • YOU" : "";
+            boolean isSelf = (currentUserId != null && getAdapterPosition() != RecyclerView.NO_POSITION
+                    && members.get(getAdapterPosition()).userId.equals(currentUserId));
+            String you = isSelf ? itemView.getContext().getString(R.string.label_tag_you) : "";
             switch (role) {
                 case "owner":
                     tvRoleBadge.setText("OWNER" + you);

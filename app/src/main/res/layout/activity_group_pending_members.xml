@@ -39,6 +39,15 @@
             android:text="Từ chối" />
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:text="@string/label_no_pending_members"
+        android:gravity="center"
+        android:visibility="gone"/>
+
     <ListView
         android:id="@+id/listView"
         android:layout_width="match_parent"
