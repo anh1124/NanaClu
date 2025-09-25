@@ -23,17 +23,23 @@ public class GroupEventActivity extends AppCompatActivity {
     private ViewPager2 viewPager;
     private TabLayout tabLayout;
     private FloatingActionButton fabCreateEvent;
+    private EventListFragment eventListFragment;
+    private EventCalendarFragment eventCalendarFragment;
 
     private ActivityResultLauncher<Intent> createEventLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 if (result.getResultCode() == RESULT_OK) {
-                    // Event created successfully, refresh the list
-                    // TODO: Notify fragments to refresh
+                    // Event created successfully, refresh both fragments
+                    if (eventListFragment != null) {
+                        eventListFragment.refreshEvents();
+                    }
+                    if (eventCalendarFragment != null) {
+                        eventCalendarFragment.refreshEvents();
+                    }
                 }
             }
     );
-    private EventListFragment eventListFragment;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +93,25 @@ public class GroupEventActivity extends AppCompatActivity {
                     break;
             }
         }).attach();
+        
+        // Add click listeners to tabs for refresh functionality
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                // Tab selected, no refresh needed here
+            }
+            
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // Tab unselected
+            }
+            
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                // User clicked on already selected tab - refresh the fragment
+                refreshCurrentFragment(tab.getPosition());
+            }
+        });
     }
     
     private void setupFab() {
@@ -104,10 +129,30 @@ public class GroupEventActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 100 && resultCode == RESULT_OK) {
-            // Refresh event list
+            // Refresh both fragments
             if (eventListFragment != null) {
                 eventListFragment.refreshEvents();
             }
+            if (eventCalendarFragment != null) {
+                eventCalendarFragment.refreshEvents();
+            }
+        }
+    }
+    
+    private void refreshCurrentFragment(int position) {
+        switch (position) {
+            case 0:
+                // Refresh list fragment
+                if (eventListFragment != null) {
+                    eventListFragment.refreshEvents();
+                }
+                break;
+            case 1:
+                // Refresh calendar fragment
+                if (eventCalendarFragment != null) {
+                    eventCalendarFragment.refreshEvents();
+                }
+                break;
         }
     }
     
@@ -125,9 +170,11 @@ public class GroupEventActivity extends AppCompatActivity {
                     eventListFragment = EventListFragment.newInstance(groupId);
                     return eventListFragment;
                 case 1:
-                    return EventCalendarFragment.newInstance(groupId);
+                    eventCalendarFragment = EventCalendarFragment.newInstance(groupId);
+                    return eventCalendarFragment;
                 default:
-                    return EventListFragment.newInstance(groupId);
+                    eventListFragment = EventListFragment.newInstance(groupId);
+                    return eventListFragment;
             }
         }
         

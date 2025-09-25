@@ -88,22 +88,31 @@ public class EventListFragment extends Fragment {
 
         showLoading(true);
         // Switch back to normal method since debug shows events are loading
+        android.util.Log.d("EventListFragment", "Starting to load events for groupId: " + groupId);
         eventRepository.getEvents(groupId,
                 events -> {
+                    android.util.Log.d("EventListFragment", "Success callback received with " + events.size() + " events");
                     showLoading(false);
                     android.util.Log.d("EventListFragment", "Loaded " + events.size() + " events for groupId: " + groupId);
                     for (Event event : events) {
-                        android.util.Log.d("EventListFragment", "Event: " + event.title + ", status: " + event.status);
+                        android.util.Log.d("EventListFragment", "Event: " + event.title + 
+                                ", status: " + event.status + 
+                                ", creatorId: " + event.creatorId + 
+                                ", creatorName: " + event.creatorName);
                     }
 
                     if (events.isEmpty()) {
+                        android.util.Log.d("EventListFragment", "Events list is empty, showing empty state");
                         showEmpty(true);
                     } else {
+                        android.util.Log.d("EventListFragment", "Updating adapter with " + events.size() + " events");
                         showEmpty(false);
                         adapter.updateEvents(events);
+                        android.util.Log.d("EventListFragment", "Adapter updated successfully");
                     }
                 },
                 error -> {
+                    android.util.Log.e("EventListFragment", "Error callback received", error);
                     showLoading(false);
                     showEmpty(true);
                     android.util.Log.e("EventListFragment", "Error loading events", error);

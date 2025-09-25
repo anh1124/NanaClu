@@ -93,24 +93,49 @@ public class EventRepository {
                 .collection(EVENTS)
                 .whereEqualTo("status", "active")
                 .get()
-                .continueWith(task -> {
+                .continueWithTask(task -> {
                     List<Event> events = new ArrayList<>();
                     if (task.isSuccessful() && task.getResult() != null) {
                         android.util.Log.d("EventRepository", "Query successful, found " + task.getResult().size() + " documents");
+                        
+                        List<Task<Void>> loadTasks = new ArrayList<>();
+                        
                         for (DocumentSnapshot doc : task.getResult().getDocuments()) {
                             android.util.Log.d("EventRepository", "Document: " + doc.getId() + ", data: " + doc.getData());
                             Event event = doc.toObject(Event.class);
                             if (event != null) {
                                 event.eventId = doc.getId();
                                 events.add(event);
-                                android.util.Log.d("EventRepository", "Added event: " + event.title + ", status: " + event.status);
+                                
+                                // Load creator name if creatorId exists but creatorName is null
+                                if (event.creatorId != null && !event.creatorId.isEmpty() && 
+                                    (event.creatorName == null || event.creatorName.isEmpty())) {
+                                    
+                                    Task<Void> loadCreatorTask = db.collection("users")
+                                            .document(event.creatorId)
+                                            .get()
+                                            .continueWith(userTask -> {
+                                                if (userTask.isSuccessful() && userTask.getResult() != null && userTask.getResult().exists()) {
+                                                    String creatorName = userTask.getResult().getString("name");
+                                                    if (creatorName == null || creatorName.isEmpty()) {
+                                                        creatorName = userTask.getResult().getString("displayName");
+                                                    }
+                                                    event.creatorName = creatorName;
+                                                    android.util.Log.d("EventRepository", "Loaded creator name: " + creatorName + " for event: " + event.title);
+                                                }
+                                                return null;
+                                            });
+                                    loadTasks.add(loadCreatorTask);
+                                }
                             }
                         }
+                        
+                        // Wait for all creator names to load
+                        return Tasks.whenAll(loadTasks).continueWith(allTasks -> events);
                     } else {
                         android.util.Log.e("EventRepository", "Query failed", task.getException());
+                        return Tasks.forResult(events);
                     }
-                    android.util.Log.d("EventRepository", "Returning " + events.size() + " events");
-                    return events;
                 });
     }
     
@@ -327,8 +352,10 @@ public class EventRepository {
         EventRSVP rsvp = new EventRSVP();
         rsvp.userId = currentUserId;
         rsvp.attendanceStatus = status.getValue();
-        rsvp.status = status.getValue(); // For backward compatibility
         rsvp.responseTime = System.currentTimeMillis();
+        
+        // Set backward compatibility fields for existing data
+        rsvp.status = status.getValue(); // For backward compatibility
         rsvp.respondedAt = rsvp.responseTime; // For backward compatibility
         rsvp.rsvpTime = rsvp.responseTime; // For backward compatibility
 

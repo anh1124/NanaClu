@@ -3,18 +3,26 @@ package com.example.nanaclu.data.model;
 import com.google.firebase.Timestamp;
 
 public class EventRSVP {
-    public String attendeeId;
-    public String rsvpId; // Alias for attendeeId (backward compatibility)
+    public String attendeeId; // Will be set from document ID when loading
     public String userId;
     public String userName; // Cache tên user
-    public String userAvatar; // Cache avatar user
-    public String userAvatarUrl; // Alias for userAvatar
     public String attendanceStatus; // "attending" | "not_attending" | "maybe"
-    public String status; // Alias for attendanceStatus (backward compatibility)
     public long responseTime; // Timestamp phản hồi
-    public long respondedAt; // Alias for responseTime (backward compatibility)
-    public long rsvpTime; // Alias for responseTime (for backward compatibility)
     public String note; // Ghi chú (optional)
+    
+    // Backward compatibility fields (deprecated but kept for migration)
+    @Deprecated
+    public String rsvpId; // Alias for attendeeId (backward compatibility)
+    @Deprecated
+    public String userAvatar; // Cache avatar user (not used)
+    @Deprecated
+    public String userAvatarUrl; // Alias for userAvatar (not used)
+    @Deprecated
+    public String status; // Alias for attendanceStatus (backward compatibility)
+    @Deprecated
+    public long respondedAt; // Alias for responseTime (backward compatibility)
+    @Deprecated
+    public long rsvpTime; // Alias for responseTime (for backward compatibility)
 
     public enum Status {
         ATTENDING("attending"),

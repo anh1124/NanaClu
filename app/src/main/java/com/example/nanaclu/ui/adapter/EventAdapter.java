@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Event;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -47,8 +48,11 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
     
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
+        android.util.Log.d("EventAdapter", "onBindViewHolder called for position: " + position + ", total events: " + events.size());
         Event event = events.get(position);
+        android.util.Log.d("EventAdapter", "About to bind event: " + event.title);
         holder.bind(event);
+        android.util.Log.d("EventAdapter", "Event binding completed for: " + event.title);
     }
     
     @Override
@@ -57,8 +61,11 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
     }
     
     public void updateEvents(List<Event> newEvents) {
+        android.util.Log.d("EventAdapter", "updateEvents called with " + newEvents.size() + " events");
         this.events = newEvents;
+        android.util.Log.d("EventAdapter", "About to call notifyDataSetChanged");
         notifyDataSetChanged();
+        android.util.Log.d("EventAdapter", "notifyDataSetChanged completed");
     }
     
     class EventViewHolder extends RecyclerView.ViewHolder {
@@ -113,7 +120,23 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             // Basic info
             tvEventTitle.setText(event.title != null ? event.title : "");
             tvEventDescription.setText(event.description != null ? event.description : "");
-            tvEventCreator.setText("Tạo bởi: " + (event.creatorName != null ? event.creatorName : "Unknown"));
+            
+            // Load creator name if missing
+            android.util.Log.d("EventAdapter", "Binding event: " + event.title + 
+                    ", creatorId: " + event.creatorId + 
+                    ", creatorName: " + event.creatorName);
+            
+            if (event.creatorName != null && !event.creatorName.isEmpty()) {
+                android.util.Log.d("EventAdapter", "Using cached creator name: " + event.creatorName);
+                tvEventCreator.setText("Tạo bởi: " + event.creatorName);
+            } else if (event.creatorId != null && !event.creatorId.isEmpty()) {
+                android.util.Log.d("EventAdapter", "Loading creator name for ID: " + event.creatorId);
+                tvEventCreator.setText("Tạo bởi: Đang tải...");
+                loadCreatorName(event.creatorId);
+            } else {
+                android.util.Log.w("EventAdapter", "Both creatorId and creatorName are null/empty for event: " + event.title);
+                tvEventCreator.setText("Tạo bởi: Unknown");
+            }
             
             // Time formatting
             SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
@@ -160,6 +183,48 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
             tvGoingCount.setText(String.valueOf(event.goingCount));
             tvMaybeCount.setText(String.valueOf(event.maybeCount));
             tvNotGoingCount.setText(String.valueOf(event.notGoingCount));
+        }
+        
+        private void loadCreatorName(String creatorId) {
+            android.util.Log.d("EventAdapter", "Starting to load creator name for ID: " + creatorId);
+            
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(creatorId)
+                    .get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        android.util.Log.d("EventAdapter", "Firestore response for creatorId " + creatorId + 
+                                ", exists: " + documentSnapshot.exists());
+                        
+                        if (documentSnapshot.exists()) {
+                            String creatorName = documentSnapshot.getString("name");
+                            android.util.Log.d("EventAdapter", "Retrieved creator name: '" + creatorName + "' for ID: " + creatorId);
+                            
+                            if (creatorName != null && !creatorName.isEmpty()) {
+                                android.util.Log.d("EventAdapter", "Setting creator name: " + creatorName);
+                                tvEventCreator.setText("Tạo bởi: " + creatorName);
+                                
+                                // Update the event object for future use
+                                for (Event event : events) {
+                                    if (event.creatorId != null && event.creatorId.equals(creatorId)) {
+                                        android.util.Log.d("EventAdapter", "Updating event object with creator name: " + creatorName);
+                                        event.creatorName = creatorName;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                android.util.Log.w("EventAdapter", "Creator name is null/empty in document for ID: " + creatorId);
+                                tvEventCreator.setText("Tạo bởi: Unknown");
+                            }
+                        } else {
+                            android.util.Log.w("EventAdapter", "Creator document does not exist for ID: " + creatorId);
+                            tvEventCreator.setText("Tạo bởi: Unknown");
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.e("EventAdapter", "Failed to load creator name for ID: " + creatorId, e);
+                        tvEventCreator.setText("Tạo bởi: Unknown");
+                    });
         }
     }
 }
