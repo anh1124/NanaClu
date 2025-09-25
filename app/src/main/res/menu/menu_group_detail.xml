@@ -9,6 +9,12 @@
         app:showAsAction="always" />
 
     <item
+        android:id="@+id/action_group_events"
+        android:title="Sự kiện nhóm"
+        android:icon="@android:drawable/ic_menu_my_calendar"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_view_members"
         android:title="Thành viên nhóm"
         android:icon="@android:drawable/ic_menu_view"

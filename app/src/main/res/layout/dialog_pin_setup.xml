@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/bg_dialog_rounded">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/tvPinTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Thiết lập PIN"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#1A1A1A"
+        android:gravity="center"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nhập 4 chữ số để tạo PIN"
+        android:textSize="14sp"
+        android:textColor="#666666"
+        android:gravity="center"
+        android:layout_marginBottom="32dp" />
+
+    <!-- PIN Display -->
+    <TextView
+        android:id="@+id/tvPinDisplay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="○ ○ ○ ○"
+        android:textSize="32sp"
+        android:textColor="#333333"
+        android:gravity="center"
+        android:fontFamily="monospace"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Number Pad -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Row 1 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btn1"
+                style="@style/PinButton"
+                android:text="1" />
+
+            <Button
+                android:id="@+id/btn2"
+                style="@style/PinButton"
+                android:text="2" />
+
+            <Button
+                android:id="@+id/btn3"
+                style="@style/PinButton"
+                android:text="3" />
+
+        </LinearLayout>
+
+        <!-- Row 2 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btn4"
+                style="@style/PinButton"
+                android:text="4" />
+
+            <Button
+                android:id="@+id/btn5"
+                style="@style/PinButton"
+                android:text="5" />
+
+            <Button
+                android:id="@+id/btn6"
+                style="@style/PinButton"
+                android:text="6" />
+
+        </LinearLayout>
+
+        <!-- Row 3 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btn7"
+                style="@style/PinButton"
+                android:text="7" />
+
+            <Button
+                android:id="@+id/btn8"
+                style="@style/PinButton"
+                android:text="8" />
+
+            <Button
+                android:id="@+id/btn9"
+                style="@style/PinButton"
+                android:text="9" />
+
+        </LinearLayout>
+
+        <!-- Row 4 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnCancel"
+                style="@style/PinButtonAction"
+                android:text="Hủy"
+                android:textColor="#FF5722" />
+
+            <Button
+                android:id="@+id/btn0"
+                style="@style/PinButton"
+                android:text="0" />
+
+            <Button
+                android:id="@+id/btnDelete"
+                style="@style/PinButtonAction"
+                android:text="⌫"
+                android:textColor="#666666" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

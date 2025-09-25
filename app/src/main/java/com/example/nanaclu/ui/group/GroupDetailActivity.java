@@ -481,6 +481,13 @@ public class GroupDetailActivity extends AppCompatActivity {
             intent.putExtra("groupId", groupId);
             startActivity(intent);
             return true;
+        } else if (id == R.id.action_group_events) {
+            // Open GroupEventActivity
+            Intent intent = new Intent(this, com.example.nanaclu.ui.event.GroupEventActivity.class);
+            intent.putExtra("groupId", groupId);
+            intent.putExtra("groupName", currentGroup != null ? currentGroup.name : "Nhóm");
+            startActivity(intent);
+            return true;
         } else if (id == R.id.action_view_members) {
             // Open GroupMembersActivity
             Intent intent = new Intent(this, GroupMembersActivity.class);

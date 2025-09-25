@@ -99,7 +99,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         ImageView ivAuthorAvatar;
         View btnMore;
         ViewGroup imageContainer;
-        TextView tvLikeCount;
+        TextView tvLikeCount, tvCommentCount;
 
         // image grid views
         ImageView ivOne;
@@ -122,6 +122,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
             imageContainer = itemView.findViewById(R.id.imageContainer);
             tvLikeCount = itemView.findViewById(R.id.tvLikeCount);
+            tvCommentCount = itemView.findViewById(R.id.tvCommentCount);
         }
 
         void bind(Post post) {
@@ -146,6 +147,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             tvContent.setVisibility(post.content == null || post.content.trim().isEmpty() ? View.GONE : View.VISIBLE);
             tvContent.setText(post.content);
             tvLikeCount.setText(String.valueOf(post.likeCount));
+            tvCommentCount.setText(String.valueOf(post.commentCount));
 
             // Load author info (name + avatar). Use photoUrl from User model if available
             userRepository.getUserById(post.authorId, new UserRepository.UserCallback() {
@@ -224,14 +226,12 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 postRepository.isPostLiked(post.groupId, post.postId, currentUserId, liked -> {
                     if (liked) {
                         postRepository.unlikePost(post.groupId, post.postId, currentUserId, aVoid -> {
-                            if (post.likeCount > 0) post.likeCount -= 1;
-                            tvLikeCount.setText(String.valueOf(post.likeCount));
+                            // Just update icon, don't update count
                             btnLike.setImageResource(R.drawable.heart0);
                         }, e -> {});
                     } else {
                         postRepository.likePost(post.groupId, post.postId, currentUserId, aVoid -> {
-                            post.likeCount += 1;
-                            tvLikeCount.setText(String.valueOf(post.likeCount));
+                            // Just update icon, don't update count
                             btnLike.setImageResource(R.drawable.heart1);
                         }, e -> {});
                     }

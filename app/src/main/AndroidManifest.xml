@@ -40,9 +40,16 @@
         <activity android:name=".ui.auth.RegisterActivity" android:exported="false" />
         <activity android:name=".ui.profile.ProfileActivity" android:exported="false" />
         <activity android:name=".ui.chat.ChatRoomActivity" android:exported="false" />
+        <activity android:name=".ui.chat.MembersActivity" android:exported="false" />
+        <activity android:name=".ui.chat.PhotoGalleryActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupNotificationsActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupBlockedUsersActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupPendingMembersActivity" android:exported="false" />
+        <activity android:name=".ui.security.SecurityActivity" android:exported="false" />
+        <activity android:name=".ui.security.PinEntryActivity" android:exported="false" />
+        <activity android:name=".ui.event.GroupEventActivity" android:exported="false" />
+        <activity android:name=".ui.event.CreateEventActivity" android:exported="false" />
+        <activity android:name=".ui.event.EventDetailActivity" android:exported="false" />
 
     </application>
 

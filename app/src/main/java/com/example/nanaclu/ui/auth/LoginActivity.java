@@ -95,6 +95,18 @@ public class LoginActivity extends AppCompatActivity {
                         new com.example.nanaclu.data.repository.UserRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
                 userRepo.updateUserPhotoUrl(user.getUid(), photoUrl);
 
+                // Reset PIN when user logs in (different user or re-login)
+                android.content.SharedPreferences securityPrefs = getSharedPreferences("security", MODE_PRIVATE);
+                String lastLoggedInUser = securityPrefs.getString("last_user_id", "");
+                if (!user.getUid().equals(lastLoggedInUser)) {
+                    // Different user or first login - reset PIN
+                    securityPrefs.edit()
+                            .putBoolean("pin_enabled", false)
+                            .remove("pin_hash")
+                            .putString("last_user_id", user.getUid())
+                            .apply();
+                }
+
                 tvStatus.setText("Đăng nhập thành công");
                 tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
                 startActivity(new Intent(this, com.example.nanaclu.ui.HomeActivity.class));

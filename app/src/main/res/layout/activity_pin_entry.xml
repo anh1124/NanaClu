@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_pin_entry"
+    android:gravity="center">
+
+    <!-- App Logo -->
+    <ImageView
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@mipmap/ic_launcher"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Title -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nhập PIN"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nhập PIN để mở khóa ứng dụng"
+        android:textSize="16sp"
+        android:textColor="#E0E0E0"
+        android:layout_marginBottom="48dp" />
+
+    <!-- PIN Display -->
+    <TextView
+        android:id="@+id/tvPinDisplay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="○ ○ ○ ○"
+        android:textSize="36sp"
+        android:textColor="#FFFFFF"
+        android:fontFamily="monospace"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Attempts Display -->
+    <TextView
+        android:id="@+id/tvAttempts"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Còn lại 4 lần thử"
+        android:textSize="14sp"
+        android:textColor="#FFB74D"
+        android:visibility="gone"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Number Pad -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Row 1 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn1"
+                style="@style/PinButtonWhite"
+                android:text="1" />
+
+            <Button
+                android:id="@+id/btn2"
+                style="@style/PinButtonWhite"
+                android:text="2" />
+
+            <Button
+                android:id="@+id/btn3"
+                style="@style/PinButtonWhite"
+                android:text="3" />
+
+        </LinearLayout>
+
+        <!-- Row 2 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn4"
+                style="@style/PinButtonWhite"
+                android:text="4" />
+
+            <Button
+                android:id="@+id/btn5"
+                style="@style/PinButtonWhite"
+                android:text="5" />
+
+            <Button
+                android:id="@+id/btn6"
+                style="@style/PinButtonWhite"
+                android:text="6" />
+
+        </LinearLayout>
+
+        <!-- Row 3 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn7"
+                style="@style/PinButtonWhite"
+                android:text="7" />
+
+            <Button
+                android:id="@+id/btn8"
+                style="@style/PinButtonWhite"
+                android:text="8" />
+
+            <Button
+                android:id="@+id/btn9"
+                style="@style/PinButtonWhite"
+                android:text="9" />
+
+        </LinearLayout>
+
+        <!-- Row 4 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnForgotPin"
+                style="@style/PinButtonActionWhite"
+                android:text="Quên\nPIN?"
+                android:textColor="#E0E0E0"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn0"
+                style="@style/PinButtonWhite"
+                android:text="0" />
+
+            <Button
+                android:id="@+id/btnDelete"
+                style="@style/PinButtonActionWhite"
+                android:text="⌫"
+                android:textColor="#E0E0E0" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

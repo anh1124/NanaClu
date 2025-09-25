@@ -152,6 +152,47 @@
             android:layout_marginStart="12dp"/>
     </LinearLayout>
 
+    <!-- Security Section -->
+    <LinearLayout
+        android:id="@+id/securityRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:padding="12dp"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintTop_toBottomOf="@id/colorRow"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_security"
+            app:tint="#666666"
+            android:layout_marginEnd="12dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Bảo mật"
+            android:textSize="16sp"
+            android:textColor="#333333" />
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_arrow_right"
+            app:tint="#999999" />
+
+    </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
 
 

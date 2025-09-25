@@ -11,5 +11,19 @@
     <color name="red_error">#F44336</color>
     <color name="background_light">#FAFAFA</color>
     <color name="purple_500">#a8d7ff</color>
+    <color name="green">#4CAF50</color>
+    <color name="gray">#9E9E9E</color>
+    <color name="orange">#FF9800</color>
+    <color name="red">#F44336</color>
+    <color name="background_color">#FAFAFA</color>
+
+    <!-- Text colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+
+    <!-- Status colors -->
+    <color name="success_color">#4CAF50</color>
+    <color name="warning_color">#FF9800</color>
+    <color name="error_color">#F44336</color>
 
 </resources>

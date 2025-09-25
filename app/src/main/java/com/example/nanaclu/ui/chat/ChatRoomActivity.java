@@ -130,7 +130,37 @@ public class ChatRoomActivity extends AppCompatActivity {
         layoutManager.setStackFromEnd(true); // latest at bottom
         rvMessages.setLayoutManager(layoutManager);
 
-        adapter = new MessageAdapter(new ArrayList<>(), this::onMessageLongClick);
+        adapter = new MessageAdapter(new ArrayList<>(), new MessageAdapter.OnMessageClickListener() {
+            @Override
+            public void onMessageLongClick(Message message) {
+                // TODO: Show message actions (edit, reply, delete)
+                Toast.makeText(ChatRoomActivity.this, "Message actions coming soon", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onDeleteMessage(Message message) {
+                // Show delete confirmation dialog
+                new androidx.appcompat.app.AlertDialog.Builder(ChatRoomActivity.this)
+                        .setTitle("Xóa tin nhắn")
+                        .setMessage("Bạn có chắc muốn xóa tin nhắn này?")
+                        .setPositiveButton("Xóa", (dialog, which) -> {
+                            viewModel.recallMessage(message.messageId);
+                        })
+                        .setNegativeButton("Hủy", null)
+                        .show();
+            }
+
+            @Override
+            public void onImageClick(Message message) {
+                // Open image viewer for single image
+                Intent intent = new Intent(ChatRoomActivity.this, com.example.nanaclu.ui.post.ImageViewerActivity.class);
+                java.util.ArrayList<String> imageUrls = new java.util.ArrayList<>();
+                imageUrls.add(message.content);
+                intent.putStringArrayListExtra(com.example.nanaclu.ui.post.ImageViewerActivity.EXTRA_IMAGES, imageUrls);
+                intent.putExtra(com.example.nanaclu.ui.post.ImageViewerActivity.EXTRA_INDEX, 0);
+                startActivity(intent);
+            }
+        });
         rvMessages.setAdapter(adapter);
 
         // Track bottom state
@@ -240,10 +270,7 @@ public class ChatRoomActivity extends AppCompatActivity {
         }
     }
 
-    private void onMessageLongClick(Message message) {
-        // TODO: Show message actions (edit, reply, delete)
-        Toast.makeText(this, "Message actions coming soon", Toast.LENGTH_SHORT).show();
-    }
+
 
     private void showChatMoreOptions() {
         // Simple menu via AlertDialog; can be upgraded to a bottom sheet with avatar preview
@@ -252,9 +279,13 @@ public class ChatRoomActivity extends AppCompatActivity {
         items.add("Tìm kiếm trong cuộc trò chuyện");
         if ("group".equals(chatType)) {
             items.add("Xem thành viên");
+            items.add("Xem ảnh");
+            items.add("Tùy chỉnh chủ đề");
             items.add("Rời khỏi đoạn chat");
             if (canDeleteGroupChat) items.add("Xóa đoạn chat");
         } else {
+            items.add("Xem ảnh");
+            items.add("Tùy chỉnh chủ đề");
             items.add("Xóa đoạn chat");
         }
         String[] arr = items.toArray(new String[0]);
@@ -267,8 +298,24 @@ public class ChatRoomActivity extends AppCompatActivity {
                     } else if (sel.startsWith("Tìm kiếm")) {
                         Toast.makeText(this, "Tìm kiếm (WIP)", Toast.LENGTH_SHORT).show();
                     } else if (sel.startsWith("Xem thành viên")) {
-                        // TODO: open members screen for this group
-                        Toast.makeText(this, "Xem thành viên (WIP)", Toast.LENGTH_SHORT).show();
+                        // Open members activity
+                        Intent membersIntent = new Intent(this, MembersActivity.class);
+                        membersIntent.putExtra("chatId", chatId);
+                        membersIntent.putExtra("chatType", chatType);
+                        membersIntent.putExtra("groupId", groupId);
+                        membersIntent.putExtra("chatTitle", chatTitle);
+                        startActivity(membersIntent);
+                    } else if (sel.startsWith("Xem ảnh")) {
+                        // Open photo gallery
+                        Intent galleryIntent = new Intent(this, PhotoGalleryActivity.class);
+                        galleryIntent.putExtra("chatId", chatId);
+                        galleryIntent.putExtra("chatType", chatType);
+                        galleryIntent.putExtra("groupId", groupId);
+                        galleryIntent.putExtra("chatTitle", chatTitle);
+                        startActivity(galleryIntent);
+                    } else if (sel.startsWith("Tùy chỉnh chủ đề")) {
+                        // TODO: Open theme customization
+                        Toast.makeText(this, "Tùy chỉnh chủ đề sẽ có sớm", Toast.LENGTH_SHORT).show();
                     } else if (sel.startsWith("Rời")) {
                         new androidx.appcompat.app.AlertDialog.Builder(this)
                                 .setTitle("Rời đoạn chat")

@@ -308,6 +308,33 @@ public class MessageRepository {
         data.put("content", "Tin nhắn đã được thu hồi");
         return db.collection(CHATS).document(chatId).collection(MESSAGES).document(messageId).update(data);
     }
+
+    public Task<Void> softDeleteMessage(String chatId, String messageId, String chatType, String groupId) {
+        if (chatId == null || messageId == null) return Tasks.forException(new IllegalArgumentException("null"));
+        Map<String, Object> data = new HashMap<>();
+        data.put("deletedAt", System.currentTimeMillis());
+        data.put("content", "Tin nhắn đã được thu hồi");
+
+        // Determine correct collection path based on chat type
+        DocumentReference msgRef;
+        if ("group".equals(chatType) && groupId != null) {
+            // Group chat: groups/{groupId}/chats/{chatId}/messages/{messageId}
+            msgRef = db.collection("groups")
+                    .document(groupId)
+                    .collection("chats")
+                    .document(chatId)
+                    .collection(MESSAGES)
+                    .document(messageId);
+        } else {
+            // Private chat: chats/{chatId}/messages/{messageId}
+            msgRef = db.collection(CHATS)
+                    .document(chatId)
+                    .collection(MESSAGES)
+                    .document(messageId);
+        }
+
+        return msgRef.update(data);
+    }
     // Load messages older than a timestamp (ASC order for UI; uses whereLessThan)
     public Task<List<Message>> listMessagesBefore(String chatId, @Nullable Long beforeTs, int limit) {
         if (chatId == null || beforeTs == null) return Tasks.forResult(new ArrayList<>());

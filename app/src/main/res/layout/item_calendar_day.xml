@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="60dp"
+    android:layout_margin="1dp"
+    android:background="?attr/selectableItemBackground">
+
+    <!-- Day Number -->
+    <TextView
+        android:id="@+id/tvDayNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:text="1"
+        android:textSize="16sp"
+        android:textColor="@color/text_primary"
+        android:textStyle="bold" />
+
+    <!-- Event Indicator -->
+    <TextView
+        android:id="@+id/tvEventCount"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/circle_red"
+        android:text="3"
+        android:textSize="12sp"
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:visibility="gone" />
+
+    <!-- Today Indicator -->
+    <View
+        android:id="@+id/viewTodayIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/circle_primary_stroke"
+        android:visibility="gone" />
+
+    <!-- Selected Indicator -->
+    <View
+        android:id="@+id/viewSelectedIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/circle_primary_semi_transparent"
+        android:visibility="gone" />
+
+</FrameLayout>

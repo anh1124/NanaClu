@@ -4,7 +4,9 @@
 
     <item
         android:id="@+id/action_more"
-        android:title="⋮"
+        android:title="More"
+        android:icon="@drawable/ic_more_vert"
+        app:iconTint="@android:color/white"
         app:showAsAction="always" />
 
 </menu>

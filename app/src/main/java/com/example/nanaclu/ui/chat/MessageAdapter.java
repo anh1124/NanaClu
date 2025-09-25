@@ -36,6 +36,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     public interface OnMessageClickListener {
         void onMessageLongClick(Message message);
+        void onDeleteMessage(Message message);
+        void onImageClick(Message message);
     }
 
     public MessageAdapter(List<Message> messages, OnMessageClickListener listener) {
@@ -134,6 +136,13 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             .placeholder(R.drawable.ic_image_placeholder)
                             .error(R.drawable.ic_image_error)
                             .into(ivImage);
+
+                        // Add click listener for image
+                        ivImage.setOnClickListener(v -> {
+                            if (listener != null) {
+                                listener.onImageClick(message);
+                            }
+                        });
                     }
                 }
             }
@@ -152,11 +161,18 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 }
             }
 
-            // Long click listener
+            // Long click listener for own messages
             if (messageContainer != null && listener != null) {
                 messageContainer.setOnLongClickListener(v -> {
-                    listener.onMessageLongClick(message);
-                    return true;
+                    // Check if this is user's own message
+                    String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                            ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+                    if (currentUserId != null && currentUserId.equals(message.authorId)) {
+                        listener.onDeleteMessage(message);
+                        return true;
+                    }
+                    return false;
                 });
             }
         }
@@ -260,6 +276,13 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             .placeholder(R.drawable.ic_image_placeholder)
                             .error(R.drawable.ic_image_error)
                             .into(ivImage);
+
+                        // Add click listener for image
+                        ivImage.setOnClickListener(v -> {
+                            if (listener != null) {
+                                listener.onImageClick(message);
+                            }
+                        });
                     }
                 }
             }
@@ -278,11 +301,18 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 }
             }
 
-            // Long click listener
+            // Long click listener for own messages
             if (messageContainer != null && listener != null) {
                 messageContainer.setOnLongClickListener(v -> {
-                    listener.onMessageLongClick(message);
-                    return true;
+                    // Check if this is user's own message
+                    String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                            ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+                    if (currentUserId != null && currentUserId.equals(message.authorId)) {
+                        listener.onDeleteMessage(message);
+                        return true;
+                    }
+                    return false;
                 });
             }
         }

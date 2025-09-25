@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    android:background="@android:color/white">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header with date and status -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <!-- Date circle -->
+            <LinearLayout
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:background="@drawable/circle_primary"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginEnd="12dp">
+
+                <TextView
+                    android:id="@+id/tvEventDay"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="25"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white" />
+
+                <TextView
+                    android:id="@+id/tvEventMonth"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="THG 9"
+                    android:textSize="10sp"
+                    android:textColor="@android:color/white" />
+
+            </LinearLayout>
+
+            <!-- Event info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvEventTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Đi nhậu cuối tuần"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/black"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tvEventTime"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="20:00 - 23:00"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/darker_gray"
+                    android:layout_marginTop="4dp" />
+
+                <TextView
+                    android:id="@+id/tvEventLocation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📍 Quán nhậu ABC"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+            </LinearLayout>
+
+            <!-- Status badge -->
+            <TextView
+                android:id="@+id/tvEventStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sắp diễn ra"
+                android:textSize="10sp"
+                android:textColor="@android:color/white"
+                android:background="@drawable/rounded_green"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp" />
+
+        </LinearLayout>
+
+        <!-- Description -->
+        <TextView
+            android:id="@+id/tvEventDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cùng nhau đi nhậu thư giãn sau tuần làm việc căng thẳng"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginBottom="12dp"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <!-- RSVP Stats -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Going -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginEnd="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✅"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:id="@+id/tvGoingCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="5"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/green" />
+
+            </LinearLayout>
+
+            <!-- Maybe -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginEnd="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="❓"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:id="@+id/tvMaybeCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/orange" />
+
+            </LinearLayout>
+
+            <!-- Not Going -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="❌"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:id="@+id/tvNotGoingCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/red" />
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- Creator -->
+            <TextView
+                android:id="@+id/tvEventCreator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tạo bởi: Nam"
+                android:textSize="10sp"
+                android:textColor="@android:color/darker_gray" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

@@ -25,6 +25,7 @@ public class ProfileFragment extends Fragment {
         View btnLogout = root.findViewById(R.id.btnLogout);
         View colorPreview = root.findViewById(R.id.colorPreview);
         View btnPick = root.findViewById(R.id.btnPickColor);
+        View securityRow = root.findViewById(R.id.securityRow);
         androidx.appcompat.widget.Toolbar toolbar = root.findViewById(R.id.toolbar);
         android.widget.ImageView imgAvatar = root.findViewById(R.id.imgAvatar);
         com.google.android.material.materialswitch.MaterialSwitch switchAuto = root.findViewById(R.id.switchAutoLogin);
@@ -90,7 +91,13 @@ public class ProfileFragment extends Fragment {
 
         btnLogout.setOnClickListener(v -> openConfirmLogoutDialog());
         btnPick.setOnClickListener(v -> openColorPicker(toolbar, colorPreview));
+        securityRow.setOnClickListener(v -> openSecurityActivity());
         return root;
+    }
+
+    private void openSecurityActivity() {
+        android.content.Intent intent = new android.content.Intent(getContext(), com.example.nanaclu.ui.security.SecurityActivity.class);
+        startActivity(intent);
     }
 
     private void openColorPicker(androidx.appcompat.widget.Toolbar toolbar, View preview) {

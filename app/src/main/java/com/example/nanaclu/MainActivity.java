@@ -39,6 +39,15 @@ public class MainActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+        // Check if PIN is enabled
+        boolean pinEnabled = getSharedPreferences("security", MODE_PRIVATE).getBoolean("pin_enabled", false);
+        if (pinEnabled) {
+            // PIN is enabled - show PIN entry screen
+            startActivity(new Intent(this, com.example.nanaclu.ui.security.PinEntryActivity.class));
+            finish();
+            return;
+        }
         // Refresh cached user profile on app start
         android.content.SharedPreferences up = getSharedPreferences("user_profile", MODE_PRIVATE);
         String photoUrl = user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : null;

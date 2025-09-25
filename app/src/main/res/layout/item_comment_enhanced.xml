@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp">
+
+    <!-- Avatar -->
+    <ImageView
+        android:id="@+id/ivCommentAvatar"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="12dp"
+        android:src="@drawable/ic_person"
+        android:scaleType="centerCrop" />
+
+    <!-- Content -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- Author name and time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:id="@+id/tvCommentAuthor"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Tên người dùng"
+                android:textColor="#1A1A1A"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvCommentTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2 giờ trước"
+                android:textColor="#666666"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <!-- Comment text -->
+        <TextView
+            android:id="@+id/tvCommentText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nội dung bình luận ở đây..."
+            android:textColor="#333333"
+            android:textSize="14sp"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Action buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Like button -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:layout_marginEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/ivCommentLike"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_heart_outline"
+                    app:tint="#666666"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:id="@+id/tvCommentLikeCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textColor="#666666"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -182,7 +182,7 @@ public class ChatRoomViewModel extends ViewModel {
 
     public void recallMessage(String messageId) {
         if (chatId == null) return;
-        msgRepo.softDeleteMessage(chatId, messageId)
+        msgRepo.softDeleteMessage(chatId, messageId, chatType, groupId)
                 .addOnSuccessListener(aVoid -> refreshMessages())
                 .addOnFailureListener(e -> _error.postValue(e.getMessage()));
     }
