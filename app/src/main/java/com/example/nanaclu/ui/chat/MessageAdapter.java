@@ -27,6 +27,7 @@ import com.example.nanaclu.data.model.User;
 import java.util.concurrent.ConcurrentHashMap;
 
 import java.util.List;
+import com.example.nanaclu.utils.FileActionsUtil;
 
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int TYPE_MESSAGE_SENT = 1;
@@ -463,22 +464,81 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         public void bind(Message message, OnMessageClickListener listener) {
             // Hiển thị tên người gửi
             tvSenderName.setText(message.authorName != null ? message.authorName : "Unknown");
-            // Hiển thị file đầu tiên (nếu có)
             if (message.fileAttachments != null && !message.fileAttachments.isEmpty()) {
                 FileAttachment file = message.fileAttachments.get(0);
+                // Gán messageId cha cho file để util đặt đúng tên file local
+                file.parentMessageId = message.messageId;
                 tvFileName.setText(file.fileName);
                 tvFileSize.setText(file.getFormattedFileSize());
-                // Set icon theo fileType nếu muốn
-                // ...
-                // Set status/progress nếu muốn
-                // ...
-                // Set click listeners nếu muốn
-                btnFileAction.setOnClickListener(v -> {
-                    if (listener != null) listener.onFileDownload(file);
+                // Set icon động
+                int iconRes;
+                String ext = file.getFileExtension();
+                switch (ext) {
+                    case "pdf": iconRes = R.drawable.ic_file_pdf; break;
+                    case "doc": case "docx": iconRes = R.drawable.ic_file_doc; break;
+                    case "txt": iconRes = R.drawable.ic_file_txt; break;
+                    case "zip": case "rar": iconRes = R.drawable.ic_file_zip; break;
+                    default: iconRes = R.drawable.ic_file_generic; break;
+                }
+                ivFileIcon.setImageResource(iconRes);
+
+                // Sự kiện click: dùng util theo flow mới
+                itemView.setOnClickListener(v -> {
+                    // Nếu adapter được dùng trong Activity, listener sẽ gọi sang Activity.
+                    // Ở đây, để đảm bảo hoạt động độc lập, gọi trực tiếp util nếu listener không xử lý.
+                    if (listener != null) {
+                        // Giữ nguyên callback hiện tại nhằm thông báo lên Activity (để track tiến trình, permission...)
+                        if (file.isDownloaded && file.localPath != null) listener.onFileClick(file);
+                        else listener.onFileDownload(file);
+                    } else {
+                        // Fallback: gọi util trực tiếp
+                        FileActionsUtil util = new FileActionsUtil(itemView.getContext(), new com.example.nanaclu.data.repository.FileRepository(itemView.getContext()));
+                        util.handleFileClick(file);
+                    }
                 });
+
+                btnFileAction.setOnClickListener(v -> {
+                    if (listener != null) {
+                        if (file.isDownloaded) listener.onFileClick(file); else listener.onFileDownload(file);
+                    } else {
+                        FileActionsUtil util = new FileActionsUtil(itemView.getContext(), new com.example.nanaclu.data.repository.FileRepository(itemView.getContext()));
+                        util.handleFileClick(file);
+                    }
+                });
+
+                // Trạng thái hiển thị (giữ như cũ)
+                if (file.isUploading) {
+                    pbProgress.setVisibility(View.VISIBLE);
+                    pbProgress.setProgress(file.uploadProgress);
+                    tvFileStatus.setVisibility(View.VISIBLE);
+                    tvFileStatus.setText("Đang tải lên... " + file.uploadProgress + "%");
+                    btnFileAction.setImageResource(R.drawable.ic_file_error);
+                    btnFileAction.setEnabled(false);
+                } else if (file.isDownloading) {
+                    pbProgress.setVisibility(View.VISIBLE);
+                    pbProgress.setProgress(file.downloadProgress);
+                    tvFileStatus.setVisibility(View.VISIBLE);
+                    tvFileStatus.setText("Đang tải xuống... " + file.downloadProgress + "%");
+                    btnFileAction.setImageResource(R.drawable.ic_download);
+                    btnFileAction.setEnabled(false);
+                } else if (file.isDownloaded) {
+                    pbProgress.setVisibility(View.GONE);
+                    tvFileStatus.setVisibility(View.VISIBLE);
+                    tvFileStatus.setText(" • Đã tải xuống");
+                    btnFileAction.setImageResource(R.drawable.ic_downloaded);
+                    btnFileAction.setEnabled(true);
+                } else {
+                    pbProgress.setVisibility(View.GONE);
+                    tvFileStatus.setVisibility(View.GONE);
+                    btnFileAction.setImageResource(R.drawable.ic_download);
+                    btnFileAction.setEnabled(true);
+                }
             } else {
                 tvFileName.setText("<Không có file>");
                 tvFileSize.setText("");
+                pbProgress.setVisibility(View.GONE);
+                tvFileStatus.setVisibility(View.GONE);
+                btnFileAction.setEnabled(false);
             }
         }
     }

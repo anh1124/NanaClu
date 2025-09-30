@@ -27,6 +27,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
+import com.example.nanaclu.utils.FileActionsUtil;
 
 public class ChatRoomActivity extends AppCompatActivity {
     private static final int PICK_IMAGE_REQUEST = 1001;
@@ -56,6 +57,8 @@ public class ChatRoomActivity extends AppCompatActivity {
     private boolean isAtBottom = true;
     private int lastRenderedCount = 0;
     private int pendingNewCount = 0;
+
+    private FileActionsUtil chatFileActions;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -111,6 +114,9 @@ public class ChatRoomActivity extends AppCompatActivity {
         uploadProgressContainer = findViewById(R.id.uploadProgressContainer);
         uploadProgressBar = findViewById(R.id.uploadProgressBar);
         uploadProgressText = findViewById(R.id.uploadProgressText);
+
+        // Khởi tạo helper xử lý file (gom logic mở/tải)
+        chatFileActions = new FileActionsUtil(this, new com.example.nanaclu.data.repository.FileRepository(this));
     }
 
     private void setupToolbar() {
@@ -145,6 +151,9 @@ public class ChatRoomActivity extends AppCompatActivity {
         layoutManager.setStackFromEnd(true); // latest at bottom
         rvMessages.setLayoutManager(layoutManager);
 
+        // Adapter của màn chatroom: truyền listener để xử lý các hành động trên item (ảnh, file, xóa...)
+        // LƯU Ý: Toàn bộ logic khi ấn vào item_file_attachment ở chatroom được xử lý tại đây (trong Activity),
+        // không nằm trong adapter. Adapter chỉ chuyển tiếp sự kiện qua listener.
         adapter = new MessageAdapter(new ArrayList<>(), new MessageAdapter.OnMessageClickListener() {
             @Override
             public void onMessageLongClick(Message message) {
@@ -178,22 +187,14 @@ public class ChatRoomActivity extends AppCompatActivity {
 
             @Override
             public void onFileClick(com.example.nanaclu.data.model.FileAttachment file) {
-                // Handle file click - open if downloaded, otherwise download
-                if (file.isDownloaded) {
-                    // File is already downloaded, try to open it
-                    Toast.makeText(ChatRoomActivity.this, "Mở file: " + file.fileName, Toast.LENGTH_SHORT).show();
-                } else {
-                    // Download the file
-                    viewModel.downloadFile(file);
-                    Toast.makeText(ChatRoomActivity.this, "Đang tải xuống: " + file.fileName, Toast.LENGTH_SHORT).show();
-                }
+                // Dùng util: nếu có sẵn thì mở, chưa có thì tải rồi mở
+                chatFileActions.handleFileClick(file);
             }
 
             @Override
             public void onFileDownload(com.example.nanaclu.data.model.FileAttachment file) {
-                // Handle file download
-                viewModel.downloadFile(file);
-                Toast.makeText(ChatRoomActivity.this, "Đang tải xuống: " + file.fileName, Toast.LENGTH_SHORT).show();
+                // Dùng util: tải (nếu chưa) rồi mở
+                chatFileActions.handleFileClick(file);
             }
         });
         rvMessages.setAdapter(adapter);
@@ -524,5 +525,40 @@ public class ChatRoomActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         viewModel.markRead();
+    }
+
+    /**
+     * Mở file bằng ứng dụng ngoài thông qua FileProvider.
+     * (Đã chuyển vào ChatFileActions; giữ lại để tham chiếu nếu cần)
+     */
+    private void openFileWithExternalApp(com.example.nanaclu.data.model.FileAttachment file) {
+        if (file.localPath == null) {
+            Toast.makeText(this, "File chưa được tải xuống", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.io.File localFile = new java.io.File(file.localPath);
+        if (!localFile.exists()) {
+            Toast.makeText(this, "File không tồn tại trên thiết bị", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            android.net.Uri fileUri = androidx.core.content.FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", localFile);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(fileUri, file.mimeType);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (intent.resolveActivity(getPackageManager()) != null) {
+                startActivity(intent);
+            } else {
+                Intent chooser = Intent.createChooser(intent, "Mở file với ứng dụng nào?");
+                if (chooser.resolveActivity(getPackageManager()) != null) {
+                    startActivity(chooser);
+                } else {
+                    Toast.makeText(this, "Không có ứng dụng nào có thể mở file này", Toast.LENGTH_LONG).show();
+                }
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Lỗi mở file: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 }

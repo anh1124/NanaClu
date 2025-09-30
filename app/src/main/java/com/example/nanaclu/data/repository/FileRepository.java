@@ -2,6 +2,7 @@ package com.example.nanaclu.data.repository;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Environment;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 import com.example.nanaclu.data.model.FileAttachment;
@@ -55,6 +56,12 @@ public class FileRepository {
         void onInvalid(List<String> errors);
     }
 
+    public interface FileProgressCallback {
+        void onProgress(int progress);
+        void onSuccess(File downloadedFile);
+        void onFailure(Exception e);
+    }
+
     public FileRepository(Context context) {
         this.context = context;
         this.storage = FirebaseStorage.getInstance();
@@ -100,6 +107,15 @@ public class FileRepository {
         }
     }
 
+
+    private File getUnifiedDownloadDir() {
+
+        File dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (dir != null && !dir.exists()) {
+            dir.mkdirs(); // Tạo thư mục nếu chưa có
+        }
+        return dir != null ? dir : context.getFilesDir(); // fallback sang internal nếu external null
+    }
     // Upload files to Firebase Storage
     public Task<List<FileAttachment>> uploadFiles(List<Uri> fileUris, List<FileAttachment> fileAttachments, 
                                                   String chatId, String uploaderId, ProgressCallback callback) {
@@ -224,6 +240,40 @@ public class FileRepository {
         });
     }
 
+    // Download file from Firebase Storage vào path do caller xác định
+    public void downloadFile(FileAttachment attachment, File targetLocalFile, FileProgressCallback callback) {
+        if (attachment == null || attachment.downloadUrl == null || targetLocalFile == null) {
+            if (callback != null) callback.onFailure(new IllegalArgumentException("Invalid params"));
+            return;
+        }
+        try {
+            if (!targetLocalFile.getParentFile().exists()) targetLocalFile.getParentFile().mkdirs();
+            if (!targetLocalFile.exists()) targetLocalFile.createNewFile();
+        } catch (Exception e) {
+            if (callback != null) callback.onFailure(e);
+            return;
+        }
+        StorageReference ref = storage.getReferenceFromUrl(attachment.downloadUrl);
+        ref.getFile(targetLocalFile)
+           .addOnProgressListener(snapshot -> {
+               long total = snapshot.getTotalByteCount();
+               long done = snapshot.getBytesTransferred();
+               int progress = total > 0 ? (int)(100 * done / total) : 0;
+               if (callback != null) callback.onProgress(progress);
+           })
+           .addOnSuccessListener(taskSnapshot -> {
+               attachment.isDownloaded = true;
+               attachment.localPath = targetLocalFile.getAbsolutePath();
+               attachment.isDownloading = false;
+               attachment.downloadProgress = 100;
+               if (callback != null) callback.onSuccess(targetLocalFile);
+           })
+           .addOnFailureListener(e -> {
+               attachment.isDownloading = false;
+               if (callback != null) callback.onFailure(e);
+           });
+    }
+
     // Helper methods
     private String getFileName(Uri uri) {
         String fileName = "unknown_file";
@@ -267,20 +317,26 @@ public class FileRepository {
     }
 
     private File getLocalFile(FileAttachment attachment) {
-        File filesDir = new File(context.getFilesDir(), "downloaded_files");
-        return new File(filesDir, attachment.fileName);
+        File dir = getUnifiedDownloadDir();
+        return new File(dir, attachment.fileName);
     }
 
-    // Clean up local files
+    /**
+     * Dọn dẹp file cũ hơn 7 ngày
+     */
     public void cleanupOldFiles() {
-        File filesDir = new File(context.getFilesDir(), "downloaded_files");
-        if (filesDir.exists()) {
-            File[] files = filesDir.listFiles();
+        File dir = getUnifiedDownloadDir();
+        if (dir.exists()) {
+            File[] files = dir.listFiles();
             if (files != null) {
-                long cutoffTime = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000); // 7 days
+                long cutoffTime = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000); // 7 ngày
                 for (File file : files) {
+                    // 📝 Xóa file cũ để tránh đầy bộ nhớ
                     if (file.lastModified() < cutoffTime) {
-                        file.delete();
+                        boolean deleted = file.delete();
+                        if (!deleted) {
+                            Log.w(TAG, "Không thể xóa file: " + file.getAbsolutePath());
+                        }
                     }
                 }
             }
@@ -301,27 +357,40 @@ public class FileRepository {
         return totalSize;
     }
 
+    /**
+     * Xóa toàn bộ file trong thư mục Downloads của app
+     */
     public void clearAllDownloadedFiles() {
-        File filesDir = new File(context.getFilesDir(), "downloaded_files");
-        if (!filesDir.exists()) return;
+        File dir = getUnifiedDownloadDir();
+        if (!dir.exists()) return;
 
-        File[] files = filesDir.listFiles();
+        File[] files = dir.listFiles();
         if (files != null) {
             for (File file : files) {
-                file.delete();
+                boolean deleted = file.delete();
+                if (!deleted) {
+                    Log.w(TAG, "Không thể xóa file: " + file.getAbsolutePath());
+                }
             }
         }
     }
 
+    /**
+     * Kiểm tra file đã được tải chưa theo fileName
+     */
     public boolean isFileDownloaded(String fileName) {
-        File filesDir = new File(context.getFilesDir(), "downloaded_files");
-        File localFile = new File(filesDir, fileName);
+        File dir = getUnifiedDownloadDir();
+        File localFile = new File(dir, fileName);
         return localFile.exists();
     }
 
+
+    /**
+     * Lấy path local của file (nếu tồn tại)
+     */
     public String getLocalFilePath(String fileName) {
-        File filesDir = new File(context.getFilesDir(), "downloaded_files");
-        File localFile = new File(filesDir, fileName);
+        File dir = getUnifiedDownloadDir();
+        File localFile = new File(dir, fileName);
         return localFile.exists() ? localFile.getAbsolutePath() : null;
     }
 

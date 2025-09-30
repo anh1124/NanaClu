@@ -12,6 +12,7 @@ public class FileAttachment {
     public String localPath; // Local file path for downloaded files
     public String mimeType; // Full MIME type (e.g., "application/pdf")
     public String senderName; // Tên người gửi file (dùng cho UI gallery)
+    public String parentMessageId; // ID message cha chứa file này (để đặt tên file local)
 
     // Upload/download progress tracking (not stored in Firestore)
     public transient int uploadProgress = 0;

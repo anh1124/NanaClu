@@ -3,8 +3,12 @@ package com.example.nanaclu.ui.chat;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -13,6 +17,7 @@ import com.example.nanaclu.data.model.FileAttachment;
 import com.example.nanaclu.data.model.Message;
 import com.example.nanaclu.data.repository.FileRepository;
 import com.example.nanaclu.ui.adapter.FileAttachmentAdapter;
+import com.example.nanaclu.utils.FileActionsUtil;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
@@ -27,6 +32,7 @@ public class FileGalleryActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private FirebaseFirestore db;
     private FileRepository fileRepository;
+    private FileActionsUtil fileActionsUtil;
 
     private String chatId;
     private String chatType;
@@ -51,6 +57,8 @@ public class FileGalleryActivity extends AppCompatActivity {
         swipeRefresh = findViewById(R.id.swipeRefresh);
         db = FirebaseFirestore.getInstance();
         fileRepository = new FileRepository(this);
+        // Helper xử lý file dùng chung
+        fileActionsUtil = new FileActionsUtil(this, fileRepository);
     }
 
     private void getIntentData() {
@@ -75,31 +83,36 @@ public class FileGalleryActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.file_gallery_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_open_file_location) {
+            // Sử dụng FileActionsUtil để mở thư mục Downloads của app
+            fileActionsUtil.openDownloadFolder();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     private void setupRecyclerView() {
         adapter = new FileAttachmentAdapter(new ArrayList<>(), 
             new FileAttachmentAdapter.OnFileActionListener() {
                 @Override
                 public void onFileClick(FileAttachment file) {
-                    // Kiểm tra file đã download chưa
-                    if (file.isDownloaded && file.localPath != null) {
-                        // Mở file bằng external app
-                        openFileWithExternalApp(file);
-                    } else {
-                        // Download file trước khi mở
-                        downloadAndOpenFile(file);
-                    }
+                    fileActionsUtil.handleFileClick(file);
                 }
-
                 @Override
                 public void onDownloadClick(FileAttachment file) {
-                    // Download file về thiết bị
-                    downloadFile(file);
+                    fileActionsUtil.handleFileClick(file);
                 }
-
                 @Override
-                public void onDeleteClick(FileAttachment file) {
-                    // Không implement delete cho gallery view
-                }
+                public void onDeleteClick(FileAttachment file) { }
             }, this, false);
         
         rvFiles.setLayoutManager(new LinearLayoutManager(this));
