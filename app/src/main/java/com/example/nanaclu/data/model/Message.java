@@ -1,14 +1,18 @@
 package com.example.nanaclu.data.model;
 
 import com.google.firebase.Timestamp;
+import java.util.List;
 
 public class Message {
     public String messageId;
     public String authorId;
     public String authorName; // Thêm tên author để tiết kiệm chi phí đọc
-    public String type; // "text" | "image" | "file"
+    public String type; // "text" | "image" | "file" | "mixed"
     public String content; // nếu type = "image" => chứa storage url/id
     public long createdAt;
+
+    // File attachments support
+    public List<FileAttachment> fileAttachments;
 
     // Optional metadata
     public Long editedAt;

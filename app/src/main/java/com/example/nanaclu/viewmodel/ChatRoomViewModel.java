@@ -1,13 +1,16 @@
 package com.example.nanaclu.viewmodel;
 
+import android.content.Context;
 import android.net.Uri;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.example.nanaclu.data.model.FileAttachment;
 import com.example.nanaclu.data.model.Message;
 import com.example.nanaclu.data.repository.ChatRepository;
+import com.example.nanaclu.data.repository.FileRepository;
 import com.example.nanaclu.data.repository.MessageRepository;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -19,12 +22,19 @@ import java.util.List;
 public class ChatRoomViewModel extends ViewModel {
     private final ChatRepository chatRepo;
     private final MessageRepository msgRepo;
+    private FileRepository fileRepo;
+   
+    private Long oldestMessageTimestamp = null; // Dùng để tải tin nhắn cũ hơn
+    private boolean isFetchingOlderMessages = false;
 
     private String chatId;
     private String chatType;
     private String groupId;
     private Long anchorTs; // for pagination older messages
 
+
+    
+    
     private final MutableLiveData<List<Message>> _messages = new MutableLiveData<>(new ArrayList<>());
     public LiveData<List<Message>> messages = _messages;
 
@@ -37,12 +47,29 @@ public class ChatRoomViewModel extends ViewModel {
     private final MutableLiveData<String> _error = new MutableLiveData<>(null);
     public LiveData<String> error = _error;
 
+    // File handling LiveData
+    private final MutableLiveData<List<FileAttachment>> _chatFiles = new MutableLiveData<>(new ArrayList<>());
+    public LiveData<List<FileAttachment>> chatFiles = _chatFiles;
+
+    private final MutableLiveData<Integer> _uploadProgress = new MutableLiveData<>(0);
+    public LiveData<Integer> uploadProgress = _uploadProgress;
+
+    private final MutableLiveData<Boolean> _uploading = new MutableLiveData<>(false);
+    public LiveData<Boolean> uploading = _uploading;
+
+    private final MutableLiveData<String> _fileError = new MutableLiveData<>(null);
+    public LiveData<String> fileError = _fileError;
+
     // Realtime registration
     private com.google.firebase.firestore.ListenerRegistration messagesReg;
 
     public ChatRoomViewModel() {
         this.chatRepo = new ChatRepository(FirebaseFirestore.getInstance());
         this.msgRepo = new MessageRepository(FirebaseFirestore.getInstance(), FirebaseStorage.getInstance());
+    }
+
+    public void initFileRepository(Context context) {
+        this.fileRepo = new FileRepository(context);
     }
 
     public void init(String chatId) {
@@ -72,10 +99,48 @@ public class ChatRoomViewModel extends ViewModel {
             if (snap != null) {
                 for (com.google.firebase.firestore.DocumentSnapshot ds : snap.getDocuments()) {
                     Message m = ds.toObject(Message.class);
-                    if (m != null) list.add(m);
+                    if (m != null) {
+                        list.add(m);
+                        // =================== LOGGING ===================
+                        String logMessage = " | Type: " + m.type +
+                                            " | Author: " + (m.authorName != null ? m.authorName : "N/A") +
+                                            " | CreatedAt: " + m.createdAt;
+                        android.util.Log.d("ChatRoomVM_DATA_RAW", logMessage);
+                        if ("text".equals(m.type) || "mixed".equals(m.type)) {
+                            android.util.Log.d("ChatRoomVM_DATA_RAW", "  -> Content: " + m.content);
+                        }
+                        if (m.fileAttachments != null && !m.fileAttachments.isEmpty()) {
+                            android.util.Log.d("ChatRoomVM_DATA_RAW", "  -> Files: " + m.fileAttachments.size());
+                            for(FileAttachment fa : m.fileAttachments) {
+                                android.util.Log.d("ChatRoomVM_DATA_RAW", "    -> File Name: " + fa.fileName + " | Size: " + fa.fileSize);
+                            }
+                        }
+                        // =======================================================
+                    }
                 }
             }
-            android.util.Log.d("ChatRoomVM", "onMessages: size=" + list.size());
+            // Log toàn bộ list trước khi sort
+            android.util.Log.d("ChatRoomVM_LIST_RAW", "Trước khi sort: " + list.size() + " messages");
+            for (Message m : list) {
+                android.util.Log.d("ChatRoomVM_LIST_RAW", "ID: " + m.messageId + ", createdAt: " + m.createdAt + ", type: " + m.type);
+            }
+            // Sắp xếp tin nhắn theo thời gian tăng dần (tin mới nhất ở cuối)
+            java.util.Collections.sort(list, (m1, m2) -> {
+                if (m1 == null || m2 == null) return 0;
+                long t1 = m1.createdAt;
+                long t2 = m2.createdAt;
+                return Long.compare(t1, t2);
+            });
+            // Log lại list sau khi sort
+            if (list == null) {
+                android.util.Log.e("ChatRoomVM_LIST_SORTED", "List null sau khi sort!");
+            } else {
+                android.util.Log.d("ChatRoomVM_LIST_SORTED", "Sau khi sort: " + list.size() + " messages");
+                for (Message m : list) {
+                    String contentLog = m.content != null ? m.content : "<null>";
+                    android.util.Log.d("ChatRoomVM_LIST_SORTED", "ID: " + m.messageId + ", createdAt: " + m.createdAt + ", type: " + m.type + ", content: " + contentLog);
+                }
+            }
             _messages.postValue(list);
             if (!list.isEmpty()) {
                 Message last = list.get(list.size() - 1);
@@ -95,7 +160,14 @@ public class ChatRoomViewModel extends ViewModel {
             android.util.Log.d("ChatRoomViewModel", "loadMore: loaded " + list.size() + " messages");
             List<Message> cur = new ArrayList<>(_messages.getValue() != null ? _messages.getValue() : new ArrayList<>());
             cur.addAll(list);
-            _messages.postValue(cur);
+            // Sắp xếp tin nhắn theo thời gian tăng dần trước khi cập nhật LiveData
+java.util.Collections.sort(cur, (m1, m2) -> {
+    if (m1 == null || m2 == null) return 0;
+    long t1 = m1.createdAt;
+    long t2 = m2.createdAt;
+    return Long.compare(t1, t2);
+});
+_messages.postValue(cur);
             if (!list.isEmpty()) {
                 Message last = list.get(list.size() - 1);
                 anchorTs = last.createdAt; // assuming millis populated from server
@@ -128,7 +200,14 @@ public class ChatRoomViewModel extends ViewModel {
                     // Prepend to current list (keep ASC order)
                     List<Message> updated = new ArrayList<>(older);
                     updated.addAll(cur);
-                    _messages.postValue(updated);
+                    // Sắp xếp tin nhắn theo thời gian tăng dần trước khi cập nhật LiveData
+java.util.Collections.sort(updated, (m1, m2) -> {
+    if (m1 == null || m2 == null) return 0;
+    long t1 = m1.createdAt;
+    long t2 = m2.createdAt;
+    return Long.compare(t1, t2);
+});
+_messages.postValue(updated);
                     _loading.postValue(false);
                 })
                 .addOnFailureListener(ex -> {
@@ -198,6 +277,121 @@ public class ChatRoomViewModel extends ViewModel {
                 anchorTs = last.createdAt;
             }
         });
+    }
+
+    // File handling methods
+    public void uploadFiles(List<Uri> fileUris) {
+        if (chatId == null || fileUris == null || fileUris.isEmpty() || fileRepo == null) return;
+
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (uid == null) return;
+
+        _uploading.postValue(true);
+        _fileError.postValue(null);
+
+        // Validate files first
+        fileRepo.validateFiles(fileUris, new FileRepository.FileValidationCallback() {
+            @Override
+            public void onValid(List<FileAttachment> validFiles) {
+                // Upload files
+                fileRepo.uploadFiles(fileUris, validFiles, chatId, uid, new FileRepository.ProgressCallback() {
+                    @Override
+                    public void onProgress(int progress) {
+                        _uploadProgress.postValue(progress);
+                    }
+
+                    @Override
+                    public void onSuccess() {
+                        _uploading.postValue(false);
+                        _uploadProgress.postValue(100);
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+                        _uploading.postValue(false);
+                        _fileError.postValue("Lỗi upload: " + e.getMessage());
+                    }
+                }).addOnSuccessListener(uploadedFiles -> {
+                    // Send message with file attachments
+                    sendFileMessage(uploadedFiles);
+                }).addOnFailureListener(e -> {
+                    _uploading.postValue(false);
+                    _fileError.postValue("Lỗi upload: " + e.getMessage());
+                });
+            }
+
+            @Override
+            public void onInvalid(List<String> errors) {
+                _uploading.postValue(false);
+                _fileError.postValue(String.join("\n", errors));
+            }
+        });
+    }
+
+    private void sendFileMessage(List<FileAttachment> fileAttachments) {
+        if (chatId == null || fileAttachments == null || fileAttachments.isEmpty()) return;
+
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (uid == null) return;
+
+        // Create message with file attachments
+        Message message = new Message();
+        message.authorId = uid;
+        message.type = "file";
+        message.content = fileAttachments.size() + " file(s)";
+        message.fileAttachments = fileAttachments;
+        message.createdAt = System.currentTimeMillis();
+
+        // Send message using existing repository
+        msgRepo.sendMessage(chatId, message, chatType, groupId)
+                .addOnSuccessListener(messageId -> {
+                    // Message sent successfully
+                })
+                .addOnFailureListener(e -> {
+                    _fileError.postValue("Lỗi gửi tin nhắn: " + e.getMessage());
+                });
+    }
+
+    public void downloadFile(FileAttachment attachment) {
+        if (fileRepo == null) return;
+
+        attachment.isDownloading = true;
+        fileRepo.downloadFile(attachment, new FileRepository.ProgressCallback() {
+            @Override
+            public void onProgress(int progress) {
+                attachment.downloadProgress = progress;
+            }
+
+            @Override
+            public void onSuccess() {
+                attachment.isDownloading = false;
+                // Notify UI update if needed
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                attachment.isDownloading = false;
+                _fileError.postValue("Lỗi tải file: " + e.getMessage());
+            }
+        });
+    }
+
+    public void loadChatFiles() {
+        if (chatId == null) return;
+
+        // Get all file messages from current chat
+        List<FileAttachment> allFiles = new ArrayList<>();
+        List<Message> currentMessages = _messages.getValue();
+        if (currentMessages != null) {
+            for (Message message : currentMessages) {
+                if (message.fileAttachments != null && !message.fileAttachments.isEmpty()) {
+                    allFiles.addAll(message.fileAttachments);
+                }
+            }
+        }
+        _chatFiles.postValue(allFiles);
     }
 
     @Override

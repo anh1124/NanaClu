@@ -26,4 +26,11 @@
     <color name="warning_color">#FF9800</color>
     <color name="error_color">#F44336</color>
 
+    <!-- File type colors -->
+    <color name="file_pdf_color">#D32F2F</color>
+    <color name="file_doc_color">#1976D2</color>
+    <color name="file_excel_color">#388E3C</color>
+    <color name="file_zip_color">#FF9800</color>
+    <color name="file_generic_color">#757575</color>
+
 </resources>

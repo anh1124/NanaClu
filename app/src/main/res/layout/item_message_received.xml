@@ -5,7 +5,7 @@
     android:orientation="horizontal"
     android:gravity="start"
     android:padding="4dp">
-
+<!--item_message_received-->
     <!-- Sender Avatar (left) -->
     <ImageView
         android:id="@+id/ivAvatarLeft"
@@ -57,6 +57,22 @@
             android:scaleType="centerCrop"
             android:background="@drawable/bg_image_message"
             android:visibility="gone" />
+
+        <!-- File Attachments Container -->
+        <LinearLayout
+            android:id="@+id/fileAttachmentsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="4dp"
+            android:visibility="gone">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvFileAttachments"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+        </LinearLayout>
 
         <!-- Message Info Container -->
         <LinearLayout

@@ -50,6 +50,18 @@
         <activity android:name=".ui.event.GroupEventActivity" android:exported="false" />
         <activity android:name=".ui.event.CreateEventActivity" android:exported="false" />
         <activity android:name=".ui.event.EventDetailActivity" android:exported="false" />
+        <activity android:name=".ui.chat.FileGalleryActivity" android:exported="false" />
+
+        <!-- FileProvider for sharing files -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
 
     </application>
 

@@ -5,14 +5,20 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ProgressBar;
+import android.widget.ImageButton;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.example.nanaclu.R;
+import com.example.nanaclu.data.model.FileAttachment;
 import com.example.nanaclu.data.model.Message;
+import com.example.nanaclu.ui.adapter.FileAttachmentAdapter;
 import com.google.firebase.auth.FirebaseAuth;
 
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -25,6 +31,7 @@ import java.util.List;
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int TYPE_MESSAGE_SENT = 1;
     private static final int TYPE_MESSAGE_RECEIVED = 2;
+    private static final int TYPE_FILE_ATTACHMENT = 3;
     // Simple in-memory caches to minimize Firestore calls
     private static final ConcurrentHashMap<String, String> NAME_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> PHOTO_CACHE = new ConcurrentHashMap<>();
@@ -38,6 +45,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onMessageLongClick(Message message);
         void onDeleteMessage(Message message);
         void onImageClick(Message message);
+        void onFileClick(FileAttachment file);
+        void onFileDownload(FileAttachment file);
     }
 
     public MessageAdapter(List<Message> messages, OnMessageClickListener listener) {
@@ -62,7 +71,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public int getItemViewType(int position) {
         Message message = messages.get(position);
-        if (message.authorId != null && message.authorId.equals(currentUserId)) {
+        if ("file".equals(message.type)) {
+            return TYPE_FILE_ATTACHMENT;
+        } else if (message.authorId != null && message.authorId.equals(currentUserId)) {
             return TYPE_MESSAGE_SENT;
         } else {
             return TYPE_MESSAGE_RECEIVED;
@@ -73,7 +84,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-        if (viewType == TYPE_MESSAGE_SENT) {
+        if (viewType == TYPE_FILE_ATTACHMENT) {
+            View view = inflater.inflate(R.layout.item_file_attachment, parent, false);
+            return new FileAttachmentViewHolder(view);
+        } else if (viewType == TYPE_MESSAGE_SENT) {
             View view = inflater.inflate(R.layout.item_message_sent, parent, false);
             return new SentMessageViewHolder(view);
         } else {
@@ -85,8 +99,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messages.get(position);
-
-        if (holder instanceof SentMessageViewHolder) {
+        if (holder instanceof FileAttachmentViewHolder) {
+            ((FileAttachmentViewHolder) holder).bind(message, listener);
+        } else if (holder instanceof SentMessageViewHolder) {
             ((SentMessageViewHolder) holder).bind(message, listener);
         } else if (holder instanceof ReceivedMessageViewHolder) {
             ((ReceivedMessageViewHolder) holder).bind(message, listener);
@@ -103,6 +118,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         TextView tvMessage, tvTime, tvEdited;
         ImageView ivImage;
         View messageContainer;
+        LinearLayout fileAttachmentsContainer;
+        RecyclerView rvFileAttachments;
 
         SentMessageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -111,39 +128,61 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvEdited = itemView.findViewById(R.id.tvEdited);
             ivImage = itemView.findViewById(R.id.ivImage);
             messageContainer = itemView.findViewById(R.id.messageContainer);
+            fileAttachmentsContainer = itemView.findViewById(R.id.fileAttachmentsContainer);
+            rvFileAttachments = itemView.findViewById(R.id.rvFileAttachments);
         }
 
         void bind(Message message, OnMessageClickListener listener) {
-            // Handle deleted messages
-            if (message.deletedAt != null && message.deletedAt > 0) {
+            // Log debug để kiểm tra dữ liệu bind
+            android.util.Log.d("MessageAdapter_BIND", "ID: " + message.messageId + ", type: " + message.type + ", content: " + message.content + ", deletedAt: " + message.deletedAt + ", fileAttachments: " + (message.fileAttachments != null ? message.fileAttachments.size() : 0));
+
+            // Reset visibility
+            tvMessage.setVisibility(View.VISIBLE);
+            if (ivImage != null) ivImage.setVisibility(View.GONE);
+            if (fileAttachmentsContainer != null) fileAttachmentsContainer.setVisibility(View.GONE);
+
+            // Nếu là tin nhắn đã thu hồi (dù type gì)
+            if (message.deletedAt != null && message.deletedAt > 0 || "Tin nhắn đã được thu hồi".equals(message.content)) {
                 tvMessage.setText("Tin nhắn đã được thu hồi");
                 tvMessage.setTextColor(0xFF999999);
                 tvMessage.setTypeface(null, android.graphics.Typeface.ITALIC);
-                if (ivImage != null) ivImage.setVisibility(View.GONE);
-            } else {
-                // Handle different message types
-                if ("text".equals(message.type)) {
+                return;
+            }
+
+            // Xử lý theo type
+            if ("text".equals(message.type)) {
+                tvMessage.setText(message.content);
+                tvMessage.setTextColor(0xFF000000);
+                tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
+            } else if ("image".equals(message.type)) {
+                tvMessage.setVisibility(View.GONE);
+                if (ivImage != null) {
+                    ivImage.setVisibility(View.VISIBLE);
+                    Glide.with(itemView.getContext())
+                        .load(message.content)
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_error)
+                        .into(ivImage);
+                    ivImage.setOnClickListener(v -> {
+                        if (listener != null) listener.onImageClick(message);
+                    });
+                }
+            } else if ("file".equals(message.type) || "mixed".equals(message.type)) {
+                // Hiển thị file nếu có fileAttachments
+                if (message.fileAttachments != null && !message.fileAttachments.isEmpty()) {
+                    if (fileAttachmentsContainer != null) {
+                        fileAttachmentsContainer.setVisibility(View.VISIBLE);
+                        setupFileAttachments(message.fileAttachments, listener);
+                    }
+                }
+                // Nếu là mixed và có content, hiển thị text
+                if ("mixed".equals(message.type) && message.content != null && !message.content.trim().isEmpty()) {
+                    tvMessage.setVisibility(View.VISIBLE);
                     tvMessage.setText(message.content);
                     tvMessage.setTextColor(0xFF000000);
                     tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
-                    if (ivImage != null) ivImage.setVisibility(View.GONE);
-                } else if ("image".equals(message.type)) {
+                } else {
                     tvMessage.setVisibility(View.GONE);
-                    if (ivImage != null) {
-                        ivImage.setVisibility(View.VISIBLE);
-                        Glide.with(itemView.getContext())
-                            .load(message.content)
-                            .placeholder(R.drawable.ic_image_placeholder)
-                            .error(R.drawable.ic_image_error)
-                            .into(ivImage);
-
-                        // Add click listener for image
-                        ivImage.setOnClickListener(v -> {
-                            if (listener != null) {
-                                listener.onImageClick(message);
-                            }
-                        });
-                    }
                 }
             }
 
@@ -176,6 +215,29 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 });
             }
         }
+
+        private void setupFileAttachments(List<FileAttachment> attachments, OnMessageClickListener listener) {
+            if (rvFileAttachments != null && attachments != null && !attachments.isEmpty()) {
+                FileAttachmentAdapter adapter = new FileAttachmentAdapter(attachments,
+                    new FileAttachmentAdapter.OnFileActionListener() {
+                        @Override
+                        public void onFileClick(FileAttachment file) {
+                            if (listener != null) listener.onFileClick(file);
+                        }
+                        @Override
+                        public void onDownloadClick(FileAttachment file) {
+                            if (listener != null) listener.onFileDownload(file);
+                        }
+                        @Override
+                        public void onDeleteClick(FileAttachment file) {}
+                    }, itemView.getContext(), false);
+                LinearLayoutManager layoutManager = new LinearLayoutManager(itemView.getContext());
+                layoutManager.setAutoMeasureEnabled(true); // QUAN TRỌNG
+                rvFileAttachments.setLayoutManager(layoutManager);
+                rvFileAttachments.setHasFixedSize(false); // QUAN TRỌNG
+                rvFileAttachments.setAdapter(adapter);
+            }
+        }
     }
 
     // ViewHolder for received messages (left side)
@@ -183,6 +245,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         TextView tvMessage, tvTime, tvEdited, tvAuthorName;
         ImageView ivImage, ivAvatarLeft;
         View messageContainer;
+        LinearLayout fileAttachmentsContainer;
+        RecyclerView rvFileAttachments;
 
         ReceivedMessageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -193,6 +257,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             ivImage = itemView.findViewById(R.id.ivImage);
             ivAvatarLeft = itemView.findViewById(R.id.ivAvatarLeft);
             messageContainer = itemView.findViewById(R.id.messageContainer);
+            fileAttachmentsContainer = itemView.findViewById(R.id.fileAttachmentsContainer);
+            rvFileAttachments = itemView.findViewById(R.id.rvFileAttachments);
         }
 
         private void loadAvatar(Message message) {
@@ -261,12 +327,27 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 tvMessage.setTypeface(null, android.graphics.Typeface.ITALIC);
                 if (ivImage != null) ivImage.setVisibility(View.GONE);
             } else {
-                // Handle different message types
+                // Log debug để kiểm tra dữ liệu bind
+                android.util.Log.d("MessageAdapter_BIND", "ID: " + message.messageId + ", type: " + message.type + ", content: " + message.content + ", deletedAt: " + message.deletedAt + ", fileAttachments: " + (message.fileAttachments != null ? message.fileAttachments.size() : 0));
+
+                // Reset visibility
+                tvMessage.setVisibility(View.VISIBLE);
+                if (ivImage != null) ivImage.setVisibility(View.GONE);
+                if (fileAttachmentsContainer != null) fileAttachmentsContainer.setVisibility(View.GONE);
+
+                // Nếu là tin nhắn đã thu hồi (dù type gì)
+                if (message.deletedAt != null && message.deletedAt > 0 || "Tin nhắn đã được thu hồi".equals(message.content)) {
+                    tvMessage.setText("Tin nhắn đã được thu hồi");
+                    tvMessage.setTextColor(0xFF999999);
+                    tvMessage.setTypeface(null, android.graphics.Typeface.ITALIC);
+                    return;
+                }
+
+                // Xử lý theo type
                 if ("text".equals(message.type)) {
                     tvMessage.setText(message.content);
                     tvMessage.setTextColor(0xFF000000);
                     tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
-                    if (ivImage != null) ivImage.setVisibility(View.GONE);
                 } else if ("image".equals(message.type)) {
                     tvMessage.setVisibility(View.GONE);
                     if (ivImage != null) {
@@ -284,6 +365,29 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             }
                         });
                     }
+                } else if ("file".equals(message.type) || "mixed".equals(message.type)) {
+                    // Hiển thị file attachments nếu có
+                    if (message.fileAttachments != null && !message.fileAttachments.isEmpty()) {
+                        if (fileAttachmentsContainer != null) {
+                            fileAttachmentsContainer.setVisibility(View.VISIBLE);
+                            setupFileAttachments(message.fileAttachments, listener);
+                        }
+                    } else {
+                        if (fileAttachmentsContainer != null) fileAttachmentsContainer.setVisibility(View.GONE);
+                    }
+
+                    // Hiển thị text content nếu là mixed type và có nội dung
+                    if ("mixed".equals(message.type) && message.content != null && !message.content.trim().isEmpty()) {
+                        tvMessage.setVisibility(View.VISIBLE);
+                        tvMessage.setText(message.content);
+                        tvMessage.setTextColor(0xFF000000);
+                        tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
+                    } else {
+                        tvMessage.setVisibility(View.GONE);
+                    }
+
+                    // Ẩn image view cho file messages
+                    if (ivImage != null) ivImage.setVisibility(View.GONE);
                 }
             }
 
@@ -314,6 +418,67 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     }
                     return false;
                 });
+            }
+        }
+
+        private void setupFileAttachments(List<FileAttachment> attachments, OnMessageClickListener listener) {
+            if (rvFileAttachments != null && attachments != null && !attachments.isEmpty()) {
+                FileAttachmentAdapter adapter = new FileAttachmentAdapter(attachments,
+                    new FileAttachmentAdapter.OnFileActionListener() {
+                        @Override
+                        public void onFileClick(FileAttachment file) {
+                            if (listener != null) listener.onFileClick(file);
+                        }
+                        @Override
+                        public void onDownloadClick(FileAttachment file) {
+                            if (listener != null) listener.onFileDownload(file);
+                        }
+                        @Override
+                        public void onDeleteClick(FileAttachment file) {}
+                    }, itemView.getContext(), false);
+                LinearLayoutManager layoutManager = new LinearLayoutManager(itemView.getContext());
+                layoutManager.setAutoMeasureEnabled(true); // QUAN TRỌNG
+                rvFileAttachments.setLayoutManager(layoutManager);
+                rvFileAttachments.setHasFixedSize(false); // QUAN TRỌNG
+                rvFileAttachments.setAdapter(adapter);
+            }
+        }
+    }
+
+    static class FileAttachmentViewHolder extends RecyclerView.ViewHolder {
+        TextView tvSenderName, tvFileName, tvFileSize, tvFileStatus;
+        ImageView ivFileIcon;
+        ProgressBar pbProgress;
+        ImageButton btnFileAction;
+        public FileAttachmentViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvSenderName = itemView.findViewById(R.id.tvSenderName);
+            tvFileName = itemView.findViewById(R.id.tvFileName);
+            tvFileSize = itemView.findViewById(R.id.tvFileSize);
+            tvFileStatus = itemView.findViewById(R.id.tvFileStatus);
+            ivFileIcon = itemView.findViewById(R.id.ivFileIcon);
+            pbProgress = itemView.findViewById(R.id.pbProgress);
+            btnFileAction = itemView.findViewById(R.id.btnFileAction);
+        }
+        public void bind(Message message, OnMessageClickListener listener) {
+            // Hiển thị tên người gửi
+            tvSenderName.setText(message.authorName != null ? message.authorName : "Unknown");
+            // Hiển thị file đầu tiên (nếu có)
+            if (message.fileAttachments != null && !message.fileAttachments.isEmpty()) {
+                FileAttachment file = message.fileAttachments.get(0);
+                tvFileName.setText(file.fileName);
+                tvFileSize.setText(file.getFormattedFileSize());
+                // Set icon theo fileType nếu muốn
+                // ...
+                // Set status/progress nếu muốn
+                // ...
+                // Set click listeners nếu muốn
+                btnFileAction.setOnClickListener(v -> {
+                    if (listener != null) listener.onFileDownload(file);
+                });
+            } else {
+                tvFileName.setText("<Không có file>");
+                tvFileSize.setText("");
             }
         }
     }

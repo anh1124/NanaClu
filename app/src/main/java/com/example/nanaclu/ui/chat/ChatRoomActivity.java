@@ -8,6 +8,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -27,15 +30,21 @@ import java.util.ArrayList;
 
 public class ChatRoomActivity extends AppCompatActivity {
     private static final int PICK_IMAGE_REQUEST = 1001;
+    private static final int PICK_FILE_REQUEST = 1002;
 
     private ChatRoomViewModel viewModel;
     private MessageAdapter adapter;
     private RecyclerView rvMessages;
     private SwipeRefreshLayout swipeRefresh;
     private EditText etMessage;
-    private ImageButton btnSend, btnAttach;
+    private ImageButton btnSend, btnAttach, btnAttachFile;
     private MaterialToolbar toolbar;
     private MaterialButton btnScrollDown;
+
+    // Upload progress views
+    private LinearLayout uploadProgressContainer;
+    private ProgressBar uploadProgressBar;
+    private TextView uploadProgressText;
 
     private String chatId;
     private String chatTitle = "Chat";
@@ -94,8 +103,14 @@ public class ChatRoomActivity extends AppCompatActivity {
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
         btnAttach = findViewById(R.id.btnAttach);
+        btnAttachFile = findViewById(R.id.btnAttachFile);
         btnScrollDown = findViewById(R.id.btnScrollDown);
         if (btnScrollDown != null) btnScrollDown.setVisibility(View.GONE);
+
+        // Upload progress views
+        uploadProgressContainer = findViewById(R.id.uploadProgressContainer);
+        uploadProgressBar = findViewById(R.id.uploadProgressBar);
+        uploadProgressText = findViewById(R.id.uploadProgressText);
     }
 
     private void setupToolbar() {
@@ -160,6 +175,26 @@ public class ChatRoomActivity extends AppCompatActivity {
                 intent.putExtra(com.example.nanaclu.ui.post.ImageViewerActivity.EXTRA_INDEX, 0);
                 startActivity(intent);
             }
+
+            @Override
+            public void onFileClick(com.example.nanaclu.data.model.FileAttachment file) {
+                // Handle file click - open if downloaded, otherwise download
+                if (file.isDownloaded) {
+                    // File is already downloaded, try to open it
+                    Toast.makeText(ChatRoomActivity.this, "Mở file: " + file.fileName, Toast.LENGTH_SHORT).show();
+                } else {
+                    // Download the file
+                    viewModel.downloadFile(file);
+                    Toast.makeText(ChatRoomActivity.this, "Đang tải xuống: " + file.fileName, Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFileDownload(com.example.nanaclu.data.model.FileAttachment file) {
+                // Handle file download
+                viewModel.downloadFile(file);
+                Toast.makeText(ChatRoomActivity.this, "Đang tải xuống: " + file.fileName, Toast.LENGTH_SHORT).show();
+            }
         });
         rvMessages.setAdapter(adapter);
 
@@ -185,6 +220,9 @@ public class ChatRoomActivity extends AppCompatActivity {
 
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(ChatRoomViewModel.class);
+
+        // Initialize file repository
+        viewModel.initFileRepository(this);
 
         viewModel.messages.observe(this, messages -> {
             if (messages == null) return;
@@ -217,6 +255,47 @@ public class ChatRoomActivity extends AppCompatActivity {
             swipeRefresh.setRefreshing(false);
         });
 
+        // File handling observers
+        viewModel.uploading.observe(this, uploading -> {
+            // Show/hide upload progress UI
+            if (uploading != null && uploading) {
+                // Show progress container
+                uploadProgressContainer.setVisibility(View.VISIBLE);
+                uploadProgressBar.setProgress(0);
+                uploadProgressText.setText("Đang tải lên...");
+
+                // Disable file attach button during upload
+                btnAttachFile.setEnabled(false);
+                btnAttachFile.setAlpha(0.5f);
+            } else {
+                // Hide progress container
+                uploadProgressContainer.setVisibility(View.GONE);
+
+                // Re-enable file attach button
+                btnAttachFile.setEnabled(true);
+                btnAttachFile.setAlpha(1.0f);
+            }
+        });
+
+        viewModel.uploadProgress.observe(this, progress -> {
+            // Update upload progress
+            if (progress != null && uploadProgressContainer.getVisibility() == View.VISIBLE) {
+                uploadProgressBar.setProgress(progress);
+                uploadProgressText.setText("Đang tải lên... " + progress + "%");
+            }
+        });
+
+        viewModel.fileError.observe(this, error -> {
+            if (error != null && !error.isEmpty()) {
+                // Show error with more context
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Lỗi tải file")
+                        .setMessage(error)
+                        .setPositiveButton("OK", null)
+                        .show();
+            }
+        });
+
         // Initialize chat room
         viewModel.init(chatId, chatType, groupId);
         viewModel.markRead();
@@ -235,6 +314,7 @@ public class ChatRoomActivity extends AppCompatActivity {
     private void setupClickListeners() {
         btnSend.setOnClickListener(v -> sendTextMessage());
         btnAttach.setOnClickListener(v -> openImagePicker());
+        btnAttachFile.setOnClickListener(v -> openFilePicker());
         if (btnScrollDown != null) {
             btnScrollDown.setOnClickListener(v -> {
                 rvMessages.scrollToPosition(Math.max(0, adapter.getItemCount() - 1));
@@ -259,6 +339,28 @@ public class ChatRoomActivity extends AppCompatActivity {
         startActivityForResult(Intent.createChooser(intent, "Select Image"), PICK_IMAGE_REQUEST);
     }
 
+    private void openFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        String[] mimeTypes = {
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "text/plain",
+            "text/csv",
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/x-rar-compressed"
+        };
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+        startActivityForResult(Intent.createChooser(intent, "Select files"), PICK_FILE_REQUEST);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -266,6 +368,39 @@ public class ChatRoomActivity extends AppCompatActivity {
             Uri imageUri = data.getData();
             if (imageUri != null) {
                 viewModel.sendImage(imageUri);
+            }
+        } else if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null) {
+            java.util.List<Uri> fileUris = new java.util.ArrayList<>();
+
+            if (data.getClipData() != null) {
+                // Multiple files selected
+                for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                    Uri fileUri = data.getClipData().getItemAt(i).getUri();
+                    if (fileUri != null) {
+                        fileUris.add(fileUri);
+                    }
+                }
+            } else if (data.getData() != null) {
+                // Single file selected
+                fileUris.add(data.getData());
+            }
+
+            if (!fileUris.isEmpty()) {
+                // Show confirmation for multiple files
+                if (fileUris.size() > 1) {
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("Gửi files")
+                            .setMessage("Bạn có muốn gửi " + fileUris.size() + " files?")
+                            .setPositiveButton("Gửi", (dialog, which) -> {
+                                viewModel.uploadFiles(fileUris);
+                                Toast.makeText(this, "Đang tải lên " + fileUris.size() + " files...", Toast.LENGTH_SHORT).show();
+                            })
+                            .setNegativeButton("Hủy", null)
+                            .show();
+                } else {
+                    viewModel.uploadFiles(fileUris);
+                    Toast.makeText(this, "Đang tải lên file...", Toast.LENGTH_SHORT).show();
+                }
             }
         }
     }
@@ -280,11 +415,13 @@ public class ChatRoomActivity extends AppCompatActivity {
         if ("group".equals(chatType)) {
             items.add("Xem thành viên");
             items.add("Xem ảnh");
+            items.add("Xem files");
             items.add("Tùy chỉnh chủ đề");
             items.add("Rời khỏi đoạn chat");
             if (canDeleteGroupChat) items.add("Xóa đoạn chat");
         } else {
             items.add("Xem ảnh");
+            items.add("Xem files");
             items.add("Tùy chỉnh chủ đề");
             items.add("Xóa đoạn chat");
         }
@@ -313,6 +450,14 @@ public class ChatRoomActivity extends AppCompatActivity {
                         galleryIntent.putExtra("groupId", groupId);
                         galleryIntent.putExtra("chatTitle", chatTitle);
                         startActivity(galleryIntent);
+                    } else if (sel.startsWith("Xem files")) {
+                        // Open file gallery
+                        Intent fileGalleryIntent = new Intent(this, FileGalleryActivity.class);
+                        fileGalleryIntent.putExtra("chatId", chatId);
+                        fileGalleryIntent.putExtra("chatType", chatType);
+                        fileGalleryIntent.putExtra("groupId", groupId);
+                        fileGalleryIntent.putExtra("chatTitle", chatTitle);
+                        startActivity(fileGalleryIntent);
                     } else if (sel.startsWith("Tùy chỉnh chủ đề")) {
                         // TODO: Open theme customization
                         Toast.makeText(this, "Tùy chỉnh chủ đề sẽ có sớm", Toast.LENGTH_SHORT).show();

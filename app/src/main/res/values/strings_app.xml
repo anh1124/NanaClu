@@ -69,5 +69,22 @@
     <string name="join_need_approval_text">\u0110\u00e2y l\u00e0 nh\u00f3m k\u00edn, b\u1ea1n c\u1ea7n \u0111\u01b0\u1ee3c qu\u1ea3n tr\u1ecb vi\u00ean nh\u00f3m ph\u00ea duy\u1ec7t \u0111\u1ec3 tham gia.</string>
     <string name="toast_joined_group_clean">\u0110\u00e3 tham gia nh\u00f3m</string>
 
+    <!-- File sharing strings -->
+    <string name="attach_file">Đính kèm file</string>
+    <string name="downloading">Đang tải xuống...</string>
+    <string name="download_complete">Tải xuống hoàn tất</string>
+    <string name="file_too_large">File quá lớn (tối đa 50MB)</string>
+    <string name="unsupported_file_type">Loại file không được hỗ trợ</string>
+    <string name="files_sent">Files đã gửi</string>
+    <string name="no_files_found">Chưa có file nào</string>
+    <string name="upload_failed">Lỗi tải lên file</string>
+    <string name="download_failed">Lỗi tải xuống file</string>
+    <string name="file_not_found">File không tồn tại</string>
+    <string name="no_app_to_open_file">Không có ứng dụng để mở file này</string>
+    <string name="select_files">Chọn files</string>
+    <string name="uploading">Đang tải lên...</string>
+    <string name="file_uploaded">File đã được tải lên</string>
+    <string name="file_downloaded">File đã được tải xuống</string>
+
 </resources>
 

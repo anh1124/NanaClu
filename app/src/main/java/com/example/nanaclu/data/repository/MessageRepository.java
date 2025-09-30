@@ -257,6 +257,7 @@ public class MessageRepository {
         });
     }
 
+    
     /**
      * Realtime listener for messages with proper collection path based on chat type.
      * Order: by createdAt ASC so UI can append.
@@ -288,6 +289,39 @@ public class MessageRepository {
                 android.util.Log.e("MessageRepoRT", "onEvent error: " + err.getMessage(), err);
             } else if (snap != null) {
                 android.util.Log.d("MessageRepoRT", "onEvent: count=" + snap.size());
+            }
+            if (listener != null) listener.onEvent(snap, err);
+        });
+    }
+ /**
+     * Lắng nghe các tin nhắn mới nhất và bất kỳ tin nhắn nào mới hơn sau đó.
+     * @param limit Số lượng tin nhắn gần nhất để tải ban đầu.
+     */
+    public com.google.firebase.firestore.ListenerRegistration listenForLatestMessages(
+            String chatId, String chatType, String groupId, int limit,
+            com.google.firebase.firestore.EventListener<com.google.firebase.firestore.QuerySnapshot> listener) {
+
+        if (chatId == null) return null;
+
+        Query q;
+        if ("group".equals(chatType) && groupId != null) {
+            q = db.collection("groups").document(groupId)
+                    .collection("chats").document(chatId)
+                    .collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(limit);
+        } else {
+            q = db.collection(CHATS).document(chatId)
+                    .collection(MESSAGES)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(limit);
+        }
+
+        return q.addSnapshotListener((snap, err) -> {
+            if (err != null) {
+                android.util.Log.e("MessageRepoRT", "listenForLatestMessages error: " + err.getMessage(), err);
+            } else if (snap != null) {
+                android.util.Log.d("MessageRepoRT", "listenForLatestMessages: count=" + snap.size());
             }
             if (listener != null) listener.onEvent(snap, err);
         });
@@ -355,23 +389,24 @@ public class MessageRepository {
         });
     }
 
-    // Overload for group/private based on chatType
-    public Task<List<Message>> listMessagesBefore(String chatId, @Nullable Long beforeTs, int limit, String chatType, String groupId) {
+       // Overload for group/private based on chatType
+       public Task<List<Message>> listMessagesBefore(String chatId, @Nullable Long beforeTs, int limit, String chatType, String groupId) {
         if (chatId == null || beforeTs == null) return Tasks.forResult(new ArrayList<>());
         Query q;
         if ("group".equals(chatType) && groupId != null) {
             q = db.collection("groups").document(groupId)
                     .collection("chats").document(chatId)
                     .collection(MESSAGES)
-                    .orderBy("createdAt", Query.Direction.ASCENDING)
-                    .whereLessThan("createdAt", beforeTs);
+                    .orderBy("createdAt", Query.Direction.DESCENDING) // Lấy tin nhắn cũ hơn -> DESC
+                    .whereLessThan("createdAt", beforeTs)
+                    .limit(limit);
         } else {
             q = db.collection(CHATS).document(chatId)
                     .collection(MESSAGES)
-                    .orderBy("createdAt", Query.Direction.ASCENDING)
-                    .whereLessThan("createdAt", beforeTs);
+                    .orderBy("createdAt", Query.Direction.DESCENDING) // Lấy tin nhắn cũ hơn -> DESC
+                    .whereLessThan("createdAt", beforeTs)
+                    .limit(limit);
         }
-        if (limit > 0) q = q.limit(limit);
         return q.get().continueWith(t -> {
             List<Message> list = new ArrayList<>();
             if (t.isSuccessful() && t.getResult() != null) {
@@ -382,6 +417,70 @@ public class MessageRepository {
             }
             return list;
         });
+    }
+
+
+    // Generic method to send any message type
+    public Task<String> sendMessage(String chatId, Message message, String chatType, String groupId) {
+        if (chatId == null || message == null) return Tasks.forException(new IllegalArgumentException("null"));
+
+        // Get author name if not set
+        if (message.authorName == null || message.authorName.isEmpty()) {
+            com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            message.authorName = (currentUser != null && currentUser.getDisplayName() != null)
+                ? currentUser.getDisplayName() : "Unknown";
+        }
+
+        CollectionReference msgs;
+        if ("group".equals(chatType) && groupId != null) {
+            // Group chat: groups/{groupId}/chats/{chatId}/messages
+            msgs = db.collection("groups")
+                    .document(groupId)
+                    .collection("chats")
+                    .document(chatId)
+                    .collection(MESSAGES);
+        } else {
+            // Private chat: chats/{chatId}/messages
+            msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+        }
+
+        DocumentReference msgRef = msgs.document();
+        message.messageId = msgRef.getId();
+
+        // Set server timestamp if not set
+        if (message.createdAt == 0) {
+            message.createdAt = System.currentTimeMillis();
+        }
+
+        return msgRef.set(message).continueWithTask(task -> {
+            if (task.isSuccessful()) {
+                // Update last message metadata
+                String lastMessageContent = getLastMessageContent(message);
+                chatRepository.updateLastMessageMeta(chatId, lastMessageContent, message.authorId, message.createdAt);
+                return Tasks.forResult(msgRef.getId());
+            } else {
+                throw task.getException();
+            }
+        });
+    }
+
+    private String getLastMessageContent(Message message) {
+        switch (message.type) {
+            case "text":
+                return message.content;
+            case "image":
+                return "📷 Image";
+            case "file":
+                if (message.fileAttachments != null && !message.fileAttachments.isEmpty()) {
+                    int count = message.fileAttachments.size();
+                    return "📎 " + count + " file" + (count > 1 ? "s" : "");
+                }
+                return "📎 File";
+            case "mixed":
+                return "📎 Mixed content";
+            default:
+                return message.content != null ? message.content : "Message";
+        }
     }
 
 }

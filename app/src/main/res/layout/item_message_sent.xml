@@ -22,7 +22,7 @@
         android:background="@drawable/bg_message_sent"
         android:padding="12dp"
         android:layout_marginBottom="2dp">
-
+<!--item_message_send-->
         <!-- Text Message -->
         <TextView
             android:id="@+id/tvMessage"
@@ -42,6 +42,22 @@
             android:scaleType="centerCrop"
             android:background="@drawable/bg_image_message"
             android:visibility="gone" />
+
+        <!-- File Attachments Container -->
+        <LinearLayout
+            android:id="@+id/fileAttachmentsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="4dp"
+            android:visibility="gone">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvFileAttachments"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+        </LinearLayout>
 
         <!-- Message Info Container -->
         <LinearLayout

@@ -200,14 +200,18 @@ public class PostRepository {
      * Upload ảnh lên Firebase Storage và trả về URL
      * @param imageData byte array của ảnh
      * @param fileName tên file ảnh
+     * @param chatId ID của chat (để organize theo chat)
      * @param callback callback trả về URL
      */
-    public void uploadImageToStorage(byte[] imageData, String fileName, 
+    public void uploadImageToStorage(byte[] imageData, String fileName, String chatId,
                                    com.google.android.gms.tasks.OnSuccessListener<String> onSuccess,
                                    com.google.android.gms.tasks.OnFailureListener onFailure) {
-        StorageReference imageRef = storage.getReference()
-                .child("post_images")
-                .child(fileName);
+        // Sử dụng unified storage structure: /chats/{chatId}/images/
+        String storagePath = chatId != null ? 
+            "chats/" + chatId + "/images/" + fileName : 
+            "images/post_images/" + fileName; // Fallback cho backward compatibility
+            
+        StorageReference imageRef = storage.getReference().child(storagePath);
         
         UploadTask uploadTask = imageRef.putBytes(imageData);
         uploadTask.addOnSuccessListener(taskSnapshot -> {
@@ -219,11 +223,37 @@ public class PostRepository {
     }
 
     /**
-     * Upload nhiều ảnh lên Firebase Storage
+     * Upload ảnh lên Firebase Storage và trả về URL (backward compatibility)
+     * @param imageData byte array của ảnh
+     * @param fileName tên file ảnh
+     * @param callback callback trả về URL
+     */
+    public void uploadImageToStorage(byte[] imageData, String fileName, 
+                                   com.google.android.gms.tasks.OnSuccessListener<String> onSuccess,
+                                   com.google.android.gms.tasks.OnFailureListener onFailure) {
+        // Gọi method mới với chatId = null để sử dụng fallback path
+        uploadImageToStorage(imageData, fileName, null, onSuccess, onFailure);
+    }
+
+    /**
+     * Upload nhiều ảnh lên Firebase Storage (backward compatibility)
      * @param imageDataList danh sách byte array của các ảnh
      * @param callback callback trả về danh sách URLs
      */
     public void uploadMultipleImages(List<byte[]> imageDataList,
+                                   com.google.android.gms.tasks.OnSuccessListener<List<String>> onSuccess,
+                                   com.google.android.gms.tasks.OnFailureListener onFailure) {
+        // Gọi method mới với chatId = null để sử dụng fallback path
+        uploadMultipleImages(imageDataList, null, onSuccess, onFailure);
+    }
+
+    /**
+     * Upload nhiều ảnh lên Firebase Storage
+     * @param imageDataList danh sách byte array của các ảnh
+     * @param chatId ID của chat (để organize theo chat)
+     * @param callback callback trả về danh sách URLs
+     */
+    public void uploadMultipleImages(List<byte[]> imageDataList, String chatId,
                                    com.google.android.gms.tasks.OnSuccessListener<List<String>> onSuccess,
                                    com.google.android.gms.tasks.OnFailureListener onFailure) {
         if (imageDataList == null || imageDataList.isEmpty()) {
@@ -237,9 +267,12 @@ public class PostRepository {
             byte[] imageData = imageDataList.get(i);
             String fileName = "image_" + System.currentTimeMillis() + "_" + i + ".jpg";
             
-            StorageReference imageRef = storage.getReference()
-                    .child("post_images")
-                    .child(fileName);
+            // Sử dụng unified storage structure: /chats/{chatId}/images/
+            String storagePath = chatId != null ? 
+                "chats/" + chatId + "/images/" + fileName : 
+                "images/post_images/" + fileName; // Fallback cho backward compatibility
+                
+            StorageReference imageRef = storage.getReference().child(storagePath);
             
             Task<String> uploadTask = imageRef.putBytes(imageData)
                     .continueWithTask(task -> {
