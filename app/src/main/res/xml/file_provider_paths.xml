@@ -3,4 +3,6 @@
     <files-path name="downloaded_files" path="downloaded_files/" />
     <cache-path name="cache_files" path="." />
     <external-files-path name="external_files" path="." />
+    <!-- Cho phép truy cập thư mục Download public để mở file manager -->
+    <external-path name="downloads" path="Download/" />
 </paths>

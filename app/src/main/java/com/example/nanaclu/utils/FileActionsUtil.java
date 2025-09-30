@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
 import android.widget.Toast;
+import android.util.Log;
 
 import androidx.core.content.FileProvider;
 
@@ -29,13 +30,22 @@ public class FileActionsUtil {
     }
 
     /**
-     * Lấy file local theo messageId + fileName
-     * Path: <app>/Android/data/<pkg>/files/Download/<messageId>_<fileName>
+     * Lấy file local trong thư mục public Download/NanaClu
+     * Path: /storage/emulated/0/Download/NanaClu/<messageId>_<fileName>
+     * Giống như Zalo, Telegram - lưu vào thư mục public để user dễ truy cập
      */
     public File getLocalFile(String messageId, String fileName) {
-        File dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-        if (dir != null && !dir.exists()) dir.mkdirs();
-        return new File(dir != null ? dir : context.getFilesDir(), messageId + "_" + fileName);
+        // Lấy thư mục Download public
+        File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        
+        // Tạo sub-folder NanaClu nếu chưa có
+        File appDownloadDir = new File(downloadDir, "NanaClu");
+        if (!appDownloadDir.exists()) {
+            appDownloadDir.mkdirs();
+        }
+        
+        // Trả về file path chuẩn
+        return new File(appDownloadDir, messageId + "_" + fileName);
     }
 
     /**
@@ -139,7 +149,24 @@ public class FileActionsUtil {
     public void openFile(File file, String mimeType) {
         try {
             String safeMime = (mimeType == null || mimeType.isEmpty()) ? "*/*" : mimeType;
-            Uri fileUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
+            
+            // Kiểm tra file có nằm trong thư mục Download public không
+            String filePath = file.getAbsolutePath();
+            Uri fileUri;
+            
+            if (filePath.contains("/Download/")) {
+                // File nằm trong thư mục Download public, sử dụng FileProvider với external-path
+                try {
+                    fileUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
+                } catch (Exception e) {
+                    // Fallback: sử dụng file URI trực tiếp
+                    fileUri = Uri.fromFile(file);
+                }
+            } else {
+                // File nằm trong thư mục khác, dùng FileProvider bình thường
+                fileUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
+            }
+            
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setDataAndType(fileUri, safeMime);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -160,87 +187,70 @@ public class FileActionsUtil {
     }
 
     /**
-     * Mở file explorer đến thư mục Downloads riêng của app
-     * Path: /storage/emulated/0/Android/data/<package_name>/files/Download/
+     * Mở file explorer đến thư mục public Download/NanaClu
+     * Path: /storage/emulated/0/Download/NanaClu/
      */
     public void openDownloadFolder() {
         try {
-            // Lấy thư mục Downloads riêng của app
-            File downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-            if (downloadDir == null) {
-                Toast.makeText(context, "Không thể truy cập thư mục Downloads của app", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            // Tạo thư mục nếu chưa tồn tại
-            if (!downloadDir.exists()) {
-                boolean created = downloadDir.mkdirs();
+            // Lấy thư mục Download public
+            File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File appDownloadDir = new File(downloadDir, "NanaClu");
+            
+            if (!appDownloadDir.exists()) {
+                boolean created = appDownloadDir.mkdirs();
                 if (!created) {
-                    Toast.makeText(context, "Không thể tạo thư mục Downloads", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "Không thể tạo thư mục NanaClu", Toast.LENGTH_SHORT).show();
                     return;
                 }
             }
 
-            // Tạo Uri an toàn cho thư mục Downloads của app
-            Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", downloadDir);
-            
-            // Thử nhiều cách mở file manager
-            Intent intent = null;
-            
-            // Cách 1: ACTION_VIEW với resource/folder (cho các file manager hiện đại)
-            intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, "resource/folder");
+            // Sử dụng FileProvider để tạo URI an toàn (tránh FileUriExposedException)
+            Uri folderUri;
+            try {
+                folderUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", appDownloadDir);
+            } catch (Exception e) {
+                Log.w("FileActionsUtil", "FileProvider failed, trying alternative method", e);
+                // Fallback: thử mở bằng ACTION_GET_CONTENT
+                Intent fallbackIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                fallbackIntent.setType("*/*");
+                fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                
+                Intent chooser = Intent.createChooser(fallbackIntent, "Chọn ứng dụng quản lý file");
+                if (chooser.resolveActivity(context.getPackageManager()) != null) {
+                    context.startActivity(chooser);
+                    Toast.makeText(context, "Chọn ứng dụng để mở thư mục...", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(context, "Không tìm thấy ứng dụng quản lý file", Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
+
+            // Thử nhiều cách mở file manager với FileProvider URI
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(folderUri, "resource/folder");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             
             if (intent.resolveActivity(context.getPackageManager()) != null) {
                 context.startActivity(intent);
-                Toast.makeText(context, "Đang mở thư mục tải về của app...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Đang mở thư mục Download/NanaClu...", Toast.LENGTH_SHORT).show();
                 return;
             }
             
-            // Cách 2: ACTION_GET_CONTENT với chooser (fallback)
-            intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.setDataAndType(uri, "*/*");
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            
+            // Fallback: thử với chooser
             Intent chooser = Intent.createChooser(intent, "Mở thư mục với ứng dụng nào?");
             if (chooser.resolveActivity(context.getPackageManager()) != null) {
                 context.startActivity(chooser);
                 Toast.makeText(context, "Chọn ứng dụng để mở thư mục...", Toast.LENGTH_SHORT).show();
-                return;
+            } else {
+                Toast.makeText(context, "Không tìm thấy ứng dụng quản lý file", Toast.LENGTH_LONG).show();
             }
-            
-            // Cách 3: ACTION_VIEW với application/octet-stream (fallback khác)
-            intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, "application/octet-stream");
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            
-            if (intent.resolveActivity(context.getPackageManager()) != null) {
-                context.startActivity(intent);
-                Toast.makeText(context, "Đang mở thư mục...", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            
-            // Cách 4: Thử mở bằng path trực tiếp (cho các file manager cũ)
-            try {
-                Intent directIntent = new Intent(Intent.ACTION_VIEW);
-                directIntent.setData(Uri.parse("file://" + downloadDir.getAbsolutePath()));
-                directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                
-                if (directIntent.resolveActivity(context.getPackageManager()) != null) {
-                    context.startActivity(directIntent);
-                    Toast.makeText(context, "Đang mở thư mục tải về...", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            } catch (Exception ignored) {}
-            
-            // Nếu tất cả đều thất bại → báo lỗi
-            Toast.makeText(context, "Không tìm thấy ứng dụng quản lý file để mở thư mục tải về", Toast.LENGTH_LONG).show();
             
         } catch (Exception e) {
-            Toast.makeText(context, "Lỗi mở thư mục Downloads: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            String errorMsg = "Lỗi mở thư mục Downloads: " + e.getMessage();
+            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show();
+            Log.e("FileActionsUtil", errorMsg, e); // in ra logcat chi tiết stacktrace
         }
+        
     }
 }

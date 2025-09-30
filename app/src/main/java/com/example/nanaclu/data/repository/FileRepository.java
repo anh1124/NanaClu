@@ -109,12 +109,16 @@ public class FileRepository {
 
 
     private File getUnifiedDownloadDir() {
-
-        File dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-        if (dir != null && !dir.exists()) {
-            dir.mkdirs(); // Tạo thư mục nếu chưa có
+        // Lấy thư mục Download public như Zalo/Telegram
+        File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        
+        // Tạo sub-folder NanaClu nếu chưa có
+        File appDownloadDir = new File(downloadDir, "NanaClu");
+        if (!appDownloadDir.exists()) {
+            appDownloadDir.mkdirs();
         }
-        return dir != null ? dir : context.getFilesDir(); // fallback sang internal nếu external null
+        
+        return appDownloadDir;
     }
     // Upload files to Firebase Storage
     public Task<List<FileAttachment>> uploadFiles(List<Uri> fileUris, List<FileAttachment> fileAttachments, 
