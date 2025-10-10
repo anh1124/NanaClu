@@ -2,19 +2,19 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_home"
-        android:icon="@android:drawable/ic_menu_view"
+        android:icon="@drawable/feedfracmenticon"
         android:title="Home" />
     <item
         android:id="@+id/nav_group"
-        android:icon="@android:drawable/ic_menu_myplaces"
+        android:icon="@drawable/groupfracmenticon"
         android:title="Group" />
     <item
         android:id="@+id/nav_chat"
-        android:icon="@android:drawable/ic_dialog_email"
+        android:icon="@drawable/chatfracmenticon"
         android:title="Chat" />
     <item
         android:id="@+id/nav_me"
-        android:icon="@android:drawable/ic_menu_manage"
+        android:icon="@drawable/optionsfracmenticon"
         android:title="Me" />
 </menu>
 

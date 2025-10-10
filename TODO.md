@@ -47,7 +47,7 @@ Danh sách các tính năng cần triển khai để hoàn thiện ứng dụng 
 - [ ] Content flagging system
 - [ ] User blocking/unblocking
 - [ ] Post/content removal tools
-- [ ] Ban user from group functionality
+- [x] Ban user from group functionality
 
 **Files cần tạo/sửa:**
 - `app/src/main/java/com/example/nanaclu/ui/moderation/ReportDialog.java`
