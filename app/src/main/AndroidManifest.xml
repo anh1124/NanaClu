@@ -32,6 +32,7 @@
         <activity android:name=".ui.HomeActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupDetailActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupSettingsActivity" android:exported="false" />
+        <activity android:name=".ui.report.GroupReportActivity" android:exported="false" />
         <activity android:name=".ui.group.EditGroupInfoActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupMembersActivity" android:exported="false" />
         <activity android:name=".ui.group.TransferOwnershipActivity" android:exported="false" />

@@ -85,7 +85,16 @@ public class FeedFragment extends Fragment {
             @Override public void onLike(Post post) {}
             @Override public void onComment(Post post) { showComments(post); }
             @Override public void onDelete(Post post) {}
-            @Override public void onReport(Post post) {}
+            @Override public void onReport(Post post) {
+                if (post.groupId != null) {
+                    com.example.nanaclu.ui.report.ReportBottomSheetDialogFragment reportSheet = 
+                        com.example.nanaclu.ui.report.ReportBottomSheetDialogFragment.newInstance(
+                            post.groupId, post.postId, post.authorId);
+                    reportSheet.show(getParentFragmentManager(), "report_bottom_sheet");
+                } else {
+                    android.widget.Toast.makeText(requireContext(), "Không thể báo cáo bài này", android.widget.Toast.LENGTH_SHORT).show();
+                }
+            }
         }, true); // Show group name in feed
         rvFeed.setAdapter(adapter);
         // Manual refresh: swipe up at bottom to load more; horizontal swipe to navigate fragments

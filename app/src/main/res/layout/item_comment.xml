@@ -23,7 +23,10 @@
         android:id="@+id/btnLikeComment"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:src="@drawable/heart1"
-        android:background="@android:color/transparent"/>
+        android:src="@drawable/heart0"
+        android:background="@android:color/transparent"
+        android:contentDescription="Like comment"
+        android:scaleType="fitCenter"
+        android:padding="4dp"/>
 </LinearLayout>
 

@@ -124,8 +124,10 @@ public class AdminRepository {
                                             }
                                             try { groupJson.put("members", membersArray); } catch (Exception ignored) {}
 
-                                            // chats in group
-                                            db.collection(GROUPS_COLLECTION).document(groupId).collection("chats").get()
+                                            // reports
+                                            exportGroupReportsToJson(groupId, groupJson, () -> {
+                                                // chats in group
+                                                db.collection(GROUPS_COLLECTION).document(groupId).collection("chats").get()
                                                     .addOnSuccessListener(groupChatsSnapshot -> {
                                                         JSONArray groupChatsArray = new JSONArray();
 
@@ -172,6 +174,7 @@ public class AdminRepository {
                                                         try { groupJson.put("chats", new JSONArray()); } catch (Exception ignored) {}
                                                         onComplete.run();
                                                     });
+                                            });
                                         })
                                         .addOnFailureListener(e -> {
                                             try { groupJson.put("members", new JSONArray()); } catch (Exception ignored) {}
@@ -187,6 +190,31 @@ public class AdminRepository {
                     try { groupJson.put("posts", new JSONArray()); } catch (Exception ignored) {}
                     onComplete.run();
                 });
+    }
+
+    /**
+     * Export reports của một group vào JSON
+     * Thêm reports array vào groupJson và gọi onComplete khi xong
+     */
+    private void exportGroupReportsToJson(String groupId, JSONObject groupJson, Runnable onComplete) {
+        db.collection(GROUPS_COLLECTION).document(groupId).collection("reports").get()
+            .addOnSuccessListener(reportsSnapshot -> {
+                JSONArray reportsArray = new JSONArray();
+                for (QueryDocumentSnapshot doc : reportsSnapshot) {
+                    reportsArray.put(convertMapToJson(doc.getData()));
+                }
+                try { 
+                    groupJson.put("reports", reportsArray); 
+                } catch (Exception ignored) {}
+                onComplete.run();
+            })
+            .addOnFailureListener(e -> {
+                // Nếu lỗi, vẫn thêm array rỗng và tiếp tục
+                try { 
+                    groupJson.put("reports", new JSONArray()); 
+                } catch (Exception ignored) {}
+                onComplete.run();
+            });
     }
 
     /**

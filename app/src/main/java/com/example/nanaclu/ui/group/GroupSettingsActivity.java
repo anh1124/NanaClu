@@ -17,6 +17,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Group;
 import com.example.nanaclu.data.repository.GroupRepository;
+import com.example.nanaclu.ui.report.GroupReportActivity;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 public class GroupSettingsActivity extends AppCompatActivity {
@@ -74,6 +75,10 @@ public class GroupSettingsActivity extends AppCompatActivity {
         View cardMembers = findViewById(R.id.cardMembersList);
         if (cardMembers != null) {
             cardMembers.setOnClickListener(v -> openMembers());
+        }
+        View cardReports = findViewById(R.id.cardReports);
+        if (cardReports != null) {
+            cardReports.setOnClickListener(v -> openReports());
         }
 
         // Setup switch: Không cần duyệt (ON) / Cần phê duyệt (OFF)
@@ -222,6 +227,13 @@ public class GroupSettingsActivity extends AppCompatActivity {
 
     private void openMembers() {
         Intent i = new Intent(this, GroupMembersActivity.class);
+        i.putExtra("groupId", groupId);
+        startActivity(i);
+    }
+
+    private void openReports() {
+        // Mở Activity chứa ActiveGroupReportDashboardFragment
+        Intent i = new Intent(this, GroupReportActivity.class);
         i.putExtra("groupId", groupId);
         startActivity(i);
     }

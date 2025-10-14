@@ -22,6 +22,8 @@ import com.example.nanaclu.data.model.Member;
 import com.example.nanaclu.data.repository.ChatRepository;
 import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.ui.chat.ChatRoomActivity;
+import com.example.nanaclu.ui.common.CommentsBottomSheet;
+import com.example.nanaclu.ui.report.ReportBottomSheetDialogFragment;
 import com.example.nanaclu.utils.ThemeUtils;
 import com.example.nanaclu.data.model.Post;
 import com.example.nanaclu.data.repository.PostRepository;
@@ -219,7 +221,8 @@ public class GroupDetailActivity extends AppCompatActivity {
             }
             @Override
             public void onComment(Post post) {
-                // TODO: implement comment later
+                // Mở CommentsBottomSheet để hiển thị và thêm comments
+                CommentsBottomSheet.show(GroupDetailActivity.this, post);
             }
             @Override
             public void onDelete(Post post) {
@@ -239,7 +242,10 @@ public class GroupDetailActivity extends AppCompatActivity {
             }
             @Override
             public void onReport(Post post) {
-                android.widget.Toast.makeText(GroupDetailActivity.this, "Đã gửi báo cáo", android.widget.Toast.LENGTH_SHORT).show();
+                // Mở ReportBottomSheet để user có thể chọn lý do báo cáo
+                ReportBottomSheetDialogFragment reportSheet = ReportBottomSheetDialogFragment.newInstance(
+                    groupId, post.postId, post.authorId);
+                reportSheet.show(getSupportFragmentManager(), "report_bottom_sheet");
             }
         });
         rvPosts.setAdapter(postAdapter);

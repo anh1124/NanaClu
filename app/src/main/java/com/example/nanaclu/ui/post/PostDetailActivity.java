@@ -7,7 +7,6 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -16,20 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-/*lỗi ,cái chỗ nhập mã nhóm ,icon paste to quá
-thêm chức ,
-ở active thành viên hóm ,vẫn chưa hiển thị avatar,bỏ mấy cáu chủ sở hữu với thành viên ở ietm đi vì có tag member với owner rồi
-,làm cho cái phần tìm kiếm thành hoạt động được giống như group fracment,
-cải tiến chức năng tìm kiếm ,mặc định là chỉ load ra 10 doc để tiếp kiệm ở mấy cái list dạng item như thế ,khi kéo xuống như post thì mới hiện thêm, còn nếu dùng cái ô tìm kiếm để tìm thì sau khi nhập 2s sẽ gửi cái thứ mà user vừa nhập lên db để lấy list ,thêm fetch lại list thành viên sau khi ấn kich và fetch thủ công
-thêm sau khi kich thì xóa toàn bộ bài post mà người vừa kich đã đăng
-lỗi ở thành viên nhóm active ,màu toolbar chưa giống với màu đẫ thiết lập trong profile,
-xóa toast  hiện group id và oncreate khi ấn vào item trong group list để vào group detail,lỗi ,nút bình luận (ấn vào để em demo ở post) khi ấn vào thì chỉ có ở feed mới hhiệndemo ,còn post ở group lại không hiện, bạn kiểm ta xem, đồng thời loại bỏ chữ demo ở demo comment đi
 
-log lỗi ở postdetailactive.java:
-Cannot resolve symbol 'bumptech'
-`@layout/activity_post_detail` does not contain a declaration with id `btnBack`
-Cannot resolve symbol 'Glide'
-*/
 
 import com.bumptech.glide.Glide;
 import com.example.nanaclu.R;
@@ -54,6 +40,7 @@ public class PostDetailActivity extends AppCompatActivity {
     private RecyclerView rvComments;
     private CommentsAdapter adapter;
     private TextView tvAuthor, tvTime, tvContent;
+    private android.widget.ImageView imgAuthorAvatar;
     private androidx.constraintlayout.widget.ConstraintLayout imageArea;
 
     // Debounce storage per comment
@@ -71,12 +58,15 @@ public class PostDetailActivity extends AppCompatActivity {
         groupId = getIntent().getStringExtra(EXTRA_GROUP_ID);
         postId = getIntent().getStringExtra(EXTRA_POST_ID);
 
-        ImageButton btnBack = findViewById(R.id.btnBack);
-        btnBack.setOnClickListener(v -> onBackPressed());
+        // Setup toolbar with back button
+        com.google.android.material.appbar.MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
+        toolbar.setNavigationOnClickListener(v -> onBackPressed());
 
         tvAuthor = findViewById(R.id.tvAuthor);
         tvTime = findViewById(R.id.tvTime);
         tvContent = findViewById(R.id.tvContent);
+        imgAuthorAvatar = findViewById(R.id.imgAuthorAvatar);
         imageArea = findViewById(R.id.imageArea);
 
         rvComments = findViewById(R.id.rvComments);
@@ -116,7 +106,10 @@ public class PostDetailActivity extends AppCompatActivity {
                 .addOnSuccessListener(doc -> {
                     Post post = doc.toObject(Post.class);
                     if (post == null) return;
-                    tvAuthor.setText("Member");
+                    
+                    // Load author name
+                    loadAuthorName(post.authorId);
+                    
                     tvTime.setText(android.text.format.DateUtils.getRelativeTimeSpanString(post.createdAt));
                     tvContent.setVisibility(TextUtils.isEmpty(post.content) ? View.GONE : View.VISIBLE);
                     tvContent.setText(post.content);
@@ -124,6 +117,48 @@ public class PostDetailActivity extends AppCompatActivity {
                 });
     }
 
+    private void loadAuthorName(String authorId) {
+        if (authorId == null) {
+            tvAuthor.setText("Unknown User");
+            return;
+        }
+        
+        // Load user profile from Firestore
+        db.collection("users").document(authorId)
+                .get()
+                .addOnSuccessListener(userDoc -> {
+                    if (userDoc.exists()) {
+                        String displayName = userDoc.getString("displayName");
+                        if (displayName != null && !displayName.isEmpty()) {
+                            tvAuthor.setText(displayName);
+                        } else {
+                            String email = userDoc.getString("email");
+                            tvAuthor.setText(email != null ? email : "User");
+                        }
+                        
+                        // Load avatar
+                        String photoUrl = userDoc.getString("photoUrl");
+                        if (photoUrl != null && !photoUrl.isEmpty()) {
+                            Glide.with(this)
+                                .load(photoUrl)
+                                .circleCrop()
+                                .placeholder(R.mipmap.ic_launcher_round)
+                                .error(R.mipmap.ic_launcher_round)
+                                .into(imgAuthorAvatar);
+                        } else {
+                            imgAuthorAvatar.setImageResource(R.mipmap.ic_launcher_round);
+                        }
+                    } else {
+                        tvAuthor.setText("Unknown User");
+                        imgAuthorAvatar.setImageResource(R.mipmap.ic_launcher_round);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    tvAuthor.setText("Unknown User");
+                    imgAuthorAvatar.setImageResource(R.mipmap.ic_launcher_round);
+                });
+    }
+    
     private void setupImages(List<String> urls) {
         imageArea.removeAllViews();
         if (urls == null || urls.isEmpty()) return;
@@ -237,16 +272,31 @@ public class PostDetailActivity extends AppCompatActivity {
             }
         }
         static class VH extends RecyclerView.ViewHolder {
-            TextView tvText, tvLikes; View btnLike;
+            TextView tvText, tvLikes; 
+            android.widget.ImageButton btnLike;
+            boolean isLiked = false;
+            
             VH(@NonNull View itemView) { super(itemView);
                 tvText = itemView.findViewById(R.id.tvCommentText);
                 tvLikes = itemView.findViewById(R.id.tvLikeCount);
                 btnLike = itemView.findViewById(R.id.btnLikeComment);
             }
+            
             void bind(Comment c, int position, CommentActionListener l) {
                 tvText.setText(c.text);
                 tvLikes.setText(String.valueOf(c.likeCount));
-                btnLike.setOnClickListener(v -> { if (l != null) l.onLikeClicked(c, position); });
+                
+                // Set initial icon state
+                btnLike.setImageResource(isLiked ? R.drawable.heart1 : R.drawable.heart0);
+                
+                btnLike.setOnClickListener(v -> { 
+                    if (l != null) {
+                        // Toggle like state
+                        isLiked = !isLiked;
+                        btnLike.setImageResource(isLiked ? R.drawable.heart1 : R.drawable.heart0);
+                        l.onLikeClicked(c, position); 
+                    }
+                });
             }
         }
     }

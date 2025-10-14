@@ -1,6 +1,7 @@
 package com.example.nanaclu.ui.common;
 
 import android.app.Dialog;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,6 +33,22 @@ import java.util.List;
  */
 public class CommentsBottomSheet {
     
+    /**
+     * Show comments dialog từ Activity
+     */
+    public static void show(android.app.Activity activity, Post post) {
+        if (activity == null || activity.isFinishing()) return;
+        
+        // Tạo dialog fullscreen với overlay
+        Dialog dialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar);
+        View content = LayoutInflater.from(activity).inflate(R.layout.dialog_comments, null, false);
+        
+        setupCommentsDialog(dialog, content, post, activity);
+    }
+    
+    /**
+     * Show comments dialog từ Fragment
+     */
     public static void show(Fragment fragment, Post post) {
         if (fragment.getContext() == null) return;
         
@@ -39,6 +56,26 @@ public class CommentsBottomSheet {
         Dialog dialog = new Dialog(fragment.requireContext(), android.R.style.Theme_Translucent_NoTitleBar);
         View content = LayoutInflater.from(fragment.getContext())
                 .inflate(R.layout.dialog_comments, null, false);
+        
+        setupCommentsDialog(dialog, content, post, fragment);
+    }
+    
+    /**
+     * Helper method để lấy Context từ Activity hoặc Fragment
+     */
+    private static Context getContextFromObject(Object obj) {
+        if (obj instanceof android.app.Activity) {
+            return (android.app.Activity) obj;
+        } else if (obj instanceof Fragment) {
+            return ((Fragment) obj).getContext();
+        }
+        return null;
+    }
+    
+    /**
+     * Setup comments dialog với logic chung
+     */
+    private static void setupCommentsDialog(Dialog dialog, View content, Post post, Object context) {
         
         // Xử lý click overlay để đóng dialog với animation
         View overlay = content.findViewById(R.id.overlayView);
@@ -59,7 +96,7 @@ public class CommentsBottomSheet {
 
         // Setup RecyclerView với real data
         RecyclerView rv = content.findViewById(R.id.rvComments);
-        rv.setLayoutManager(new LinearLayoutManager(fragment.getContext()));
+        rv.setLayoutManager(new LinearLayoutManager(getContextFromObject(context)));
 
         List<Comment> comments = new ArrayList<>();
         CommentAdapter adapter = new CommentAdapter(comments, new CommentAdapter.OnCommentActionListener() {
@@ -71,7 +108,10 @@ public class CommentsBottomSheet {
                             // Comment sẽ được cập nhật qua real-time listener
                         })
                         .addOnFailureListener(e -> {
-                            Toast.makeText(fragment.getContext(), "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            Context ctx = getContextFromObject(context);
+                            if (ctx != null) {
+                                Toast.makeText(ctx, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
                         });
             }
 
@@ -82,16 +122,22 @@ public class CommentsBottomSheet {
                         ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
 
                 if (currentUserId != null && currentUserId.equals(comment.authorId)) {
-                    new androidx.appcompat.app.AlertDialog.Builder(fragment.getContext())
+                    new androidx.appcompat.app.AlertDialog.Builder(getContextFromObject(context))
                             .setTitle("Xóa bình luận")
                             .setMessage("Bạn có chắc muốn xóa bình luận này?")
                             .setPositiveButton("Xóa", (dialog, which) -> {
                                 commentRepo.deleteComment(post.groupId, post.postId, comment.commentId)
                                         .addOnSuccessListener(aVoid -> {
-                                            Toast.makeText(fragment.getContext(), "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
+                                            Context ctx = getContextFromObject(context);
+                                            if (ctx != null) {
+                                                Toast.makeText(ctx, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
+                                            }
                                         })
                                         .addOnFailureListener(e -> {
-                                            Toast.makeText(fragment.getContext(), "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                            Context ctx = getContextFromObject(context);
+                                            if (ctx != null) {
+                                                Toast.makeText(ctx, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                            }
                                         });
                             })
                             .setNegativeButton("Hủy", null)
@@ -102,16 +148,22 @@ public class CommentsBottomSheet {
         rv.setAdapter(adapter);
         
         // Load comments from database
+        android.util.Log.d("CommentsBottomSheet", "Loading comments for post: " + post.postId + " in group: " + post.groupId);
         commentRepo.getComments(post.groupId, post.postId, new CommentRepository.CommentsCallback() {
             @Override
             public void onSuccess(List<Comment> loadedComments) {
+                android.util.Log.d("CommentsBottomSheet", "Loaded " + (loadedComments != null ? loadedComments.size() : 0) + " comments");
                 // Load user info for each comment
                 loadUserInfoForComments(loadedComments, userRepo, adapter);
             }
 
             @Override
             public void onError(Exception e) {
-                Toast.makeText(fragment.getContext(), "Lỗi load comments: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                // Kiểm tra context trước khi hiển thị Toast
+                Context ctx = getContextFromObject(context);
+                if (ctx != null) {
+                    Toast.makeText(ctx, "Lỗi load comments: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -129,11 +181,17 @@ public class CommentsBottomSheet {
                 // Thêm comment vào database
                 commentRepo.addComment(post.groupId, post.postId, text, null)
                         .addOnSuccessListener(commentId -> {
-                            Toast.makeText(fragment.getContext(), "Đã gửi bình luận", Toast.LENGTH_SHORT).show();
+                            Context ctx = getContextFromObject(context);
+                            if (ctx != null) {
+                                Toast.makeText(ctx, "Đã gửi bình luận", Toast.LENGTH_SHORT).show();
+                            }
                             btnSend.setEnabled(true);
                         })
                         .addOnFailureListener(e -> {
-                            Toast.makeText(fragment.getContext(), "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            Context ctx = getContextFromObject(context);
+                            if (ctx != null) {
+                                Toast.makeText(ctx, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
                             // Khôi phục text nếu gửi thất bại
                             edtComment.setText(text);
                             btnSend.setEnabled(true);
@@ -157,7 +215,9 @@ public class CommentsBottomSheet {
     }
 
     private static void loadUserInfoForComments(List<Comment> comments, UserRepository userRepo, CommentAdapter adapter) {
-        if (comments.isEmpty()) {
+        android.util.Log.d("CommentsBottomSheet", "Loading user info for " + (comments != null ? comments.size() : 0) + " comments");
+        if (comments == null || comments.isEmpty()) {
+            android.util.Log.d("CommentsBottomSheet", "No comments to load user info for");
             adapter.updateComments(comments);
             return;
         }
@@ -170,7 +230,9 @@ public class CommentsBottomSheet {
                     comment.authorName = user.displayName;
                     comment.authorAvatar = user.photoUrl;
                     loadedCount[0]++;
+                    android.util.Log.d("CommentsBottomSheet", "Loaded user info " + loadedCount[0] + "/" + comments.size());
                     if (loadedCount[0] == comments.size()) {
+                        android.util.Log.d("CommentsBottomSheet", "All user info loaded, updating adapter");
                         adapter.updateComments(comments);
                     }
                 }
