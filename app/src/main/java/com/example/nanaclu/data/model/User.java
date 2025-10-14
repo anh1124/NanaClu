@@ -13,6 +13,7 @@ public class User {
     public String status; // "online" | "offline"
     // Danh sách groupId mà user đã tham gia để hỗ trợ truy vấn feed hiệu quả
     public java.util.List<String> joinedGroupIds;
+    public Boolean isadmin; // Admin: true nếu là admin, null hoặc false nếu không phải
 
     public User() {
         this.joinedGroupIds = new java.util.ArrayList<>();

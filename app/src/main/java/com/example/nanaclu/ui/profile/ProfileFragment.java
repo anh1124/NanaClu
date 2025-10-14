@@ -16,6 +16,11 @@ import com.google.firebase.auth.FirebaseUser;
 import com.example.nanaclu.utils.ThemeUtils;
 
 public class ProfileFragment extends Fragment {
+    // Field đếm số lần click avatar để mở dashboard admin
+    private int avatarClickCount = 0;
+    private long lastAvatarClickTime = 0;
+    private static final long CLICK_RESET_TIMEOUT_MS = 10000; // 10s
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -92,6 +97,39 @@ public class ProfileFragment extends Fragment {
         btnLogout.setOnClickListener(v -> openConfirmLogoutDialog());
         btnPick.setOnClickListener(v -> openColorPicker(toolbar, colorPreview));
         securityRow.setOnClickListener(v -> openSecurityActivity());
+        // Bắt sự kiện click avatar để mở dashboard admin nếu đủ điều kiện
+        imgAvatar.setOnClickListener(v -> {
+            long now = System.currentTimeMillis();
+            if (now - lastAvatarClickTime > CLICK_RESET_TIMEOUT_MS) {
+                avatarClickCount = 0;
+            }
+            lastAvatarClickTime = now;
+            avatarClickCount++;
+            if (avatarClickCount == 5) {
+                avatarClickCount = 0; // reset về 0 để tránh double trigger
+                // Kiểm tra quyền admin từ Firestore
+                com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                if (user == null) return;
+                com.example.nanaclu.data.repository.AdminRepository adminRepo =
+                        new com.example.nanaclu.data.repository.AdminRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+                adminRepo.checkIsAdmin(user.getUid(), new com.example.nanaclu.data.repository.AdminRepository.AdminCheckCallback() {
+                    @Override
+                    public void onResult(boolean isAdmin) {
+                        if (isAdmin) {
+                            // Mở dashboard admin
+                            android.content.Intent i = new android.content.Intent(getContext(), com.example.nanaclu.ui.admin.AdminDashboardActivity.class);
+                            startActivity(i);
+                        } else {
+                            android.widget.Toast.makeText(getContext(), "Bạn không có quyền admin", android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    @Override
+                    public void onError(Exception e) {
+                        android.widget.Toast.makeText(getContext(), "Lỗi kiểm tra quyền admin: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
         return root;
     }
 

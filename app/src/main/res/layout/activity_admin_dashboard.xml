@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorPrimary"
+        android:elevation="4dp"
+        app:title="admin dashboard"
+        app:titleTextColor="@android:color/white" />
+
+    <LinearLayout
+        android:id="@+id/adminButtonList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:layout_gravity="top"
+        android:layout_marginTop="80dp">
+
+        <Button
+            android:id="@+id/btnSaveJson"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save db->json"
+            android:background="@android:drawable/btn_default"
+            android:textColor="@android:color/white"
+            android:gravity="left|center_vertical"
+            android:layout_marginLeft="5dp"
+            android:layout_marginRight="5dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Sau này sẽ thêm các nút khác tương tự ở đây -->
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
