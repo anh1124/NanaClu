@@ -6,7 +6,6 @@ public class Comment {
     public String commentId;
     public String authorId;
     public String content;
-    public int likeCount;
     public int replyCount;
     public Timestamp createdAt;  // Đổi từ long thành Timestamp
     public String parentCommentId; // For replies

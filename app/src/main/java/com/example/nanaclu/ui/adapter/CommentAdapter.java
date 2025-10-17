@@ -84,8 +84,6 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
         private TextView tvAuthorName;
         private TextView tvCommentText;
         private TextView tvTimeAgo;
-        private ImageView ivLike;
-        private TextView tvLikeCount;
 
         public CommentViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -93,8 +91,6 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
             tvAuthorName = itemView.findViewById(R.id.tvCommentAuthor);
             tvCommentText = itemView.findViewById(R.id.tvCommentText);
             tvTimeAgo = itemView.findViewById(R.id.tvCommentTime);
-            ivLike = itemView.findViewById(R.id.ivCommentLike);
-            tvLikeCount = itemView.findViewById(R.id.tvCommentLikeCount);
         }
 
         public void bind(Comment comment, OnUserClickListener userClickListener) {
@@ -131,56 +127,6 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
                 tvAuthorName.setOnClickListener(profileClickListener);
             }
 
-            // Set like count
-            tvLikeCount.setText(String.valueOf(comment.likeCount));
-
-            // Check if current user liked this comment (similar to PostAdapter)
-            if (currentUserId != null && groupId != null && postId != null) {
-                commentRepository.isCommentLiked(groupId, postId, comment.commentId, currentUserId,
-                        liked -> {
-                            ivLike.setImageResource(liked ? R.drawable.heart1 : R.drawable.heart0);
-                            ivLike.setTag(liked ? "liked" : "not_liked");
-                        },
-                        e -> {
-                            ivLike.setImageResource(R.drawable.heart0);
-                            ivLike.setTag("not_liked");
-                        });
-            } else {
-                ivLike.setImageResource(R.drawable.heart0);
-                ivLike.setTag("not_liked");
-            }
-
-            // Like button click
-            ivLike.setOnClickListener(v -> {
-                if (currentUserId == null || groupId == null || postId == null) return;
-
-                // Toggle like in database (similar to PostAdapter)
-                commentRepository.isCommentLiked(groupId, postId, comment.commentId, currentUserId, liked -> {
-                    if (liked) {
-                        // Unlike
-                        commentRepository.toggleLikeComment(groupId, postId, comment.commentId)
-                                .addOnSuccessListener(aVoid -> {
-                                    ivLike.setImageResource(R.drawable.heart0);
-                                    ivLike.setTag("not_liked");
-                                })
-                                .addOnFailureListener(e -> {});
-                    } else {
-                        // Like
-                        commentRepository.toggleLikeComment(groupId, postId, comment.commentId)
-                                .addOnSuccessListener(aVoid -> {
-                                    ivLike.setImageResource(R.drawable.heart1);
-                                    ivLike.setTag("liked");
-                                })
-                                .addOnFailureListener(e -> {});
-                    }
-                }, e -> {});
-
-                // Also call listener for any additional handling
-                if (listener != null) {
-                    listener.onLikeComment(comment);
-                }
-            });
-
             // Long press to delete own comment
             itemView.setOnLongClickListener(v -> {
                 String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
@@ -214,7 +160,6 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
     }
 
     public interface OnCommentActionListener {
-        void onLikeComment(Comment comment);
         void onDeleteComment(Comment comment);
     }
 }

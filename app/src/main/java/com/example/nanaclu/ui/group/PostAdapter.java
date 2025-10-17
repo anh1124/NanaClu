@@ -95,11 +95,17 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
     class PostViewHolder extends RecyclerView.ViewHolder {
         TextView tvAuthorName, tvCreatedAt, tvContent, tvGroupName;
+        TextView tvShowMore;
+        ViewGroup layoutTextControls;
         ImageView btnLike; View btnComment;
         ImageView ivAuthorAvatar;
         View btnMore;
         ViewGroup imageContainer;
         TextView tvLikeCount, tvCommentCount;
+        
+        // State for text expansion
+        private boolean isTextExpanded = false;
+        private String fullText = "";
 
         // image grid views
         ImageView ivOne;
@@ -114,6 +120,8 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             tvAuthorName = itemView.findViewById(R.id.tvAuthorName);
             tvCreatedAt = itemView.findViewById(R.id.tvCreatedAt);
             tvContent = itemView.findViewById(R.id.tvContent);
+            tvShowMore = itemView.findViewById(R.id.tvShowMore);
+            layoutTextControls = itemView.findViewById(R.id.layoutTextControls);
             tvGroupName = itemView.findViewById(R.id.tvGroupName);
             btnLike = itemView.findViewById(R.id.btnLike);
             btnComment = itemView.findViewById(R.id.btnComment);
@@ -144,8 +152,10 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             // Author name/time
             tvAuthorName.setText("...");
             tvCreatedAt.setText(android.text.format.DateUtils.getRelativeTimeSpanString(post.createdAt));
-            tvContent.setVisibility(post.content == null || post.content.trim().isEmpty() ? View.GONE : View.VISIBLE);
-            tvContent.setText(post.content);
+            
+            // Setup expandable content
+            setupExpandableContent(post.content);
+            
             tvLikeCount.setText(String.valueOf(post.likeCount));
             tvCommentCount.setText(String.valueOf(post.commentCount));
 
@@ -246,7 +256,15 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 android.widget.PopupMenu menu = new android.widget.PopupMenu(itemView.getContext(), btnMore);
                 if (currentUserId != null && currentUserId.equals(post.authorId)) {
                     menu.getMenu().add("Xóa bài đăng").setOnMenuItemClickListener(item -> {
-                        if (actionListener != null) actionListener.onDelete(post);
+                        // Hiển thị dialog xác nhận trước khi xóa
+                        new androidx.appcompat.app.AlertDialog.Builder(itemView.getContext())
+                                .setTitle("Xóa bài đăng")
+                                .setMessage("Bạn có chắc muốn xóa bài đăng này? Hành động này không thể hoàn tác.")
+                                .setPositiveButton("Xóa", (dialog, which) -> {
+                                    if (actionListener != null) actionListener.onDelete(post);
+                                })
+                                .setNegativeButton("Hủy", null)
+                                .show();
                         return true;
                     });
                 } else {
@@ -257,6 +275,72 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 }
                 menu.show();
             });
+        }
+
+        private void setupExpandableContent(String content) {
+            if (content == null || content.trim().isEmpty()) {
+                tvContent.setVisibility(View.GONE);
+                layoutTextControls.setVisibility(View.GONE);
+                return;
+            }
+
+            fullText = content;
+            tvContent.setVisibility(View.VISIBLE);
+            
+            // First set maxLines to check if text is truncated
+            tvContent.setMaxLines(6);
+            tvContent.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            tvContent.setText(content);
+
+            // Check if text is longer than 6 lines by measuring
+            tvContent.post(() -> {
+                // Get the line count and check if text is truncated
+                int lineCount = tvContent.getLineCount();
+                boolean isTextTruncated = tvContent.getLayout() != null && 
+                    tvContent.getLayout().getEllipsisCount(lineCount - 1) > 0;
+                
+                // Multiple conditions to show "Xem thêm" button
+                boolean shouldShowButton = (lineCount >= 6 && isTextTruncated) || 
+                                         content.length() > 300 || 
+                                         (lineCount >= 6 && content.length() > 200);
+                
+                if (shouldShowButton) {
+                    // Text is longer than 6 lines or very long, show controls area
+                    layoutTextControls.setVisibility(View.VISIBLE);
+                    setUnderlinedText(tvShowMore, "Xem thêm");
+                    isTextExpanded = false;
+                    
+                    // Set up click listener for expand/collapse
+                    tvShowMore.setOnClickListener(v -> toggleTextExpansion());
+                } else {
+                    // Text is short enough, hide controls area
+                    layoutTextControls.setVisibility(View.GONE);
+                    tvContent.setMaxLines(Integer.MAX_VALUE);
+                    tvContent.setEllipsize(null);
+                }
+            });
+        }
+
+        private void toggleTextExpansion() {
+            if (isTextExpanded) {
+                // Collapse text
+                tvContent.setMaxLines(6);
+                tvContent.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                setUnderlinedText(tvShowMore, "Xem thêm");
+                isTextExpanded = false;
+            } else {
+                // Expand text
+                tvContent.setMaxLines(Integer.MAX_VALUE);
+                tvContent.setEllipsize(null);
+                setUnderlinedText(tvShowMore, "Thu gọn");
+                isTextExpanded = true;
+            }
+        }
+
+        private void setUnderlinedText(TextView textView, String text) {
+            android.text.SpannableString spannableString = new android.text.SpannableString(text);
+            spannableString.setSpan(new android.text.style.UnderlineSpan(), 0, text.length(), 0);
+            textView.setText(spannableString);
         }
 
         void setupImagesDynamic(Post post) {

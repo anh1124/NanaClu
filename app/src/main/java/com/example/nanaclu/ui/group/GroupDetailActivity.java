@@ -9,6 +9,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -226,17 +228,48 @@ public class GroupDetailActivity extends AppCompatActivity {
             }
             @Override
             public void onDelete(Post post) {
-                // Xóa post (với Firebase Storage, URLs sẽ tự động không accessible khi post bị xóa)
-                // Không cần xóa riêng images vì chúng được lưu trong Storage với URLs
+                // Tạo custom dialog với ProgressBar
+                androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(GroupDetailActivity.this);
+                
+                // Tạo layout cho progress dialog
+                LinearLayout layout = new LinearLayout(GroupDetailActivity.this);
+                layout.setOrientation(LinearLayout.VERTICAL);
+                layout.setPadding(50, 50, 50, 50);
+                
+                ProgressBar progressBar = new ProgressBar(GroupDetailActivity.this);
+                progressBar.setIndeterminate(true);
+                layout.addView(progressBar);
+                
+                TextView messageText = new TextView(GroupDetailActivity.this);
+                messageText.setText("Đang xóa bài đăng...");
+                messageText.setGravity(android.view.Gravity.CENTER);
+                messageText.setPadding(0, 20, 0, 0);
+                layout.addView(messageText);
+                
+                builder.setView(layout);
+                builder.setCancelable(false);
+                
+                androidx.appcompat.app.AlertDialog progressDialog = builder.create();
+                progressDialog.show();
+                
+                // Xóa post và tất cả subcollections (comments, likes)
                 postRepository.deletePost(post.groupId, post.postId, new com.example.nanaclu.data.repository.PostRepository.PostCallback() {
                     @Override
                     public void onSuccess(Post p) {
+                        progressDialog.dismiss();
+                        Toast.makeText(GroupDetailActivity.this, "Đã xóa bài đăng thành công", Toast.LENGTH_SHORT).show();
                         // refresh list đơn giản: load lại từ đầu
                         loadInitialPosts();
                     }
                     @Override
                     public void onError(Exception e) {
-                        Toast.makeText(GroupDetailActivity.this, "Lỗi xóa bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        progressDialog.dismiss();
+                        android.util.Log.e("GroupDetailActivity", "Error deleting post: " + post.postId, e);
+                        String errorMessage = "Không thể xóa bài đăng";
+                        if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+                            errorMessage += ": " + e.getMessage();
+                        }
+                        Toast.makeText(GroupDetailActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                     }
                 });
             }

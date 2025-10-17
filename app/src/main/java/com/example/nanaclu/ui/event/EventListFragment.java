@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Event;
 import com.example.nanaclu.data.repository.EventRepository;
@@ -23,6 +24,7 @@ import java.util.List;
 
 public class EventListFragment extends Fragment {
     
+    private SwipeRefreshLayout swipeRefreshLayout;
     private RecyclerView rvEvents;
     private LinearLayout layoutEmpty;
     private ProgressBar progressBar;
@@ -57,11 +59,13 @@ public class EventListFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
+        swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
         rvEvents = view.findViewById(R.id.rvEvents);
         layoutEmpty = view.findViewById(R.id.layoutEmpty);
         progressBar = view.findViewById(R.id.progressBar);
         
         setupRecyclerView();
+        setupSwipeRefresh();
         loadEvents();
     }
     
@@ -83,6 +87,19 @@ public class EventListFragment extends Fragment {
         rvEvents.setAdapter(adapter);
     }
     
+    private void setupSwipeRefresh() {
+        swipeRefreshLayout.setColorSchemeResources(
+                android.R.color.holo_blue_bright,
+                android.R.color.holo_green_light,
+                android.R.color.holo_orange_light,
+                android.R.color.holo_red_light
+        );
+        
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            loadEvents();
+        });
+    }
+    
     private void loadEvents() {
         if (groupId == null) return;
 
@@ -93,6 +110,7 @@ public class EventListFragment extends Fragment {
                 events -> {
                     android.util.Log.d("EventListFragment", "Success callback received with " + events.size() + " events");
                     showLoading(false);
+                    swipeRefreshLayout.setRefreshing(false); // Stop refresh animation
                     android.util.Log.d("EventListFragment", "Loaded " + events.size() + " events for groupId: " + groupId);
                     for (Event event : events) {
                         android.util.Log.d("EventListFragment", "Event: " + event.title + 
@@ -114,6 +132,7 @@ public class EventListFragment extends Fragment {
                 error -> {
                     android.util.Log.e("EventListFragment", "Error callback received", error);
                     showLoading(false);
+                    swipeRefreshLayout.setRefreshing(false); // Stop refresh animation
                     showEmpty(true);
                     android.util.Log.e("EventListFragment", "Error loading events", error);
                     android.widget.Toast.makeText(getContext(), "Lỗi load events: " + error.getMessage(), android.widget.Toast.LENGTH_SHORT).show();

@@ -7,6 +7,7 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,7 +19,6 @@ public class CommentRepository {
     private static final String GROUPS_COLLECTION = "groups";
     private static final String POSTS_COLLECTION = "posts";
     private static final String COMMENTS_COLLECTION = "comments";
-    private static final String LIKES_COLLECTION = "likes";
 
     // Callback interfaces
     public interface OnSuccessCallback<T> {
@@ -46,7 +46,6 @@ public class CommentRepository {
         Map<String, Object> commentData = new HashMap<>();
         commentData.put("authorId", currentUserId);
         commentData.put("content", content);
-        commentData.put("likeCount", 0);
         commentData.put("replyCount", 0);
         commentData.put("createdAt", FieldValue.serverTimestamp());
         if (parentCommentId != null) {
@@ -205,71 +204,6 @@ public class CommentRepository {
                 .addOnFailureListener(callback::onError);
     }
 
-    /**
-     * Check if comment is liked by current user
-     */
-    public void isCommentLiked(String groupId, String postId, String commentId, String userId,
-                              OnSuccessCallback<Boolean> onSuccess, OnErrorCallback onError) {
-        if (userId == null) {
-            onSuccess.onSuccess(false);
-            return;
-        }
-
-        db.collection(GROUPS_COLLECTION)
-                .document(groupId)
-                .collection(POSTS_COLLECTION)
-                .document(postId)
-                .collection(COMMENTS_COLLECTION)
-                .document(commentId)
-                .collection(LIKES_COLLECTION)
-                .document(userId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    onSuccess.onSuccess(documentSnapshot.exists());
-                })
-                .addOnFailureListener(onError::onError);
-    }
-
-    /**
-     * Like/Unlike comment
-     */
-    public Task<Void> toggleLikeComment(String groupId, String postId, String commentId) {
-        String currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null 
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-        if (currentUserId == null) {
-            return com.google.android.gms.tasks.Tasks.forException(new Exception("User not logged in"));
-        }
-
-        return db.collection(GROUPS_COLLECTION)
-                .document(groupId)
-                .collection(POSTS_COLLECTION)
-                .document(postId)
-                .collection(COMMENTS_COLLECTION)
-                .document(commentId)
-                .collection(LIKES_COLLECTION)
-                .document(currentUserId)
-                .get()
-                .continueWithTask(task -> {
-                    if (task.isSuccessful()) {
-                        DocumentSnapshot likeDoc = task.getResult();
-                        if (likeDoc.exists()) {
-                            // Unlike
-                            return likeDoc.getReference().delete()
-                                    .continueWithTask(t -> updateCommentLikeCount(groupId, postId, commentId, -1));
-                        } else {
-                            // Like
-                            Map<String, Object> likeData = new HashMap<>();
-                            likeData.put("userId", currentUserId);
-                            likeData.put("createdAt", FieldValue.serverTimestamp());
-                            return likeDoc.getReference().set(likeData)
-                                    .continueWithTask(t -> updateCommentLikeCount(groupId, postId, commentId, 1));
-                        }
-                    } else {
-                        return com.google.android.gms.tasks.Tasks.forException(task.getException());
-                    }
-                });
-    }
-
     private Task<Void> updatePostCommentCount(String groupId, String postId) {
         return db.collection(GROUPS_COLLECTION)
                 .document(groupId)
@@ -288,27 +222,42 @@ public class CommentRepository {
                 .update("replyCount", FieldValue.increment(1));
     }
 
-    private Task<Void> updateCommentLikeCount(String groupId, String postId, String commentId, int increment) {
-        return db.collection(GROUPS_COLLECTION)
-                .document(groupId)
-                .collection(POSTS_COLLECTION)
-                .document(postId)
-                .collection(COMMENTS_COLLECTION)
-                .document(commentId)
-                .update("likeCount", FieldValue.increment(increment));
-    }
-
     /**
-     * Xóa comment
+     * Xóa comment và tất cả likes của comment đó
      */
     public Task<Void> deleteComment(String groupId, String postId, String commentId) {
+        // First delete all likes for this comment (if any exist)
         return db.collection(GROUPS_COLLECTION)
                 .document(groupId)
                 .collection(POSTS_COLLECTION)
                 .document(postId)
                 .collection(COMMENTS_COLLECTION)
                 .document(commentId)
-                .delete()
+                .collection("likes")
+                .get()
+                .continueWithTask(likesTask -> {
+                    if (!likesTask.isSuccessful()) {
+                        return com.google.android.gms.tasks.Tasks.forException(likesTask.getException());
+                    }
+                    
+                    // Delete all likes in batch
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot likeDoc : likesTask.getResult()) {
+                        batch.delete(likeDoc.getReference());
+                    }
+                    
+                    return batch.commit();
+                })
+                .continueWithTask(likesDeleteTask -> {
+                    // Then delete the comment itself
+                    return db.collection(GROUPS_COLLECTION)
+                            .document(groupId)
+                            .collection(POSTS_COLLECTION)
+                            .document(postId)
+                            .collection(COMMENTS_COLLECTION)
+                            .document(commentId)
+                            .delete();
+                })
                 .continueWithTask(task -> {
                     if (task.isSuccessful()) {
                         // Giảm comment count của post

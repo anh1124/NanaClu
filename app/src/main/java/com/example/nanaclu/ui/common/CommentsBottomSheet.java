@@ -101,21 +101,6 @@ public class CommentsBottomSheet {
         List<Comment> comments = new ArrayList<>();
         CommentAdapter adapter = new CommentAdapter(comments, new CommentAdapter.OnCommentActionListener() {
             @Override
-            public void onLikeComment(Comment comment) {
-                // Toggle like comment
-                commentRepo.toggleLikeComment(post.groupId, post.postId, comment.commentId)
-                        .addOnSuccessListener(aVoid -> {
-                            // Comment sẽ được cập nhật qua real-time listener
-                        })
-                        .addOnFailureListener(e -> {
-                            Context ctx = getContextFromObject(context);
-                            if (ctx != null) {
-                                Toast.makeText(ctx, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                            }
-                        });
-            }
-
-            @Override
             public void onDeleteComment(Comment comment) {
                 // Xóa comment của chính mình
                 String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null

@@ -61,45 +61,6 @@
             android:lineSpacingExtra="2dp"
             android:layout_marginBottom="8dp" />
 
-        <!-- Action buttons -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <!-- Like button -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="8dp"
-                android:layout_marginEnd="16dp">
-
-                <ImageView
-                    android:id="@+id/ivCommentLike"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:src="@drawable/ic_heart_outline"
-                    app:tint="#666666"
-                    android:layout_marginEnd="4dp" />
-
-                <TextView
-                    android:id="@+id/tvCommentLikeCount"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#666666"
-                    android:textSize="12sp" />
-
-            </LinearLayout>
-
-
-
-        </LinearLayout>
-
     </LinearLayout>
 
 </LinearLayout>

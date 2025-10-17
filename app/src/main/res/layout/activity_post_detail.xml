@@ -63,12 +63,39 @@
 
             </LinearLayout>
 
+            <!-- Content text -->
             <TextView
                 android:id="@+id/tvContent"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:textSize="15sp"/>
+                android:textSize="15sp"
+                android:maxLines="6"
+                android:ellipsize="end"/>
+
+            <!-- Expandable text controls area -->
+            <LinearLayout
+                android:id="@+id/layoutTextControls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvShowMore"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Xem thêm"
+                    android:textSize="14sp"
+                    android:textColor="#1976D2"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp"
+                    android:textStyle="normal"
+                    android:drawablePadding="0dp"
+                    android:gravity="center" />
+
+            </LinearLayout>
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/imageArea"

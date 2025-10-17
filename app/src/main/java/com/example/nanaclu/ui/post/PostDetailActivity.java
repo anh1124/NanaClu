@@ -39,16 +39,14 @@ public class PostDetailActivity extends AppCompatActivity {
 
     private RecyclerView rvComments;
     private CommentsAdapter adapter;
-    private TextView tvAuthor, tvTime, tvContent;
+    private TextView tvAuthor, tvTime, tvContent, tvShowMore;
+    private ViewGroup layoutTextControls;
     private android.widget.ImageView imgAuthorAvatar;
     private androidx.constraintlayout.widget.ConstraintLayout imageArea;
 
-    // Debounce storage per comment
-    private final Map<String, Integer> pendingLikeIncrements = new HashMap<>();
-    private final Map<String, Runnable> pendingRunnables = new HashMap<>();
-
     private String groupId;
     private String postId;
+    private boolean isTextExpanded = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -66,14 +64,14 @@ public class PostDetailActivity extends AppCompatActivity {
         tvAuthor = findViewById(R.id.tvAuthor);
         tvTime = findViewById(R.id.tvTime);
         tvContent = findViewById(R.id.tvContent);
+        tvShowMore = findViewById(R.id.tvShowMore);
+        layoutTextControls = findViewById(R.id.layoutTextControls);
         imgAuthorAvatar = findViewById(R.id.imgAuthorAvatar);
         imageArea = findViewById(R.id.imageArea);
 
         rvComments = findViewById(R.id.rvComments);
         rvComments.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new CommentsAdapter(new ArrayList<>(), new CommentActionListener() {
-            @Override public void onLikeClicked(Comment c, int position) { likeWithDebounce(c, position); }
-        });
+        adapter = new CommentsAdapter(new ArrayList<>());
         rvComments.setAdapter(adapter);
 
         EditText edtComment = findViewById(R.id.edtComment);
@@ -89,15 +87,6 @@ public class PostDetailActivity extends AppCompatActivity {
         loadComments();
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        // Cleanup pending debounce tasks
-        for (Runnable r : pendingRunnables.values()) handler.removeCallbacks(r);
-        pendingRunnables.clear();
-        pendingLikeIncrements.clear();
-    }
-
     private void loadPost() {
         if (groupId == null || postId == null) return;
         db.collection("groups").document(groupId)
@@ -111,8 +100,7 @@ public class PostDetailActivity extends AppCompatActivity {
                     loadAuthorName(post.authorId);
                     
                     tvTime.setText(android.text.format.DateUtils.getRelativeTimeSpanString(post.createdAt));
-                    tvContent.setVisibility(TextUtils.isEmpty(post.content) ? View.GONE : View.VISIBLE);
-                    tvContent.setText(post.content);
+                    setupExpandableContent(post.content);
                     setupImages(post.imageUrls);
                 });
     }
@@ -157,6 +145,71 @@ public class PostDetailActivity extends AppCompatActivity {
                     tvAuthor.setText("Unknown User");
                     imgAuthorAvatar.setImageResource(R.mipmap.ic_launcher_round);
                 });
+    }
+
+    private void setupExpandableContent(String content) {
+        if (content == null || content.trim().isEmpty()) {
+            tvContent.setVisibility(View.GONE);
+            layoutTextControls.setVisibility(View.GONE);
+            return;
+        }
+
+        tvContent.setVisibility(View.VISIBLE);
+        
+        // First set maxLines to check if text is truncated
+        tvContent.setMaxLines(6);
+        tvContent.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        tvContent.setText(content);
+
+        // Check if text is longer than 6 lines by measuring
+        tvContent.post(() -> {
+            // Get the line count and check if text is truncated
+            int lineCount = tvContent.getLineCount();
+            boolean isTextTruncated = tvContent.getLayout() != null && 
+                tvContent.getLayout().getEllipsisCount(lineCount - 1) > 0;
+            
+            // Multiple conditions to show "Xem thêm" button
+            boolean shouldShowButton = (lineCount >= 6 && isTextTruncated) || 
+                                     content.length() > 300 || 
+                                     (lineCount >= 6 && content.length() > 200);
+            
+            if (shouldShowButton) {
+                // Text is longer than 6 lines or very long, show controls area
+                layoutTextControls.setVisibility(View.VISIBLE);
+                setUnderlinedText(tvShowMore, "Xem thêm");
+                isTextExpanded = false;
+                
+                // Set up click listener for expand/collapse
+                tvShowMore.setOnClickListener(v -> toggleTextExpansion());
+            } else {
+                // Text is short enough, hide controls area
+                layoutTextControls.setVisibility(View.GONE);
+                tvContent.setMaxLines(Integer.MAX_VALUE);
+                tvContent.setEllipsize(null);
+            }
+        });
+    }
+
+    private void toggleTextExpansion() {
+        if (isTextExpanded) {
+            // Collapse text
+            tvContent.setMaxLines(6);
+            tvContent.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            setUnderlinedText(tvShowMore, "Xem thêm");
+            isTextExpanded = false;
+        } else {
+            // Expand text
+            tvContent.setMaxLines(Integer.MAX_VALUE);
+            tvContent.setEllipsize(null);
+            setUnderlinedText(tvShowMore, "Thu gọn");
+            isTextExpanded = true;
+        }
+    }
+
+    private void setUnderlinedText(TextView textView, String text) {
+        android.text.SpannableString spannableString = new android.text.SpannableString(text);
+        spannableString.setSpan(new android.text.style.UnderlineSpan(), 0, text.length(), 0);
+        textView.setText(spannableString);
     }
     
     private void setupImages(List<String> urls) {
@@ -205,7 +258,6 @@ public class PostDetailActivity extends AppCompatActivity {
     private void addComment(String text) {
         Map<String, Object> data = new HashMap<>();
         data.put("text", text);
-        data.put("likeCount", 0);
         data.put("createdAt", FieldValue.serverTimestamp());
         db.collection("groups").document(groupId)
                 .collection("posts").document(postId)
@@ -213,90 +265,35 @@ public class PostDetailActivity extends AppCompatActivity {
                 .add(data);
     }
 
-    private void likeWithDebounce(@NonNull Comment c, int position) {
-        // Immediate local update
-        c.likeCount += 1;
-        adapter.notifyItemChanged(position, "like_only");
-
-        // Track pending increments
-        int pending = pendingLikeIncrements.containsKey(c.commentId) ? pendingLikeIncrements.get(c.commentId) : 0;
-        pendingLikeIncrements.put(c.commentId, pending + 1);
-
-        // Reset timer
-        if (pendingRunnables.containsKey(c.commentId)) {
-            handler.removeCallbacks(pendingRunnables.get(c.commentId));
-        }
-        Runnable r = () -> {
-            Integer inc = pendingLikeIncrements.remove(c.commentId);
-            pendingRunnables.remove(c.commentId);
-            if (inc == null || inc <= 0) return;
-            db.collection("groups").document(groupId)
-                    .collection("posts").document(postId)
-                    .collection("comments").document(c.commentId)
-                    .update("likeCount", FieldValue.increment(inc));
-        };
-        pendingRunnables.put(c.commentId, r);
-        handler.postDelayed(r, 3000);
-    }
-
     // ----- Simple data holder for comments -----
     public static class Comment {
         public String commentId;
         public String text;
-        public long likeCount;
         public Timestamp createdAt;
         public Comment() {}
     }
 
-    interface CommentActionListener {
-        void onLikeClicked(Comment c, int position);
-    }
-
     static class CommentsAdapter extends RecyclerView.Adapter<CommentsAdapter.VH> {
         private final List<Comment> items;
-        private final CommentActionListener listener;
-        CommentsAdapter(List<Comment> items, CommentActionListener l) { this.items = items; this.listener = l; }
+        CommentsAdapter(List<Comment> items) { this.items = items; }
         void setItems(List<Comment> list) { items.clear(); items.addAll(list); notifyDataSetChanged(); }
 
         @NonNull @Override public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             View v = View.inflate(parent.getContext(), R.layout.item_comment, null);
             return new VH(v);
         }
-        @Override public void onBindViewHolder(@NonNull VH h, int pos) { h.bind(items.get(pos), pos, listener); }
+        @Override public void onBindViewHolder(@NonNull VH h, int pos) { h.bind(items.get(pos)); }
         @Override public int getItemCount() { return items.size(); }
-        @Override public void onBindViewHolder(@NonNull VH h, int pos, @NonNull List<Object> payloads) {
-            if (!payloads.isEmpty() && payloads.contains("like_only")) {
-                h.tvLikes.setText(String.valueOf(items.get(pos).likeCount));
-            } else {
-                super.onBindViewHolder(h, pos, payloads);
-            }
-        }
+        
         static class VH extends RecyclerView.ViewHolder {
-            TextView tvText, tvLikes; 
-            android.widget.ImageButton btnLike;
-            boolean isLiked = false;
+            TextView tvText;
             
             VH(@NonNull View itemView) { super(itemView);
                 tvText = itemView.findViewById(R.id.tvCommentText);
-                tvLikes = itemView.findViewById(R.id.tvLikeCount);
-                btnLike = itemView.findViewById(R.id.btnLikeComment);
             }
             
-            void bind(Comment c, int position, CommentActionListener l) {
+            void bind(Comment c) {
                 tvText.setText(c.text);
-                tvLikes.setText(String.valueOf(c.likeCount));
-                
-                // Set initial icon state
-                btnLike.setImageResource(isLiked ? R.drawable.heart1 : R.drawable.heart0);
-                
-                btnLike.setOnClickListener(v -> { 
-                    if (l != null) {
-                        // Toggle like state
-                        isLiked = !isLiked;
-                        btnLike.setImageResource(isLiked ? R.drawable.heart1 : R.drawable.heart0);
-                        l.onLikeClicked(c, position); 
-                    }
-                });
             }
         }
     }

@@ -351,17 +351,72 @@ public class PostRepository {
     }
 
     /**
-     * Xóa một post
+     * Xóa một post và tất cả subcollections (comments, likes)
      * @param groupId ID của group
      * @param postId ID của post
      * @param callback Callback để trả về kết quả
      */
     public void deletePost(String groupId, String postId, PostCallback callback) {
+        // Validate input parameters
+        if (groupId == null || groupId.trim().isEmpty()) {
+            callback.onError(new IllegalArgumentException("Group ID cannot be null or empty"));
+            return;
+        }
+        if (postId == null || postId.trim().isEmpty()) {
+            callback.onError(new IllegalArgumentException("Post ID cannot be null or empty"));
+            return;
+        }
+        
+        // First delete all comments
         db.collection(GROUPS_COLLECTION)
                 .document(groupId)
                 .collection(POSTS_COLLECTION)
                 .document(postId)
-                .delete()
+                .collection("comments")
+                .get()
+                .continueWithTask(commentsTask -> {
+                    if (!commentsTask.isSuccessful()) {
+                        return com.google.android.gms.tasks.Tasks.forException(commentsTask.getException());
+                    }
+                    
+                    // Delete all comments in batch
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+                    for (com.google.firebase.firestore.DocumentSnapshot commentDoc : commentsTask.getResult()) {
+                        batch.delete(commentDoc.getReference());
+                    }
+                    
+                    return batch.commit();
+                })
+                .continueWithTask(commentsDeleteTask -> {
+                    // Then delete all likes
+                    return db.collection(GROUPS_COLLECTION)
+                            .document(groupId)
+                            .collection(POSTS_COLLECTION)
+                            .document(postId)
+                            .collection("likes")
+                            .get()
+                            .continueWithTask(likesTask -> {
+                                if (!likesTask.isSuccessful()) {
+                                    return com.google.android.gms.tasks.Tasks.forException(likesTask.getException());
+                                }
+                                
+                                // Delete all likes in batch
+                                com.google.firebase.firestore.WriteBatch batch = db.batch();
+                                for (com.google.firebase.firestore.DocumentSnapshot likeDoc : likesTask.getResult()) {
+                                    batch.delete(likeDoc.getReference());
+                                }
+                                
+                                return batch.commit();
+                            });
+                })
+                .continueWithTask(likesDeleteTask -> {
+                    // Finally delete the post itself
+                    return db.collection(GROUPS_COLLECTION)
+                            .document(groupId)
+                            .collection(POSTS_COLLECTION)
+                            .document(postId)
+                            .delete();
+                })
                 .addOnSuccessListener(aVoid -> {
                     Post deletedPost = new Post();
                     deletedPost.postId = postId;
