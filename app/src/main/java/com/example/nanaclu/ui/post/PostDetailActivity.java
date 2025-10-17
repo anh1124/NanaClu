@@ -7,6 +7,8 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -39,10 +41,12 @@ public class PostDetailActivity extends AppCompatActivity {
 
     private RecyclerView rvComments;
     private CommentsAdapter adapter;
-    private TextView tvAuthor, tvTime, tvContent, tvShowMore;
+    private TextView tvAuthor, tvTime, tvContent, tvShowMore, tvLikeCount;
     private ViewGroup layoutTextControls;
     private android.widget.ImageView imgAuthorAvatar;
     private androidx.constraintlayout.widget.ConstraintLayout imageArea;
+    private LinearLayout btnLike;
+    private ImageView ivLike;
 
     private String groupId;
     private String postId;
@@ -68,6 +72,9 @@ public class PostDetailActivity extends AppCompatActivity {
         layoutTextControls = findViewById(R.id.layoutTextControls);
         imgAuthorAvatar = findViewById(R.id.imgAuthorAvatar);
         imageArea = findViewById(R.id.imageArea);
+        btnLike = findViewById(R.id.btnLike);
+        ivLike = findViewById(R.id.ivLike);
+        tvLikeCount = findViewById(R.id.tvLikeCount);
 
         rvComments = findViewById(R.id.rvComments);
         rvComments.setLayoutManager(new LinearLayoutManager(this));
@@ -82,6 +89,9 @@ public class PostDetailActivity extends AppCompatActivity {
             addComment(text);
             edtComment.setText("");
         });
+
+        // Setup like button
+        setupLikeButton();
 
         loadPost();
         loadComments();
@@ -210,6 +220,106 @@ public class PostDetailActivity extends AppCompatActivity {
         android.text.SpannableString spannableString = new android.text.SpannableString(text);
         spannableString.setSpan(new android.text.style.UnderlineSpan(), 0, text.length(), 0);
         textView.setText(spannableString);
+    }
+
+    private void setupLikeButton() {
+        if (groupId == null || postId == null) return;
+        
+        // Get current user ID
+        String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null 
+            ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() 
+            : null;
+        
+        if (currentUserId == null) {
+            btnLike.setVisibility(View.GONE);
+            return;
+        }
+
+        // Load initial like state and count
+        loadLikeStateAndCount(currentUserId);
+
+        // Setup click listener
+        btnLike.setOnClickListener(v -> {
+            btnLike.setEnabled(false);
+            toggleLike(currentUserId);
+        });
+    }
+
+    private void loadLikeStateAndCount(String currentUserId) {
+        // Check if post is liked by current user
+        db.collection("groups").document(groupId)
+                .collection("posts").document(postId)
+                .collection("likes").document(currentUserId)
+                .get()
+                .addOnSuccessListener(likeDoc -> {
+                    boolean isLiked = likeDoc.exists();
+                    ivLike.setImageResource(isLiked ? R.drawable.heart1 : R.drawable.heart0);
+                })
+                .addOnFailureListener(e -> {
+                    ivLike.setImageResource(R.drawable.heart0);
+                });
+
+        // Load like count
+        fetchAndUpdateLikeCount();
+    }
+
+    private void toggleLike(String currentUserId) {
+        // Check current like state
+        db.collection("groups").document(groupId)
+                .collection("posts").document(postId)
+                .collection("likes").document(currentUserId)
+                .get()
+                .addOnSuccessListener(likeDoc -> {
+                    boolean isLiked = likeDoc.exists();
+                    
+                    if (isLiked) {
+                        // Unlike post
+                        db.collection("groups").document(groupId)
+                                .collection("posts").document(postId)
+                                .collection("likes").document(currentUserId)
+                                .delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    ivLike.setImageResource(R.drawable.heart0);
+                                    fetchAndUpdateLikeCount();
+                                    btnLike.setEnabled(true);
+                                })
+                                .addOnFailureListener(e -> {
+                                    btnLike.setEnabled(true);
+                                });
+                    } else {
+                        // Like post
+                        db.collection("groups").document(groupId)
+                                .collection("posts").document(postId)
+                                .collection("likes").document(currentUserId)
+                                .set(new java.util.HashMap<String, Object>())
+                                .addOnSuccessListener(aVoid -> {
+                                    ivLike.setImageResource(R.drawable.heart1);
+                                    fetchAndUpdateLikeCount();
+                                    btnLike.setEnabled(true);
+                                })
+                                .addOnFailureListener(e -> {
+                                    btnLike.setEnabled(true);
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    btnLike.setEnabled(true);
+                });
+    }
+
+    private void fetchAndUpdateLikeCount() {
+        // Count total likes
+        db.collection("groups").document(groupId)
+                .collection("posts").document(postId)
+                .collection("likes")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int likeCount = querySnapshot.size();
+                    tvLikeCount.setText(String.valueOf(likeCount));
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("PostDetailActivity", "Error fetching like count", e);
+                });
     }
     
     private void setupImages(List<String> urls) {

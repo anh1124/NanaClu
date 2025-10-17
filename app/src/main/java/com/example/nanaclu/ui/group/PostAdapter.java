@@ -233,19 +233,35 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
             btnLike.setOnClickListener(v -> {
                 if (currentUserId == null) return;
+                
+                // Disable button temporarily to prevent double-click
+                btnLike.setEnabled(false);
+                
                 postRepository.isPostLiked(post.groupId, post.postId, currentUserId, liked -> {
                     if (liked) {
+                        // Unlike post
                         postRepository.unlikePost(post.groupId, post.postId, currentUserId, aVoid -> {
-                            // Just update icon, don't update count
+                            // Update icon and fetch new like count
                             btnLike.setImageResource(R.drawable.heart0);
-                        }, e -> {});
+                            fetchAndUpdateLikeCount(post);
+                            btnLike.setEnabled(true);
+                        }, e -> {
+                            btnLike.setEnabled(true);
+                        });
                     } else {
+                        // Like post
                         postRepository.likePost(post.groupId, post.postId, currentUserId, aVoid -> {
-                            // Just update icon, don't update count
+                            // Update icon and fetch new like count
                             btnLike.setImageResource(R.drawable.heart1);
-                        }, e -> {});
+                            fetchAndUpdateLikeCount(post);
+                            btnLike.setEnabled(true);
+                        }, e -> {
+                            btnLike.setEnabled(true);
+                        });
                     }
-                }, e -> {});
+                }, e -> {
+                    btnLike.setEnabled(true);
+                });
                 if (actionListener != null) actionListener.onLike(post);
             });
             btnComment.setOnClickListener(v -> {
@@ -341,6 +357,28 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             android.text.SpannableString spannableString = new android.text.SpannableString(text);
             spannableString.setSpan(new android.text.style.UnderlineSpan(), 0, text.length(), 0);
             textView.setText(spannableString);
+        }
+
+        private void fetchAndUpdateLikeCount(Post post) {
+            // Fetch updated like count from database
+            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("groups")
+                    .document(post.groupId)
+                    .collection("posts")
+                    .document(post.postId)
+                    .get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        if (documentSnapshot.exists()) {
+                            Long likeCount = documentSnapshot.getLong("likeCount");
+                            if (likeCount != null) {
+                                post.likeCount = likeCount.intValue();
+                                tvLikeCount.setText(String.valueOf(post.likeCount));
+                            }
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.e("PostAdapter", "Error fetching like count", e);
+                    });
         }
 
         void setupImagesDynamic(Post post) {

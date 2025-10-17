@@ -19,6 +19,10 @@ public class HomeActivity extends AppCompatActivity {
 
         BottomNavigationView bottom = findViewById(R.id.bottom_nav);
         if (bottom != null) {
+            // Disable color tint to show original icon colors
+            bottom.setItemIconTintList(null);
+            bottom.setItemTextColor(null);
+            
             bottom.setOnItemSelectedListener(item -> {
                 Fragment f;
                 int id = item.getItemId();
