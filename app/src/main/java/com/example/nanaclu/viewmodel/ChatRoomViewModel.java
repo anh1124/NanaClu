@@ -262,7 +262,11 @@ _messages.postValue(updated);
     public void recallMessage(String messageId) {
         if (chatId == null) return;
         msgRepo.softDeleteMessage(chatId, messageId, chatType, groupId)
-                .addOnSuccessListener(aVoid -> refreshMessages())
+                .addOnSuccessListener(aVoid -> {
+                    // Don't need to manually refresh - realtime listener will handle it
+                    // Just log success
+                    android.util.Log.d("ChatRoomVM", "Message deleted successfully, waiting for realtime update");
+                })
                 .addOnFailureListener(e -> _error.postValue(e.getMessage()));
     }
 
@@ -271,6 +275,13 @@ _messages.postValue(updated);
         // Reset pagination and load fresh messages once; realtime listener will keep updating
         anchorTs = null;
         msgRepo.listMessages(chatId, null, 30, chatType, groupId).addOnSuccessListener(list -> {
+            // Sắp xếp tin nhắn theo thời gian tăng dần trước khi cập nhật LiveData
+            java.util.Collections.sort(list, (m1, m2) -> {
+                if (m1 == null || m2 == null) return 0;
+                long t1 = m1.createdAt;
+                long t2 = m2.createdAt;
+                return Long.compare(t1, t2);
+            });
             _messages.postValue(list);
             if (!list.isEmpty()) {
                 Message last = list.get(list.size() - 1);

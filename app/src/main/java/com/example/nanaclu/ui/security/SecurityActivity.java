@@ -40,8 +40,9 @@ public class SecurityActivity extends AppCompatActivity {
         }
         
         // Apply theme color
-        int toolbarColor = ThemeUtils.getToolbarColor(this);
+        int toolbarColor = ThemeUtils.getThemeColor(this);
         toolbar.setBackgroundColor(toolbarColor);
+        toolbar.setTitleTextColor(android.graphics.Color.WHITE);
     }
 
     private void setupViews() {

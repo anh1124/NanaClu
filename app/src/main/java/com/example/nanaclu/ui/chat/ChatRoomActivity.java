@@ -15,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import com.example.nanaclu.ui.BaseActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -29,9 +30,10 @@ import com.google.android.material.button.MaterialButton;
 import java.util.ArrayList;
 import com.example.nanaclu.utils.FileActionsUtil;
 
-public class ChatRoomActivity extends AppCompatActivity {
+public class ChatRoomActivity extends BaseActivity {
     private static final int PICK_IMAGE_REQUEST = 1001;
     private static final int PICK_FILE_REQUEST = 1002;
+    private static final int TAKE_PHOTO_REQUEST = 1003;
 
     private ChatRoomViewModel viewModel;
     private MessageAdapter adapter;
@@ -59,6 +61,14 @@ public class ChatRoomActivity extends AppCompatActivity {
     private int pendingNewCount = 0;
 
     private FileActionsUtil chatFileActions;
+
+    // Image preview
+    private LinearLayout imagePreviewContainer;
+    private RecyclerView rvImagePreview;
+    private android.widget.Button btnSendImages;
+    private com.example.nanaclu.ui.adapter.ImagePreviewAdapter imagePreviewAdapter;
+    private java.util.List<Uri> selectedImages = new ArrayList<>();
+    private Uri photoUri;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -117,6 +127,26 @@ public class ChatRoomActivity extends AppCompatActivity {
 
         // Khởi tạo helper xử lý file (gom logic mở/tải)
         chatFileActions = new FileActionsUtil(this, new com.example.nanaclu.data.repository.FileRepository(this));
+
+        // Initialize image preview
+        imagePreviewContainer = findViewById(R.id.imagePreviewContainer);
+        rvImagePreview = findViewById(R.id.rvImagePreview);
+        btnSendImages = findViewById(R.id.btnSendImages);
+        
+        // Setup image preview RecyclerView
+        rvImagePreview.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        imagePreviewAdapter = new com.example.nanaclu.ui.adapter.ImagePreviewAdapter(position -> {
+            // Remove image at position
+            selectedImages.remove(position);
+            imagePreviewAdapter.setImages(selectedImages);
+            if (selectedImages.isEmpty()) {
+                imagePreviewContainer.setVisibility(View.GONE);
+            }
+        });
+        rvImagePreview.setAdapter(imagePreviewAdapter);
+        
+        // Setup send images button
+        btnSendImages.setOnClickListener(v -> sendSelectedImages());
     }
 
     private void setupToolbar() {
@@ -124,6 +154,21 @@ public class ChatRoomActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle(chatTitle);
+        }
+        
+        // Apply theme color
+        int themeColor = com.example.nanaclu.utils.ThemeUtils.getThemeColor(this);
+        toolbar.setBackgroundColor(themeColor);
+        toolbar.setTitleTextColor(android.graphics.Color.WHITE);
+    }
+
+    @Override
+    protected void onThemeChanged() {
+        // Reapply theme color to toolbar
+        if (toolbar != null) {
+            int themeColor = com.example.nanaclu.utils.ThemeUtils.getThemeColor(this);
+            toolbar.setBackgroundColor(themeColor);
+            toolbar.setTitleTextColor(android.graphics.Color.WHITE);
         }
     }
 
@@ -335,9 +380,83 @@ public class ChatRoomActivity extends AppCompatActivity {
     }
 
     private void openImagePicker() {
+        // Show dialog to choose between camera and gallery
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this).create();
+        View view = getLayoutInflater().inflate(R.layout.dialog_image_source, null);
+        dialog.setView(view);
+        
+        view.findViewById(R.id.btnCamera).setOnClickListener(v -> {
+            dialog.dismiss();
+            openCamera();
+        });
+        
+        view.findViewById(R.id.btnGallery).setOnClickListener(v -> {
+            dialog.dismiss();
+            openGallery();
+        });
+        
+        dialog.show();
+    }
+
+    private void openCamera() {
+        Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            // Create file to save photo
+            try {
+                java.io.File photoFile = createImageFile();
+                if (photoFile != null) {
+                    photoUri = androidx.core.content.FileProvider.getUriForFile(this,
+                            getApplicationContext().getPackageName() + ".fileprovider",
+                            photoFile);
+                    intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, photoUri);
+                    startActivityForResult(intent, TAKE_PHOTO_REQUEST);
+                }
+            } catch (java.io.IOException ex) {
+                Toast.makeText(this, "Lỗi tạo file ảnh", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "Không tìm thấy ứng dụng camera", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private java.io.File createImageFile() throws java.io.IOException {
+        String timeStamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(new java.util.Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        java.io.File storageDir = getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES);
+        return java.io.File.createTempFile(imageFileName, ".jpg", storageDir);
+    }
+
+    private void openGallery() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
-        startActivityForResult(Intent.createChooser(intent, "Select Image"), PICK_IMAGE_REQUEST);
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        startActivityForResult(Intent.createChooser(intent, "Chọn ảnh"), PICK_IMAGE_REQUEST);
+    }
+
+    private void sendSelectedImages() {
+        if (selectedImages.isEmpty()) return;
+        
+        // Hide preview
+        imagePreviewContainer.setVisibility(View.GONE);
+        
+        // Send images one by one
+        for (int i = 0; i < selectedImages.size(); i++) {
+            Uri imageUri = selectedImages.get(i);
+            final int imageNumber = i + 1;
+            final int totalImages = selectedImages.size();
+            
+            // Add a small delay between each image to ensure order
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                viewModel.sendImage(imageUri);
+                if (imageNumber == totalImages) {
+                    Toast.makeText(this, "Đã gửi " + totalImages + " ảnh", Toast.LENGTH_SHORT).show();
+                }
+            }, i * 500); // 500ms delay between each image
+        }
+        
+        // Clear selected images
+        selectedImages.clear();
+        imagePreviewAdapter.setImages(selectedImages);
     }
 
     private void openFilePicker() {
@@ -366,9 +485,35 @@ public class ChatRoomActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
-            Uri imageUri = data.getData();
-            if (imageUri != null) {
-                viewModel.sendImage(imageUri);
+            // Handle multiple images from gallery
+            if (data.getClipData() != null) {
+                // Multiple images selected
+                int count = data.getClipData().getItemCount();
+                for (int i = 0; i < count; i++) {
+                    Uri imageUri = data.getClipData().getItemAt(i).getUri();
+                    if (imageUri != null && !selectedImages.contains(imageUri)) {
+                        selectedImages.add(imageUri);
+                    }
+                }
+            } else if (data.getData() != null) {
+                // Single image selected
+                Uri imageUri = data.getData();
+                if (!selectedImages.contains(imageUri)) {
+                    selectedImages.add(imageUri);
+                }
+            }
+            
+            // Show preview
+            if (!selectedImages.isEmpty()) {
+                imagePreviewAdapter.setImages(selectedImages);
+                imagePreviewContainer.setVisibility(View.VISIBLE);
+            }
+        } else if (requestCode == TAKE_PHOTO_REQUEST && resultCode == RESULT_OK) {
+            // Handle photo from camera
+            if (photoUri != null && !selectedImages.contains(photoUri)) {
+                selectedImages.add(photoUri);
+                imagePreviewAdapter.setImages(selectedImages);
+                imagePreviewContainer.setVisibility(View.VISIBLE);
             }
         } else if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null) {
             java.util.List<Uri> fileUris = new java.util.ArrayList<>();

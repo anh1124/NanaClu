@@ -93,7 +93,7 @@ public class GroupDetailActivity extends AppCompatActivity {
 
         // Setup toolbar
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setBackgroundColor(ThemeUtils.getToolbarColor(this));
+        toolbar.setBackgroundColor(ThemeUtils.getThemeColor(this));
         toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
         toolbar.setNavigationOnClickListener(v -> finish());

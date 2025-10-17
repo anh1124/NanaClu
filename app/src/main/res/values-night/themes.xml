@@ -3,5 +3,9 @@
     <style name="Base.Theme.Nanaclu" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        
+        <!-- Status bar should use system default for dark mode -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

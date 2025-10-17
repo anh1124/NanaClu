@@ -18,7 +18,7 @@
             android:id="@+id/toolbar"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:background="?attr/colorSurface"
+            android:background="@color/theme_color"
             app:title=""
             app:titleTextColor="@android:color/white"
             app:layout_constraintTop_toTopOf="parent"

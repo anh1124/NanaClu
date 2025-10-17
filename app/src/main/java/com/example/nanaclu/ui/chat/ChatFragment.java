@@ -15,6 +15,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import com.example.nanaclu.ui.BaseFragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -33,7 +34,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ChatFragment extends Fragment {
+public class ChatFragment extends BaseFragment {
 
     private RecyclerView rv;
     private ChatThreadAdapter adapter;
@@ -48,11 +49,15 @@ public class ChatFragment extends Fragment {
         View root = inflater.inflate(R.layout.fragment_chat, container, false);
 
         MaterialToolbar toolbar = root.findViewById(R.id.toolbar);
-        // Bold purple title
+        // Apply theme color
+        int themeColor = com.example.nanaclu.utils.ThemeUtils.getThemeColor(requireContext());
+        toolbar.setBackgroundColor(themeColor);
+        
+        // Bold white title
         android.text.SpannableString s = new android.text.SpannableString("Chats");
         s.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, s.length(), 0);
         toolbar.setTitle(s);
-        toolbar.setTitleTextColor(0xFF6200EE);
+        toolbar.setTitleTextColor(android.graphics.Color.WHITE);
 
         toolbar.inflateMenu(R.menu.menu_chat);
         // Replace menu item with custom action view to control icon size
@@ -83,6 +88,19 @@ public class ChatFragment extends Fragment {
             }
         });
         return root;
+    }
+
+    @Override
+    protected void onThemeChanged() {
+        // Reapply theme color to toolbar
+        if (getView() != null) {
+            MaterialToolbar toolbar = getView().findViewById(R.id.toolbar);
+            if (toolbar != null) {
+                int themeColor = com.example.nanaclu.utils.ThemeUtils.getThemeColor(requireContext());
+                toolbar.setBackgroundColor(themeColor);
+                toolbar.setTitleTextColor(android.graphics.Color.WHITE);
+            }
+        }
     }
 
     @Override

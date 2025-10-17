@@ -33,4 +33,7 @@
     <color name="file_zip_color">#FF9800</color>
     <color name="file_generic_color">#757575</color>
 
+    <!-- Theme color -->
+    <color name="theme_color">#6200EE</color>
+
 </resources>

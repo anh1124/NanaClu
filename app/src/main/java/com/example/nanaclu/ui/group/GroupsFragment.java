@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import com.example.nanaclu.ui.BaseFragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -23,7 +24,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 
-public class GroupsFragment extends Fragment {
+public class GroupsFragment extends BaseFragment {
 	private GroupViewModel groupViewModel;
 	private GroupsAdapter groupsAdapter;
 	private SwipeRefreshLayout swipeRefreshLayout;
@@ -43,7 +44,7 @@ public class GroupsFragment extends Fragment {
 
 		// Setup toolbar with theme color and white text
 		MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
-		toolbar.setBackgroundColor(ThemeUtils.getToolbarColor(requireContext()));
+		toolbar.setBackgroundColor(ThemeUtils.getThemeColor(requireContext()));
 		toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
 		toolbar.setTitle("NANACLUB");
 		toolbar.setOnMenuItemClickListener(item -> {
@@ -250,5 +251,17 @@ public class GroupsFragment extends Fragment {
 			}
 		}
 		groupsAdapter.setGroups(filteredGroups);
+	}
+
+	@Override
+	protected void onThemeChanged() {
+		// Reapply theme color to toolbar
+		if (getView() != null) {
+			MaterialToolbar toolbar = getView().findViewById(R.id.toolbar);
+			if (toolbar != null) {
+				toolbar.setBackgroundColor(ThemeUtils.getThemeColor(requireContext()));
+				toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
+			}
+		}
 	}
 }

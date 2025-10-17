@@ -62,7 +62,8 @@ public class GroupEventActivity extends AppCompatActivity {
     
     private void setupToolbar() {
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setBackgroundColor(ThemeUtils.getToolbarColor(this));
+        toolbar.setBackgroundColor(ThemeUtils.getThemeColor(this));
+        toolbar.setTitleTextColor(android.graphics.Color.WHITE);
         toolbar.setTitle("Sự kiện - " + (groupName != null ? groupName : "Nhóm"));
         toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
         toolbar.setNavigationOnClickListener(v -> finish());

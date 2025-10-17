@@ -9,13 +9,14 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import com.example.nanaclu.ui.BaseFragment;
 
 import com.example.nanaclu.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.example.nanaclu.utils.ThemeUtils;
 
-public class ProfileFragment extends Fragment {
+public class ProfileFragment extends BaseFragment {
     // Field đếm số lần click avatar để mở dashboard admin
     private int avatarClickCount = 0;
     private long lastAvatarClickTime = 0;
@@ -35,7 +36,7 @@ public class ProfileFragment extends Fragment {
         android.widget.ImageView imgAvatar = root.findViewById(R.id.imgAvatar);
         com.google.android.material.materialswitch.MaterialSwitch switchAuto = root.findViewById(R.id.switchAutoLogin);
 
-        int currentColor = ThemeUtils.getToolbarColor(requireContext());
+        int currentColor = ThemeUtils.getThemeColor(requireContext());
         colorPreview.setBackgroundColor(currentColor);
         toolbar.setBackgroundColor(currentColor);
 
@@ -133,6 +134,20 @@ public class ProfileFragment extends Fragment {
         return root;
     }
 
+    @Override
+    protected void onThemeChanged() {
+        // Reapply theme color to toolbar and preview
+        if (getView() != null) {
+            androidx.appcompat.widget.Toolbar toolbar = getView().findViewById(R.id.toolbar);
+            View colorPreview = getView().findViewById(R.id.colorPreview);
+            if (toolbar != null && colorPreview != null) {
+                int currentColor = ThemeUtils.getThemeColor(requireContext());
+                toolbar.setBackgroundColor(currentColor);
+                colorPreview.setBackgroundColor(currentColor);
+            }
+        }
+    }
+
     private void openSecurityActivity() {
         android.content.Intent intent = new android.content.Intent(getContext(), com.example.nanaclu.ui.security.SecurityActivity.class);
         startActivity(intent);
@@ -148,7 +163,7 @@ public class ProfileFragment extends Fragment {
         root.setPadding(pad,pad,pad,pad);
 
         android.widget.TextView title = new android.widget.TextView(getContext());
-        title.setText("Chọn màu");
+        title.setText("Chọn màu chủ đề");
         title.setTextSize(16f);
         title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         root.addView(title);
@@ -166,10 +181,13 @@ public class ProfileFragment extends Fragment {
             v.setLayoutParams(p);
             v.setBackground(createCircleDrawable(c));
             v.setOnClickListener(x -> {
-                ThemeUtils.saveToolbarColor(requireContext(), c);
+                ThemeUtils.saveThemeColor(requireContext(), c);
                 toolbar.setBackgroundColor(c);
                 preview.setBackgroundColor(c);
                 d.dismiss();
+                
+                // Show toast to inform user
+                android.widget.Toast.makeText(requireContext(), "Màu chủ đề đã được cập nhật!", android.widget.Toast.LENGTH_SHORT).show();
             });
             grid.addView(v);
         }

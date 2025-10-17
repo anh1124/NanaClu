@@ -76,6 +76,8 @@ public class FileGalleryActivity extends AppCompatActivity {
 
     private void setupToolbar() {
         setSupportActionBar(toolbar);
+        toolbar.setBackgroundColor(com.example.nanaclu.utils.ThemeUtils.getThemeColor(this));
+        toolbar.setTitleTextColor(android.graphics.Color.WHITE);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }

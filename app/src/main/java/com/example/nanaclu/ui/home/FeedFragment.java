@@ -8,6 +8,7 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import com.example.nanaclu.ui.BaseFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -23,7 +24,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.*;
 
-public class FeedFragment extends Fragment {
+public class FeedFragment extends BaseFragment {
     private RecyclerView rvFeed;
     private PostAdapter adapter;
     private PostRepository postRepository;
@@ -46,7 +47,7 @@ public class FeedFragment extends Fragment {
         View root = inflater.inflate(R.layout.fragment_feed, container, false);
         androidx.appcompat.widget.Toolbar toolbar = root.findViewById(R.id.toolbar);
         if (toolbar != null) {
-            int color = ThemeUtils.getToolbarColor(requireContext());
+            int color = ThemeUtils.getThemeColor(requireContext());
             toolbar.setBackgroundColor(color);
             toolbar.setTitle("NANACLU");
             toolbar.setTitleTextColor(android.graphics.Color.WHITE);
@@ -174,6 +175,19 @@ public class FeedFragment extends Fragment {
                 });
 
         return root;
+    }
+
+    @Override
+    protected void onThemeChanged() {
+        // Reapply theme color to toolbar
+        if (getView() != null) {
+            androidx.appcompat.widget.Toolbar toolbar = getView().findViewById(R.id.toolbar);
+            if (toolbar != null) {
+                int color = ThemeUtils.getThemeColor(requireContext());
+                toolbar.setBackgroundColor(color);
+                toolbar.setTitleTextColor(android.graphics.Color.WHITE);
+            }
+        }
     }
 
     private void refreshFeed() {

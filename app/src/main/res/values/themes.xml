@@ -3,6 +3,10 @@
     <style name="Base.Theme.Nanaclu" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        
+        <!-- Status bar should use system default, not app theme -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <style name="Theme.Nanaclu" parent="Base.Theme.Nanaclu" />

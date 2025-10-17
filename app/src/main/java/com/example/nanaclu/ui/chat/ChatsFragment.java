@@ -18,7 +18,10 @@ public class ChatsFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_chats, container, false);
         androidx.appcompat.widget.Toolbar toolbar = root.findViewById(R.id.toolbar);
-        if (toolbar != null) toolbar.setBackgroundColor(ThemeUtils.getToolbarColor(requireContext()));
+        if (toolbar != null) {
+            toolbar.setBackgroundColor(ThemeUtils.getThemeColor(requireContext()));
+            toolbar.setTitleTextColor(android.graphics.Color.WHITE);
+        }
         return root;
     }
 }

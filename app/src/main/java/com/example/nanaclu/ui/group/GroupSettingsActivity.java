@@ -49,6 +49,8 @@ public class GroupSettingsActivity extends AppCompatActivity {
     private void setupToolbar() {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        toolbar.setBackgroundColor(com.example.nanaclu.utils.ThemeUtils.getThemeColor(this));
+        toolbar.setTitleTextColor(android.graphics.Color.WHITE);
 
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle("Cài đặt nhóm");

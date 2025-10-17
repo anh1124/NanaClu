@@ -106,6 +106,34 @@
 
     </LinearLayout>
 
+    <!-- Image Preview Container -->
+    <LinearLayout
+        android:id="@+id/imagePreviewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/light_gray"
+        android:visibility="gone"
+        android:padding="8dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvImagePreview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:clipToPadding="false"/>
+
+        <Button
+            android:id="@+id/btnSendImages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Gửi ảnh"
+            android:background="@drawable/bg_button_primary"
+            android:textColor="@android:color/white"/>
+
+    </LinearLayout>
+
     <!-- Upload Progress Indicator -->
     <LinearLayout
         android:id="@+id/uploadProgressContainer"
