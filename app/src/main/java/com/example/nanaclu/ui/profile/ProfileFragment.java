@@ -31,6 +31,7 @@ public class ProfileFragment extends BaseFragment {
         View btnLogout = root.findViewById(R.id.btnLogout);
         View colorPreview = root.findViewById(R.id.colorPreview);
         View btnPick = root.findViewById(R.id.btnPickColor);
+        View friendsRow = root.findViewById(R.id.friendsRow);
         View securityRow = root.findViewById(R.id.securityRow);
         androidx.appcompat.widget.Toolbar toolbar = root.findViewById(R.id.toolbar);
         android.widget.ImageView imgAvatar = root.findViewById(R.id.imgAvatar);
@@ -97,6 +98,7 @@ public class ProfileFragment extends BaseFragment {
 
         btnLogout.setOnClickListener(v -> openConfirmLogoutDialog());
         btnPick.setOnClickListener(v -> openColorPicker(toolbar, colorPreview));
+        friendsRow.setOnClickListener(v -> openFriendsActivity());
         securityRow.setOnClickListener(v -> openSecurityActivity());
         // Bắt sự kiện click avatar để mở dashboard admin nếu đủ điều kiện
         imgAvatar.setOnClickListener(v -> {
@@ -146,6 +148,11 @@ public class ProfileFragment extends BaseFragment {
                 colorPreview.setBackgroundColor(currentColor);
             }
         }
+    }
+
+    private void openFriendsActivity() {
+        android.content.Intent intent = new android.content.Intent(getContext(), com.example.nanaclu.ui.friends.FriendsActivity.class);
+        startActivity(intent);
     }
 
     private void openSecurityActivity() {

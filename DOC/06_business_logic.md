@@ -1,308 +1,382 @@
-# Business Logic Analysis
+# Phân tích Logic Nghiệp vụ
 
-## 1. Core Features
+## 1. Tính năng cốt lõi
 
-### 1.1 User Authentication & Security
-**Use Case**: Secure user login with PIN protection
-**Implementation**: 
-- Firebase Auth for primary authentication (Google/Email)
-- PIN-based secondary authentication with hash storage
-- Session management with automatic logout
-**Validation Rules**:
-- PIN must be exactly 4 digits
-- Maximum 3 failed PIN attempts before forced logout
-- Email format validation for registration
-- Password strength requirements
+### 1.1 Xác thực người dùng & Bảo mật
+**Trường hợp sử dụng**: Đăng nhập an toàn với bảo vệ PIN
+**Cách triển khai**: 
+- Firebase Auth cho xác thực chính (Google/Email)
+- Xác thực thứ cấp bằng PIN với lưu trữ hash
+- Quản lý phiên với tự động đăng xuất
+**Quy tắc xác thực**:
+- PIN phải chính xác 4-6 chữ số
+- Tối đa 3 lần thử PIN sai trước khi buộc đăng xuất
+- Xác thực định dạng email cho đăng ký
+- Yêu cầu độ mạnh mật khẩu
 
-**Business Constraints**:
-- PIN hash stored in SharedPreferences
-- Failed attempts counter resets on successful login
-- Automatic logout after PIN failures
+**Ràng buộc nghiệp vụ**:
+- Hash PIN được lưu trong SharedPreferences
+- Bộ đếm lần thử sai được reset khi đăng nhập thành công
+- Tự động đăng xuất sau khi PIN thất bại
+- Hệ thống báo cáo nội dung và chặn người dùng
 
-### 1.2 Group Management
-**Use Case**: Create and manage community groups
-**Implementation**:
-- Unique 6-character group codes for joining
-- Role-based permissions (owner > admin > member)
-- Member count denormalization for performance
-**Validation Rules**:
-- Group name: 1-50 characters, non-empty
-- Description: max 500 characters
-- Group code: exactly 6 characters, alphanumeric, unique
-- Only owners can delete groups
-- Only owners/admins can manage members
+### 1.2 Quản lý nhóm
+**Trường hợp sử dụng**: Tạo và quản lý các nhóm cộng đồng
+**Cách triển khai**:
+- Mã nhóm 6 ký tự duy nhất để tham gia
+- Phân quyền theo vai trò (owner > admin > member)
+- Denormalization số lượng thành viên để tối ưu hiệu suất
+**Quy tắc xác thực**:
+- Tên nhóm: 1-50 ký tự, không được trống
+- Mô tả: tối đa 500 ký tự
+- Mã nhóm: chính xác 6 ký tự, chữ và số, duy nhất
+- Chỉ owner mới có thể xóa nhóm
+- Chỉ owner/admin mới có thể quản lý thành viên
 
-**Business Constraints**:
-- Group code generation with retry mechanism for uniqueness
-- Soft delete for groups (mark as deleted, don't remove)
-- Member count automatically updated on join/leave
-- Owner role cannot be removed, only transferred
+**Ràng buộc nghiệp vụ**:
+- Tạo mã nhóm với cơ chế thử lại để đảm bảo tính duy nhất
+- Soft delete cho nhóm (đánh dấu là đã xóa, không xóa thật)
+- Số lượng thành viên tự động cập nhật khi tham gia/rời nhóm
+- Vai trò owner không thể bị xóa, chỉ có thể chuyển giao
+- Hệ thống phê duyệt thành viên mới (requireApproval)
 
-### 1.3 Post & Content Management
-**Use Case**: Share content within groups with multimedia support
-**Implementation**:
-- Multi-image upload to Firebase Storage
-- Like/comment system with real-time counters
-- Soft delete with author/admin permissions
-**Validation Rules**:
-- Post content: max 1000 characters
-- Maximum 5 images per post
-- Image size limit: 10MB per image
-- Only author or group admins can delete posts
+### 1.3 Quản lý bài viết & Nội dung
+**Trường hợp sử dụng**: Chia sẻ nội dung trong nhóm với hỗ trợ đa phương tiện
+**Cách triển khai**:
+- Upload nhiều ảnh lên Firebase Storage
+- Hệ thống like/comment với bộ đếm real-time
+- Soft delete với quyền của tác giả/admin
+**Quy tắc xác thực**:
+- Nội dung bài viết: tối đa 1000 ký tự
+- Tối đa 5 ảnh mỗi bài viết
+- Giới hạn kích thước ảnh: 10MB mỗi ảnh
+- Chỉ tác giả hoặc admin nhóm mới có thể xóa bài viết
 
-**Business Constraints**:
-- Like count denormalized in Post document
-- Comment count updated via Firestore transactions
-- Images stored in Firebase Storage with organized paths
-- Deleted posts remain in database with isDeleted flag
+**Ràng buộc nghiệp vụ**:
+- Số lượng like được denormalized trong Post document
+- Số lượng comment được cập nhật qua Firestore transactions
+- Ảnh được lưu trong Firebase Storage với đường dẫn có tổ chức
+- Bài viết đã xóa vẫn còn trong database với cờ deletedAt
+- Hệ thống báo cáo nội dung không phù hợp
 
-### 1.4 Real-time Chat System
-**Use Case**: Private and group messaging with image sharing
-**Implementation**:
-- Firestore snapshot listeners for real-time updates
-- Private chat with unique pair keys (userId1_userId2)
-- Group chat linked to group membership
-- Image message support with Firebase Storage
-**Validation Rules**:
-- Message content: max 500 characters for text
-- Private chat: exactly 2 participants
-- Group chat: minimum 2 members
-- Image messages: max 3 images per message
+### 1.4 Hệ thống Chat Real-time
+**Trường hợp sử dụng**: Tin nhắn riêng tư và nhóm với chia sẻ ảnh
+**Cách triển khai**:
+- Firestore snapshot listeners cho cập nhật real-time
+- Chat riêng tư với pair keys duy nhất (userId1_userId2)
+- Chat nhóm liên kết với thành viên nhóm
+- Hỗ trợ tin nhắn ảnh với Firebase Storage
+- Hỗ trợ đính kèm file (PDF, DOC, images, audio, video)
+**Quy tắc xác thực**:
+- Nội dung tin nhắn: tối đa 500 ký tự cho text
+- Chat riêng tư: chính xác 2 người tham gia
+- Chat nhóm: tối thiểu 2 thành viên
+- Tin nhắn ảnh: tối đa 3 ảnh mỗi tin nhắn
+- File đính kèm: tối đa 50MB
 
-**Business Constraints**:
-- Private chat pair key: smaller userId first (lexicographic order)
-- Message delivery status tracking
-- Chat member permissions inherited from group roles
-- Last message denormalized in Chat document for list display
+**Ràng buộc nghiệp vụ**:
+- Private chat pair key: userId nhỏ hơn đặt trước (thứ tự từ điển)
+- Theo dõi trạng thái gửi tin nhắn
+- Quyền thành viên chat được kế thừa từ vai trò nhóm
+- Tin nhắn cuối được denormalized trong Chat document để hiển thị danh sách
 
-### 1.5 Event Management
-**Use Case**: Create and manage group events with RSVP tracking
-**Implementation**:
-- Event creation with date/time validation
-- RSVP system with attendance tracking
-- Automatic event status updates based on time
-**Validation Rules**:
-- Event title: 1-100 characters
-- Start time must be in the future
-- End time must be after start time
-- Location: max 200 characters
-- Only event creator can cancel events
+### 1.5 Quản lý sự kiện
+**Trường hợp sử dụng**: Tạo và quản lý sự kiện nhóm với theo dõi RSVP
+**Cách triển khai**:
+- Tạo sự kiện với xác thực ngày/giờ
+- Hệ thống RSVP với theo dõi tham dự
+- Cập nhật trạng thái sự kiện tự động dựa trên thời gian
+- Hệ thống nhắc nhở trước sự kiện (30min, 1h, 1day)
+**Quy tắc xác thực**:
+- Tiêu đề sự kiện: 1-100 ký tự
+- Thời gian bắt đầu phải trong tương lai
+- Thời gian kết thúc phải sau thời gian bắt đầu
+- Địa điểm: tối đa 200 ký tự
+- Chỉ người tạo sự kiện mới có thể hủy sự kiện
 
-**Business Constraints**:
-- RSVP counts denormalized in Event document
-- Event status automatically updated: active → ended (based on time)
-- Only group members can RSVP to events
-- Event creator has full management permissions
+**Ràng buộc nghiệp vụ**:
+- Số lượng RSVP được denormalized trong Event document
+- Trạng thái sự kiện tự động cập nhật: active → completed (dựa trên thời gian)
+- Chỉ thành viên nhóm mới có thể RSVP sự kiện
+- Người tạo sự kiện có quyền quản lý đầy đủ
+- Hỗ trợ 3 trạng thái RSVP: attending, not_attending, maybe
 
-## 2. Data Flow Architecture
+## 2. Kiến trúc luồng dữ liệu
 
-### 2.1 MVVM Data Flow
+### 2.1 Luồng dữ liệu MVVM
 ```
 User Action → View → ViewModel → Repository → Firebase → Repository → ViewModel → LiveData → View Update
 ```
 
-**Example - Post Creation Flow**:
-1. User fills form in `CreatePostActivity`
-2. View calls `viewModel.createPost()`
-3. ViewModel validates data and calls `postRepository.createPost()`
-4. Repository uploads images to Firebase Storage
-5. Repository creates Firestore document with image URLs
-6. Repository returns success/error to ViewModel
-7. ViewModel updates LiveData
-8. View observes LiveData and shows result
+**Ví dụ - Luồng tạo bài viết**:
+1. Người dùng điền form trong `CreatePostActivity`
+2. View gọi `viewModel.createPost()`
+3. ViewModel xác thực dữ liệu và gọi `postRepository.createPost()`
+4. Repository upload ảnh lên Firebase Storage
+5. Repository tạo Firestore document với URL ảnh
+6. Repository trả về success/error cho ViewModel
+7. ViewModel cập nhật LiveData
+8. View quan sát LiveData và hiển thị kết quả
 
-### 2.2 Real-time Data Flow
+### 2.2 Luồng dữ liệu Real-time
 ```
 Firestore Change → Snapshot Listener → Repository Callback → ViewModel → LiveData → View Update
 ```
 
-**Example - Chat Messages**:
-1. Firestore document added/modified
-2. Snapshot listener in `ChatRepository` receives change
-3. Repository parses data and calls ViewModel callback
-4. ViewModel updates `messages` LiveData
-5. `ChatRoomActivity` observes LiveData and updates RecyclerView
+**Ví dụ - Tin nhắn Chat**:
+1. Firestore document được thêm/sửa đổi
+2. Snapshot listener trong `ChatRepository` nhận thay đổi
+3. Repository phân tích dữ liệu và gọi callback ViewModel
+4. ViewModel cập nhật LiveData `messages`
+5. `ChatRoomActivity` quan sát LiveData và cập nhật RecyclerView
 
-### 2.3 Image Upload Flow
+### 2.3 Luồng upload ảnh
 ```
 User Selection → Compression → Firebase Storage → URL Generation → Firestore Update
 ```
 
-**Implementation**:
-1. User selects images from gallery/camera
-2. Images compressed to reduce size
-3. Upload to Firebase Storage with organized paths
-4. Get download URLs from Storage
-5. Store URLs in Firestore document
-6. Display images using Glide with caching
+**Cách triển khai**:
+1. Người dùng chọn ảnh từ thư viện/máy ảnh
+2. Nén ảnh để giảm kích thước
+3. Upload lên Firebase Storage với đường dẫn có tổ chức
+4. Lấy download URLs từ Storage
+5. Lưu URLs vào Firestore document
+6. Hiển thị ảnh sử dụng Glide với caching
 
-## 3. Validation & Business Rules
+### 2.4 Luồng xử lý file đính kèm
+```
+File Selection → Type Validation → Upload → URL Generation → Message Creation
+```
 
-### 3.1 Input Validation
-**Text Fields**:
-- Trim whitespace before validation
-- HTML/script injection prevention
-- Length limits enforced on client and server
-- Required field validation with user feedback
+**Cách triển khai**:
+1. Người dùng chọn file từ thiết bị
+2. Kiểm tra loại file và kích thước (tối đa 50MB)
+3. Upload file lên Firebase Storage
+4. Tạo FileAttachment object với metadata
+5. Lưu vào Message document với fileAttachments array
 
-**Image Validation**:
-- File type checking (JPEG, PNG only)
-- Size limits (10MB per image)
-- Dimension limits for performance
-- Malicious file detection
+## 3. Xác thực & Quy tắc nghiệp vụ
 
-**Date/Time Validation**:
-- Event dates must be in future
-- End time after start time
-- Timezone handling for events
-- Date format consistency
+### 3.1 Xác thực đầu vào
+**Trường văn bản**:
+- Loại bỏ khoảng trắng trước khi xác thực
+- Ngăn chặn HTML/script injection
+- Giới hạn độ dài được thực thi trên client và server
+- Xác thực trường bắt buộc với phản hồi người dùng
 
-### 3.2 Permission System
-**Group Permissions**:
-- Owner: Full control (delete group, manage all members, transfer ownership)
-- Admin: Manage members (except owner), moderate content, create events
-- Member: Create posts, comment, participate in events
+**Xác thực ảnh**:
+- Kiểm tra loại file (chỉ JPEG, PNG)
+- Giới hạn kích thước (10MB mỗi ảnh)
+- Giới hạn kích thước để tối ưu hiệu suất
+- Phát hiện file độc hại
 
-**Content Permissions**:
-- Authors can edit/delete their own content
-- Group admins can moderate any content in their groups
-- System admins can moderate any content globally
+**Xác thực ngày/giờ**:
+- Ngày sự kiện phải trong tương lai
+- Thời gian kết thúc sau thời gian bắt đầu
+- Xử lý múi giờ cho sự kiện
+- Tính nhất quán định dạng ngày
 
-**Chat Permissions**:
-- Private chat: Only participants can send messages
-- Group chat: Only group members can participate
-- Message editing: Only sender within 5 minutes of sending
+**Xác thực file đính kèm**:
+- Kiểm tra loại file (PDF, DOC, images, audio, video)
+- Giới hạn kích thước (50MB)
+- Kiểm tra MIME type
+- Ngăn chặn file độc hại
 
-### 3.3 Data Consistency Rules
-**Denormalization Consistency**:
-- Member count updated atomically with member changes
-- Like/comment counts updated via Firestore transactions
-- User display names propagated to all related documents
+### 3.2 Hệ thống phân quyền
+**Quyền nhóm**:
+- Owner: Kiểm soát đầy đủ (xóa nhóm, quản lý tất cả thành viên, chuyển giao quyền sở hữu)
+- Admin: Quản lý thành viên (trừ owner), kiểm duyệt nội dung, tạo sự kiện
+- Member: Tạo bài viết, bình luận, tham gia sự kiện
 
-**Referential Integrity**:
-- Cascade updates for user display name changes
-- Soft delete for maintaining data relationships
-- Orphaned data cleanup via background functions
+**Quyền nội dung**:
+- Tác giả có thể chỉnh sửa/xóa nội dung của mình
+- Admin nhóm có thể kiểm duyệt bất kỳ nội dung nào trong nhóm của họ
+- Admin hệ thống có thể kiểm duyệt bất kỳ nội dung nào trên toàn cục
 
-## 4. Error Handling Strategies
+**Quyền chat**:
+- Chat riêng tư: Chỉ người tham gia mới có thể gửi tin nhắn
+- Chat nhóm: Chỉ thành viên nhóm mới có thể tham gia
+- Chỉnh sửa tin nhắn: Chỉ người gửi trong vòng 5 phút sau khi gửi
 
-### 4.1 Network Error Handling
-**Offline Support**:
-- Firestore offline persistence enabled
-- Cached data displayed when offline
-- Queue operations for when connection restored
-- User feedback for offline state
+**Quyền sự kiện**:
+- Chỉ người tạo sự kiện mới có thể hủy/chỉnh sửa
+- Chỉ thành viên nhóm mới có thể RSVP
+- Admin nhóm có thể quản lý sự kiện
 
-**Timeout Handling**:
-- 30-second timeout for most operations
-- Retry mechanism with exponential backoff
-- User option to retry failed operations
-- Graceful degradation for non-critical features
+### 3.3 Quy tắc tính nhất quán dữ liệu
+**Tính nhất quán Denormalization**:
+- Số lượng thành viên được cập nhật nguyên tử với thay đổi thành viên
+- Số lượng like/comment được cập nhật qua Firestore transactions
+- Tên hiển thị người dùng được lan truyền đến tất cả documents liên quan
 
-### 4.2 User Error Handling
-**Validation Errors**:
-- Real-time validation feedback
-- Clear error messages in user's language
-- Field-specific error highlighting
-- Prevention of invalid form submission
+**Tính toàn vẹn tham chiếu**:
+- Cập nhật cascade cho thay đổi tên hiển thị người dùng
+- Soft delete để duy trì mối quan hệ dữ liệu
+- Dọn dẹp dữ liệu mồ côi qua background functions
 
-**Permission Errors**:
-- Clear messaging when actions not allowed
-- Hide UI elements for unauthorized actions
-- Redirect to appropriate screens when needed
-- Graceful handling of permission changes
+### 3.4 Quy tắc bảo mật
+**Bảo vệ PIN**:
+- Hash PIN với salt
+- Giới hạn số lần thử sai
+- Tự động đăng xuất sau thất bại
 
-### 4.3 System Error Handling
-**Firebase Errors**:
-- Specific handling for common Firebase errors
-- User-friendly error messages
-- Automatic retry for transient errors
-- Fallback options when possible
+**Báo cáo nội dung**:
+- Hệ thống báo cáo với phân loại lý do
+- Workflow kiểm duyệt cho moderator
+- Theo dõi trạng thái xử lý báo cáo
 
-**Storage Errors**:
-- Image upload failure handling
-- Partial upload recovery
-- Storage quota exceeded handling
-- Alternative image hosting fallback
+## 4. Chiến lược xử lý lỗi
 
-## 5. Background Tasks & Async Operations
+### 4.1 Xử lý lỗi mạng
+**Hỗ trợ offline**:
+- Firestore offline persistence được bật
+- Dữ liệu cache được hiển thị khi offline
+- Hàng đợi operations cho khi kết nối được khôi phục
+- Phản hồi người dùng cho trạng thái offline
 
-### 5.1 Image Processing
-**Upload Pipeline**:
-- Background thread for image compression
-- Progress tracking for large uploads
-- Batch upload for multiple images
-- Cleanup of temporary files
+**Xử lý timeout**:
+- Timeout 30 giây cho hầu hết operations
+- Cơ chế retry với exponential backoff
+- Tùy chọn người dùng để retry operations thất bại
+- Degradation nhẹ nhàng cho các tính năng không quan trọng
 
-**Caching Strategy**:
-- Glide for image caching and loading
-- Preload images for better UX
-- Cache size management
-- Offline image availability
+### 4.2 Xử lý lỗi người dùng
+**Lỗi xác thực**:
+- Phản hồi xác thực real-time
+- Thông báo lỗi rõ ràng bằng ngôn ngữ của người dùng
+- Highlight lỗi cho từng trường cụ thể
+- Ngăn chặn submit form không hợp lệ
 
-### 5.2 Data Synchronization
+**Lỗi phân quyền**:
+- Thông báo rõ ràng khi hành động không được phép
+- Ẩn các UI elements cho hành động không được phép
+- Chuyển hướng đến màn hình phù hợp khi cần
+- Xử lý nhẹ nhàng các thay đổi phân quyền
+
+### 4.3 Xử lý lỗi hệ thống
+**Lỗi Firebase**:
+- Xử lý cụ thể cho các lỗi Firebase phổ biến
+- Thông báo lỗi thân thiện với người dùng
+- Retry tự động cho lỗi tạm thời
+- Tùy chọn fallback khi có thể
+
+**Lỗi Storage**:
+- Xử lý thất bại upload ảnh
+- Khôi phục upload một phần
+- Xử lý vượt quá hạn mức Storage
+- Fallback hosting ảnh thay thế
+
+### 4.4 Xử lý lỗi file
+**Upload file thất bại**:
+- Thông báo lỗi cụ thể cho từng loại file
+- Retry upload với progress tracking
+- Validation file trước khi upload
+- Cleanup file tạm khi thất bại
+
+## 5. Tác vụ nền & Operations bất đồng bộ
+
+### 5.1 Xử lý ảnh
+**Pipeline Upload**:
+- Thread nền cho nén ảnh
+- Theo dõi progress cho upload lớn
+- Batch upload cho nhiều ảnh
+- Dọn dẹp file tạm
+
+**Chiến lược Caching**:
+- Glide cho caching và loading ảnh
+- Preload ảnh để UX tốt hơn
+- Quản lý kích thước cache
+- Khả năng ảnh offline
+
+### 5.2 Đồng bộ dữ liệu
 **Real-time Listeners**:
-- Firestore snapshot listeners for live data
-- Automatic reconnection handling
-- Listener lifecycle management
-- Memory leak prevention
+- Firestore snapshot listeners cho dữ liệu live
+- Xử lý kết nối lại tự động
+- Quản lý lifecycle listener
+- Ngăn chặn memory leak
 
-**Background Sync**:
-- Periodic data refresh when app backgrounded
-- Sync user status and presence
-- Update notification badges
-- Clean up old cached data
+**Đồng bộ nền**:
+- Làm mới dữ liệu định kỳ khi app ở background
+- Đồng bộ trạng thái người dùng và presence
+- Cập nhật notification badges
+- Dọn dẹp dữ liệu cache cũ
 
-### 5.3 Notification Handling
+### 5.3 Xử lý thông báo
 **Push Notifications**:
-- FCM for system notifications
-- Local notifications for reminders
-- Notification grouping and management
-- Deep linking from notifications
+- FCM cho thông báo hệ thống
+- Local notifications cho nhắc nhở
+- Nhóm và quản lý thông báo
+- Deep linking từ thông báo
 
-**In-app Notifications**:
-- Real-time status updates
-- Toast messages for user actions
-- Progress indicators for long operations
-- Success/error feedback
+**Thông báo trong app**:
+- Cập nhật trạng thái real-time
+- Toast messages cho hành động người dùng
+- Progress indicators cho operations dài
+- Phản hồi thành công/lỗi
 
-## 6. Performance Optimizations
+### 5.4 Xử lý file đính kèm
+**Upload Pipeline**:
+- Background thread cho upload file
+- Progress tracking cho file lớn
+- Validation file trước khi upload
+- Cleanup file tạm sau upload
 
-### 6.1 Database Optimization
-**Query Optimization**:
-- Compound indexes for complex queries
-- Pagination for large datasets
-- Limit queries to necessary fields
-- Cache frequently accessed data
+**File Management**:
+- Local storage cho file đã download
+- Cache management cho file
+- Offline access cho file đã download
+- File type validation và security
 
-**Denormalization Strategy**:
-- Store computed values (counts, aggregates)
-- Duplicate frequently accessed data
-- Trade storage for query performance
-- Maintain consistency with transactions
+## 6. Tối ưu hiệu suất
 
-### 6.2 UI Performance
-**List Optimization**:
-- RecyclerView with ViewHolder pattern
-- Lazy loading for images
-- Pagination for infinite scroll
+### 6.1 Tối ưu Database
+**Tối ưu Query**:
+- Compound indexes cho queries phức tạp
+- Pagination cho datasets lớn
+- Giới hạn queries đến các fields cần thiết
+- Cache dữ liệu được truy cập thường xuyên
+
+**Chiến lược Denormalization**:
+- Lưu trữ giá trị đã tính toán (counts, aggregates)
+- Duplicate dữ liệu được truy cập thường xuyên
+- Đánh đổi storage để có hiệu suất query tốt hơn
+- Duy trì tính nhất quán với transactions
+
+### 6.2 Hiệu suất UI
+**Tối ưu List**:
+- RecyclerView với ViewHolder pattern
+- Lazy loading cho ảnh
+- Pagination cho infinite scroll
 - Efficient data binding
 
-**Memory Management**:
-- Proper lifecycle handling
-- Image memory optimization
-- Listener cleanup in onDestroy
-- Avoid memory leaks in async operations
+**Quản lý Memory**:
+- Xử lý lifecycle đúng cách
+- Tối ưu memory ảnh
+- Cleanup listener trong onDestroy
+- Tránh memory leaks trong async operations
 
-### 6.3 Network Optimization
-**Data Transfer**:
-- Minimize payload size
-- Compress images before upload
-- Use appropriate image formats
+### 6.3 Tối ưu Network
+**Transfer dữ liệu**:
+- Giảm thiểu kích thước payload
+- Nén ảnh trước khi upload
+- Sử dụng định dạng ảnh phù hợp
 - Implement request deduplication
 
-**Caching Strategy**:
-- HTTP caching for static resources
-- Database caching for frequently accessed data
-- Image caching with size limits
-- Cache invalidation strategies
+**Chiến lược Caching**:
+- HTTP caching cho static resources
+- Database caching cho dữ liệu được truy cập thường xuyên
+- Image caching với giới hạn kích thước
+- Chiến lược cache invalidation
+
+### 6.4 Tối ưu File Management
+**Upload Optimization**:
+- Batch upload cho multiple files
+- Compression cho file lớn
+- Progress tracking cho UX tốt hơn
+- Retry mechanism cho failed uploads
+
+**Storage Optimization**:
+- Local caching cho file thường dùng
+- Cleanup file không cần thiết
+- Efficient file type detection
+- Security validation trước khi storage

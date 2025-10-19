@@ -10,11 +10,11 @@
 - **Kiến trúc**: MVVM (Model-View-ViewModel)
 
 ## 2. Mục đích ứng dụng
-NanaClu là một **ứng dụng Android quản lý nhóm và cộng đồng** với đầy đủ tính năng mạng xã hội. Ứng dụng tập trung vào việc tạo và quản lý các nhóm, tương tác xã hội, và tổ chức sự kiện trong cộng đồng.
-
+NanaClu là một **ứng dụng Android quản lý nhóm và cộng đồng** với đầy đủ tính năng mạng xã hội. 
+Ứng dụng tập trung vào việc tạo và quản lý các nhóm, tương tác xã hội, và tổ chức sự kiện trong cộng đồng.
 ### Tính năng chính:
 
-#### 🔐 **Xác thực (Authentication)**
+####  **Xác thực (Authentication)**
 - **Chức năng**: Đăng nhập/đăng ký người dùng
 - **Công nghệ**: Firebase Auth với Google Sign-in và Email/Password
 - **Cách hoạt động**:
@@ -24,18 +24,18 @@ NanaClu là một **ứng dụng Android quản lý nhóm và cộng đồng** v
   - User profile: Tự động tạo/cập nhật User document trong Firestore
 - **Bảo mật**: Token-based authentication, secure session management
 
-#### 👥 **Quản lý nhóm (Group Management)**
+####  **Quản lý nhóm (Group Management)**
 - **Chức năng**: Tạo, tham gia, quản lý nhóm và thành viên
 - **Công nghệ**: Firebase Firestore với subcollections
 - **Cách hoạt động**:
-  - **Tạo nhóm**: Tự động tạo mã code 6 ký tự, thiết lập quyền owner
+  - **Tạo nhóm**: Tự động tạo mã code 6 ký tự, thiết lập quyền ownerd
   - **Tham gia nhóm**: Quét mã code hoặc tìm kiếm, xử lý yêu cầu approval
   - **Phân quyền**: Owner > Admin > Member với các quyền khác nhau
   - **Quản lý thành viên**: Block/unblock, approve/reject pending users
   - **Transfer ownership**: Chuyển quyền sở hữu nhóm
 - **Data structure**: `groups/{groupId}/members/{userId}` với role-based access
 
-#### 📝 **Bài viết (Posts & Interactions)**
+####  **Bài viết (Posts & Interactions)**
 - **Chức năng**: Đăng bài, bình luận, like/unlike
 - **Công nghệ**: Firebase Firestore + Firebase Storage + Glide
 - **Cách hoạt động**:
@@ -46,7 +46,7 @@ NanaClu là một **ứng dụng Android quản lý nhóm và cộng đồng** v
   - **Like system**: Subcollection `posts/{postId}/likes/{userId}` với duplicate prevention
 - **Performance**: Image compression, lazy loading, pull-to-refresh
 
-#### 💬 **Chat (Messaging System)**
+####  **Chat (Messaging System)**
 - **Chức năng**: Tin nhắn riêng tư và chat nhóm realtime
 - **Công nghệ**: Firebase Firestore realtime listeners + Firebase Storage
 - **Cách hoạt động**:
@@ -58,7 +58,7 @@ NanaClu là một **ứng dụng Android quản lý nhóm và cộng đồng** v
   - **Message types**: text, image, file, mixed content
 - **Data structure**: `chats/{chatId}/messages/{messageId}` với pagination
 
-#### 📅 **Sự kiện (Event Management)**
+####  **Sự kiện (Event Management)**
 - **Chức năng**: Tạo và quản lý sự kiện trong nhóm với RSVP
 - **Công nghệ**: Firebase Firestore với complex queries
 - **Cách hoạt động**:
@@ -70,7 +70,7 @@ NanaClu là một **ứng dụng Android quản lý nhóm và cộng đồng** v
   - **Statistics**: Real-time count cho từng trạng thái RSVP
 - **Data structure**: `groups/{groupId}/events/{eventId}/attendees/{userId}`
 
-#### 🛡️ **Bảo mật (Security Features)**
+####  **Bảo mật (Security Features)**
 - **Chức năng**: PIN protection, content reporting, user blocking
 - **Công nghệ**: SharedPreferences + Firebase Firestore
 - **Cách hoạt động**:
@@ -80,7 +80,7 @@ NanaClu là một **ứng dụng Android quản lý nhóm và cộng đồng** v
   - **Admin controls**: Role-based access control với permission checking
 - **Security**: PIN hashing, secure storage, audit trails
 
-#### 👨‍💼 **Admin Dashboard**
+####  **Admin Dashboard**
 - **Chức năng**: Quản trị hệ thống và xuất dữ liệu
 - **Công nghệ**: Firebase Firestore + JSON export
 - **Cách hoạt động**:
@@ -216,8 +216,10 @@ app/src/main/java/com/example/nanaclu/
 ### Security Features:
 - **PIN Protection**: Hệ thống PIN 4-6 số để bảo vệ ứng dụng
 - **Content Reporting**: Báo cáo nội dung không phù hợp
-- **User Blocking**: Chặn người dùng trong nhóm
-- **Admin Controls**: Quản lý và kiểm duyệt nội dung
+- **group Blocking**: Chặn người dùng trong nhóm
+- **group Report**: BBáo cáo bài đăng trong nhóm
+- **Admin Group**: Quản lý và kiểm duyệt nội dung
+- **Admin App**:Admindashboard xuất db
 
 ## 6. Database Schema (Firestore)
 
@@ -244,6 +246,239 @@ chats/{chatId} → Chat
 
 reports/{reportId} → ReportModel
 ```
+
+### Detailed Collection Schemas:
+
+#### 1. **users Collection**
+```javascript
+/users/{userId}
+├── userId: string (document ID)
+├── createdAt: number (timestamp)
+├── email: string
+├── displayName: string
+├── photoUrl: string (Google profile photo)
+├── avatarImageId: string (reference to custom avatar)
+├── lastLoginAt: number (timestamp)
+├── status: string ("online" | "offline")
+├── joinedGroupIds: array<string> (for efficient feed queries)
+└── isadmin: boolean (admin flag)
+```
+
+#### 2. **users/{userId}/images Subcollection**
+```javascript
+/users/{userId}/images/{imageId}
+├── imageId: string (document ID)
+├── createdAt: number (timestamp)
+└── storageUrl: string (Firebase Storage URL)
+```
+
+#### 3. **groups Collection**
+```javascript
+/groups/{groupId}
+├── groupId: string (document ID)
+├── name: string
+├── code: string (6-character join code)
+├── avatarImageId: string
+├── coverImageId: string
+├── description: string
+├── createdBy: string (userId)
+├── createdAt: number (timestamp)
+├── isPublic: boolean (deprecated, use requireApproval)
+├── requireApproval: boolean (new approval system)
+├── memberCount: number (cached count)
+└── postCount: number (cached count)
+```
+
+#### 4. **groups/{groupId}/members Subcollection**
+```javascript
+/groups/{groupId}/members/{userId}
+├── userId: string (document ID)
+├── role: string ("owner" | "admin" | "member")
+├── joinedAt: number (timestamp)
+├── status: string ("active" | "pending" | "banned")
+├── userName: string (cached for display)
+├── userEmail: string (cached for display)
+└── avatarImageId: string (cached for display)
+```
+
+#### 5. **groups/{groupId}/posts Subcollection**
+```javascript
+/groups/{groupId}/posts/{postId}
+├── postId: string (document ID)
+├── authorId: string (userId)
+├── groupId: string (reference to parent group)
+├── content: string
+├── imageUrls: array<string> (Firebase Storage URLs)
+├── createdAt: number (timestamp)
+├── deletedAt: number|null (soft delete timestamp)
+├── editedAt: number|null (edit timestamp)
+├── likeCount: number (cached count)
+└── commentCount: number (cached count)
+```
+
+#### 6. **groups/{groupId}/posts/{postId}/comments Subcollection**
+```javascript
+/groups/{groupId}/posts/{postId}/comments/{commentId}
+├── commentId: string (document ID)
+├── authorId: string (userId)
+├── content: string
+├── replyCount: number (for threaded comments)
+├── createdAt: timestamp (Firestore Timestamp)
+├── parentCommentId: string|null (for replies)
+├── authorName: string (cached for UI)
+└── authorAvatar: string (cached for UI)
+```
+
+#### 7. **groups/{groupId}/posts/{postId}/likes Subcollection**
+```javascript
+/groups/{groupId}/posts/{postId}/likes/{userId}
+├── userId: string (document ID)
+└── createdAt: number (timestamp)
+```
+
+#### 8. **groups/{groupId}/events Subcollection**
+```javascript
+/groups/{groupId}/events/{eventId}
+├── eventId: string (document ID)
+├── groupId: string (reference to parent group)
+├── title: string
+├── description: string
+├── creatorId: string (userId)
+├── creatorName: string (cached)
+├── startTime: number (timestamp)
+├── endTime: number (timestamp)
+├── createdAt: number (timestamp)
+├── location: string
+├── locationType: string ("link" | "location" | "none")
+├── locationData: string (URL or address)
+├── latitude: number|null
+├── longitude: number|null
+├── imageUrl: string|null (event cover image)
+├── status: string ("active" | "cancelled" | "completed")
+├── goingCount: number (cached RSVP count)
+├── notGoingCount: number (cached RSVP count)
+├── maybeCount: number (cached RSVP count)
+└── reminderMinutes: array<number> ([30, 60, 1440])
+```
+
+#### 9. **groups/{groupId}/events/{eventId}/attendees Subcollection**
+```javascript
+/groups/{groupId}/events/{eventId}/attendees/{userId}
+├── userId: string (document ID)
+├── userName: string (cached)
+├── attendanceStatus: string ("attending" | "not_attending" | "maybe")
+├── responseTime: number (timestamp)
+└── note: string|null (optional note)
+```
+
+#### 10. **groups/{groupId}/chats Subcollection**
+```javascript
+/groups/{groupId}/chats/{chatId}
+├── chatId: string (document ID)
+├── createdAt: number (timestamp)
+├── type: string ("private" | "group")
+├── memberCount: number (cached count)
+├── groupId: string (reference to parent group)
+├── lastMessage: string|null
+├── lastMessageAt: number|null (timestamp)
+├── lastMessageAuthorId: string|null
+└── pairKey: string (for private chat lookup)
+```
+
+#### 11. **groups/{groupId}/chats/{chatId}/members Subcollection**
+```javascript
+/groups/{groupId}/chats/{chatId}/members/{userId}
+├── userId: string (document ID)
+├── joinedAt: number (timestamp)
+├── lastReadAt: number|null (timestamp)
+├── role: string ("admin" | "member")
+└── muteUntil: number|null (timestamp)
+```
+
+#### 12. **chats Collection (Global)**
+```javascript
+/chats/{chatId}
+├── chatId: string (document ID)
+├── createdAt: number (timestamp)
+├── type: string ("private" | "group")
+├── memberCount: number (cached count)
+├── groupId: string|null (for group chats)
+├── lastMessage: string|null
+├── lastMessageAt: number|null (timestamp)
+├── lastMessageAuthorId: string|null
+└── pairKey: string (for private chat lookup)
+```
+
+#### 13. **chats/{chatId}/members Subcollection**
+```javascript
+/chats/{chatId}/members/{userId}
+├── userId: string (document ID)
+├── joinedAt: number (timestamp)
+├── lastReadAt: number|null (timestamp)
+├── role: string ("admin" | "member")
+└── muteUntil: number|null (timestamp)
+```
+
+#### 14. **chats/{chatId}/messages Subcollection**
+```javascript
+/chats/{chatId}/messages/{messageId}
+├── messageId: string (document ID)
+├── authorId: string (userId)
+├── authorName: string (cached for UI)
+├── type: string ("text" | "image" | "file" | "mixed")
+├── content: string (text content or file reference)
+├── createdAt: number (timestamp)
+├── editedAt: number|null (timestamp)
+├── deletedAt: number|null (soft delete timestamp)
+├── replyTo: string|null (messageId being replied to)
+└── fileAttachments: array<FileAttachment>
+```
+
+#### 15. **FileAttachment Object (Embedded in Messages)**
+```javascript
+FileAttachment {
+├── fileName: string
+├── fileType: string ("pdf", "doc", "txt", "zip", etc.)
+├── fileSize: number (bytes)
+├── storageUrl: string (Firebase Storage path)
+├── downloadUrl: string (Firebase Storage download URL)
+├── uploadedAt: number (timestamp)
+├── uploadedBy: string (userId)
+├── isDownloaded: boolean
+├── localPath: string|null
+├── mimeType: string
+├── senderName: string (cached for UI)
+└── parentMessageId: string
+}
+```
+
+#### 16. **reports Collection**
+```javascript
+/reports/{reportId}
+├── reportId: string (document ID)
+├── postId: string (reported post)
+├── reportedUserId: string (post author)
+├── reporterUserId: string|null (anonymous reports allowed)
+├── reason: string (spam, harassment, inappropriate, etc.)
+├── reasonDetail: string|null (additional details)
+├── timestamp: number (timestamp)
+├── status: string ("pending" | "reviewed" | "dismissed" | "action_taken")
+├── moderatorId: string|null
+├── moderatorNote: string|null
+├── action: string|null ("removed" | "warn" | "ban")
+└── priority: string|null ("low" | "normal" | "high")
+```
+
+### Key Design Patterns:
+
+1. **Denormalization**: Cached counts (memberCount, postCount, likeCount) for performance
+2. **Subcollections**: Related data stored as subcollections for better organization
+3. **Timestamp Handling**: Consistent use of server timestamps for consistency
+4. **Soft Deletes**: deletedAt fields instead of hard deletes for data integrity
+5. **Cached Fields**: User names and avatars cached for UI performance
+6. **Backward Compatibility**: Legacy fields maintained with aliases for migration
+7. **File Storage**: Firebase Storage URLs instead of base64 for performance
+8. **Real-time Support**: Structure optimized for Firestore snapshot listeners
 
 ## 7. Đặc điểm kiến trúc
 
@@ -272,7 +507,7 @@ reports/{reportId} → ReportModel
 ### Key User Journeys:
 - **Join Group**: Tìm nhóm bằng mã code → Gửi yêu cầu → Được chấp nhận
 - **Create Post**: Chọn nhóm → Viết nội dung → Thêm ảnh → Đăng bài
-- **Event Management**: Tạo sự kiện → Mời thành viên → Theo dõi RSVP
+- **Event Management**: Tạo sự kiện → Thông báo thành viên → Theo dõi RSVP
 - **Chat**: Bắt đầu cuộc trò chuyện → Gửi tin nhắn/file → Xem lịch sử
 
 ## 9. Performance & Optimization
@@ -302,5 +537,3 @@ reports/{reportId} → ReportModel
 - **UI Tests**: Critical user flows testing
 
 ---
-
-*Tài liệu này được cập nhật dựa trên phân tích toàn bộ codebase hiện tại của project NanaClu.*

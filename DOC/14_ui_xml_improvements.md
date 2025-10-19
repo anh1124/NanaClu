@@ -3,12 +3,12 @@
 ## 1. Current Layout Analysis
 
 ### 1.1 Dependency Map
-| Layout File | Referenced IDs | Java Class Usage | Safe to Modify |
-|-------------|----------------|------------------|----------------|
+| Layout File       | Referenced IDs | Java Class Usage | Safe to Modify |
+|-------------              |----------------|------------------|----------------|
 | activity_main.xml | progressBar | MainActivity.findViewById | No - Core functionality |
-| activity_pin_entry.xml | tvPinDisplay, tvAttempts, btnNumbers | PinEntryActivity | No - Security critical |
-| activity_home.xml | toolbar, bottomNavigation, fragmentContainer | HomeActivity | No - Navigation core |
-| activity_login.xml | etEmail, etPassword, btnLogin, btnGoogleSignIn | LoginActivity | No - Auth critical |
+| activity_pin_entry.xml | tvPinDisplay, tvAttempts, btnNumbers | PinEntryActivity | No - Security critical   |
+| activity_home.xml | toolbar, bottomNavigation, fragmentContainer | HomeActivity | No - Navigation core      |
+| activity_login.xml | etEmail, etPassword, btnLogin, btnGoogleSignIn | LoginActivity | No - Auth critical    |
 | activity_chat_room.xml | toolbar, recyclerViewMessages, etMessage, btnSend | ChatRoomActivity | No - Chat functionality |
 | activity_photo_gallery.xml | toolbar, recyclerViewPhotos | PhotoGalleryActivity | Partial - Layout optimizable |
 | fragment_profile.xml | ivAvatar, tvDisplayName, tvEmail, btnLogout | ProfileFragment | Partial - Style improvements |

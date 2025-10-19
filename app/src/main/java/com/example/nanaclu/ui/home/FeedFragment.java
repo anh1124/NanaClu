@@ -62,7 +62,12 @@ public class FeedFragment extends BaseFragment {
             });
             toolbar.setOnMenuItemClickListener(item -> {
                 android.util.Log.d(TAG, "Toolbar item clicked: " + item.getItemId());
-                if (item.getItemId() == R.id.action_notice) {
+                if (item.getItemId() == R.id.action_search) {
+                    // Mở SearchUsersActivity
+                    android.content.Intent intent = new android.content.Intent(requireContext(), com.example.nanaclu.ui.search.SearchUsersActivity.class);
+                    startActivity(intent);
+                    return true;
+                } else if (item.getItemId() == R.id.action_notice) {
                     android.widget.Toast.makeText(requireContext(), "Notice clicked", android.widget.Toast.LENGTH_SHORT).show();
                     return true;
                 }

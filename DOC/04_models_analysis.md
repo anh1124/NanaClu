@@ -1,21 +1,21 @@
 # Models và Data Classes
 
 ## 1. Danh sách Models
-| Model Name | Purpose | Firebase Collection | Key Properties |
-|------------|---------|-------------------|----------------|
-| User | User profile và authentication data | users | userId, email, displayName, status |
-| UserImage | User's custom avatar images | users/{userId}/images | imageId, storageUrl, createdAt |
-| Group | Group/community information | groups | groupId, name, code, memberCount |
-| Member | Group membership data | groups/{groupId}/members | userId, role, status, joinedAt |
-| Post | Group posts/content | groups/{groupId}/posts | postId, content, imageUrls, authorId |
-| Comment | Post comments | groups/{groupId}/posts/{postId}/comments | commentId, content, authorId |
-| Like | Post likes | groups/{groupId}/posts/{postId}/likes | userId, createdAt |
-| Event | Group events | groups/{groupId}/events | eventId, title, startTime, location |
-| EventRSVP | Event attendance | groups/{groupId}/events/{eventId}/rsvps | userId, attendanceStatus |
-| Participant | Event participants (legacy) | groups/{groupId}/events/{eventId}/participants | userId, status |
-| Chat | Chat conversations | chats | chatId, type, memberIds, lastMessage |
-| ChatMember | Chat membership | chats/{chatId}/members | userId, role, lastRead |
-| Message | Chat messages | chats/{chatId}/messages | messageId, content, senderId, type |
+| Model Name  | Purpose                             | Firebase Collection                            | Key Properties                       |
+|-------------|-------------------------------------|------------------------------------------------|--------------------------------------|
+| User        | User profile và authentication data | users                                          | userId, email, displayName, status   |
+| UserImage   | User's custom avatar images         | users/{userId}/images                          | imageId, storageUrl, createdAt       |
+| Group       | Group/community information         | groups                                         | groupId, name, code, memberCount     |
+| Member      | Group membership data               | groups/{groupId}/members                       | userId, role, status, joinedAt       |
+| Post        | Group posts/content                 | groups/{groupId}/posts                         | postId, content, imageUrls, authorId |
+| Comment     | Post comments                       | groups/{groupId}/posts/{postId}/comments       | commentId, content, authorId         |
+| Like        | Post likes                          | groups/{groupId}/posts/{postId}/likes          | userId, createdAt                    |
+| Event       | Group events                        | groups/{groupId}/events                        | eventId, title, startTime, location  |
+| EventRSVP   | Event attendance                    | groups/{groupId}/events/{eventId}/rsvps        | userId, attendanceStatus             |
+| Participant | Event participants (legacy)         | groups/{groupId}/events/{eventId}/participants | userId, status                       |
+| Chat        | Chat conversations                  | chats                                          | chatId, type, memberIds, lastMessage |
+| ChatMember  | Chat membership                     | chats/{chatId}/members                         | userId, role, lastRead               |
+| Message     | Chat messages                       | chats/{chatId}/messages                        | messageId, content, senderId, type   |
 
 ## 2. Chi tiết từng Model
 
@@ -366,7 +366,7 @@ User (1) ──────────── (N) UserImage
               └─── (1:N) ChatMember
 
 Relationships:
-- User → UserImage: 1:N (user có nhiều custom avatars)
+- User → UserImage: 1:N (user sẽ lưu những image mà họ đăng lên vào subcollection của họ)
 - User → Member: 1:N (user có thể join nhiều groups)
 - Group → Member: 1:N (group có nhiều members)
 - Group → Post: 1:N (group có nhiều posts)
