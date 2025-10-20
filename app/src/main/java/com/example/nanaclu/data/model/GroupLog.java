@@ -1,5 +1,6 @@
 package com.example.nanaclu.data.model;
 
+import com.google.firebase.Timestamp;
 import java.util.Map;
 
 public class GroupLog {
@@ -12,7 +13,7 @@ public class GroupLog {
     public String targetId;
     public String targetName;
     public String message;
-    public long createdAt;
+    public Timestamp createdAt;
     public Map<String, Object> metadata;
 
     // Log type constants
@@ -48,7 +49,7 @@ public class GroupLog {
 
     public GroupLog(String logId, String groupId, String type, String actorId, String actorName,
                    String targetType, String targetId, String targetName, String message,
-                   long createdAt, Map<String, Object> metadata) {
+                   Timestamp createdAt, Map<String, Object> metadata) {
         this.logId = logId;
         this.groupId = groupId;
         this.type = type;

@@ -52,11 +52,15 @@ public class LogRepository {
     public void logGroupAction(String groupId, String type, String targetType, String targetId, 
                               String targetName, Map<String, Object> metadata) {
         try {
+            android.util.Log.d("LogRepository", "🔍 Starting logGroupAction: groupId=" + groupId + ", type=" + type);
+            
             String currentUserId = getCurrentUserId();
             if (currentUserId == null) {
-                android.util.Log.w("LogRepository", "Cannot log action: user not logged in");
+                android.util.Log.e("LogRepository", "❌ Cannot log action: user not logged in");
                 return;
             }
+            
+            android.util.Log.d("LogRepository", "✅ User authenticated: " + currentUserId);
 
             // Get current user name for caching
             getCurrentUserName(currentUserId, actorName -> {
@@ -75,12 +79,15 @@ public class LogRepository {
                 }
 
                 // Fire-and-forget: don't wait for completion
+                android.util.Log.d("LogRepository", "📝 Uploading log to Firestore: " + logData);
                 db.collection("groups")
                         .document(groupId)
                         .collection(LOGS_COLLECTION)
                         .add(logData)
+                        .addOnSuccessListener(docRef -> 
+                            android.util.Log.d("LogRepository", "✅ Log uploaded successfully: " + docRef.getId()))
                         .addOnFailureListener(e -> 
-                            android.util.Log.e("LogRepository", "Failed to log action: " + type, e));
+                            android.util.Log.e("LogRepository", "❌ Failed to log action: " + type, e));
             });
         } catch (Exception e) {
             android.util.Log.e("LogRepository", "Error logging action: " + type, e);
@@ -143,7 +150,7 @@ public class LogRepository {
                         if (log != null) {
                             log.logId = doc.getId();
                             // Apply date filter in memory if needed
-                            if (filters.dateRange != null && !filters.dateRange.isInRange(log.createdAt)) {
+                            if (filters.dateRange != null && !filters.dateRange.isInRange(log.createdAt.toDate().getTime())) {
                                 continue;
                             }
                             logs.add(log);
@@ -218,7 +225,7 @@ public class LogRepository {
                                 log.logId = doc.getId();
                                 
                                 // Apply date filter if needed
-                                if (filters.dateRange != null && !filters.dateRange.isInRange(log.createdAt)) {
+                                if (filters.dateRange != null && !filters.dateRange.isInRange(log.createdAt.toDate().getTime())) {
                                     continue;
                                 }
 
@@ -231,7 +238,7 @@ public class LogRepository {
                                 logJson.put("targetId", log.targetId);
                                 logJson.put("targetName", log.targetName);
                                 logJson.put("message", log.message);
-                                logJson.put("createdAt", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date(log.createdAt)));
+                                logJson.put("createdAt", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(log.createdAt.toDate()));
                                 if (log.metadata != null) {
                                     logJson.put("metadata", new JSONObject(log.metadata));
                                 }
@@ -251,6 +258,7 @@ public class LogRepository {
      * Get current user's display name
      */
     private void getCurrentUserName(String userId, UserNameCallback callback) {
+        android.util.Log.d("LogRepository", "🔍 Getting user name for: " + userId);
         db.collection("users")
                 .document(userId)
                 .get()
@@ -260,12 +268,18 @@ public class LogRepository {
                         if (displayName == null || displayName.isEmpty()) {
                             displayName = doc.getString("name");
                         }
-                        callback.onUserName(displayName != null ? displayName : "Unknown User");
+                        String finalName = displayName != null ? displayName : "Unknown User";
+                        android.util.Log.d("LogRepository", "✅ Got user name: " + finalName);
+                        callback.onUserName(finalName);
                     } else {
+                        android.util.Log.w("LogRepository", "⚠️ User document not found: " + userId);
                         callback.onUserName("Unknown User");
                     }
                 })
-                .addOnFailureListener(e -> callback.onUserName("Unknown User"));
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("LogRepository", "❌ Failed to get user name: " + userId, e);
+                    callback.onUserName("Unknown User");
+                });
     }
 
     private String getCurrentUserId() {

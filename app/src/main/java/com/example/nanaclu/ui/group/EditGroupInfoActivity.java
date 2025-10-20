@@ -187,21 +187,27 @@ public class EditGroupInfoActivity extends AppCompatActivity {
 
         Runnable doUpdate = () -> groupRepository.updateGroup(currentGroup, new GroupRepository.UpdateCallback() {
             @Override public void onSuccess() {
+                android.util.Log.d("EditGroupInfoActivity", "✅ Group update successful, starting logging...");
+                
                 // Log changes
                 LogRepository logRepo = new LogRepository(FirebaseFirestore.getInstance());
                 if (!oldName.equals(currentGroup.name)) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging name change: " + oldName + " → " + currentGroup.name);
                     Map<String, Object> meta = new HashMap<>();
                     meta.put("from", oldName);
                     meta.put("to", currentGroup.name);
                     logRepo.logGroupAction(groupId, "group_updated", "group", groupId, "Đổi tên nhóm", meta);
                 }
                 if (!oldDescription.equals(currentGroup.description)) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging description change");
                     logRepo.logGroupAction(groupId, "group_updated", "group", groupId, "Cập nhật mô tả", null);
                 }
                 if (pendingCoverUri != null) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging cover image update");
                     logRepo.logGroupAction(groupId, "group_image_updated", "group", groupId, "Cập nhật ảnh bìa", null);
                 }
                 if (pendingAvatarUri != null) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging avatar image update");
                     logRepo.logGroupAction(groupId, "group_image_updated", "group", groupId, "Cập nhật ảnh đại diện", null);
                 }
                 
@@ -214,6 +220,7 @@ public class EditGroupInfoActivity extends AppCompatActivity {
                 finish();
             }
             @Override public void onError(Exception e) {
+                android.util.Log.e("EditGroupInfoActivity", "❌ Group update failed", e);
                 showLoading(false);
                 Toast.makeText(EditGroupInfoActivity.this, "Lỗi khi cập nhật: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }

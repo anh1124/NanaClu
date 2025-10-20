@@ -93,7 +93,7 @@ public class GroupLogAdapter extends RecyclerView.Adapter<GroupLogAdapter.LogVie
             tvActor.setText(log.actorName != null ? log.actorName : "Unknown User");
 
             // Set time
-            tvTime.setText(formatTime(log.createdAt));
+            tvTime.setText(formatTime(log.createdAt.toDate().getTime()));
 
             // Set action icon based on type
             setActionIcon(log.type);
