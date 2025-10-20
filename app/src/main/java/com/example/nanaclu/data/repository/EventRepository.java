@@ -76,6 +76,9 @@ public class EventRepository {
 
         return eventRef.set(event).continueWith(task -> {
             if (task.isSuccessful()) {
+                // Log event creation
+                LogRepository logRepo = new LogRepository(db);
+                logRepo.logGroupAction(event.groupId, "event_created", "event", event.eventId, event.title, null);
                 return event.eventId;
             } else {
                 throw task.getException();
@@ -364,6 +367,11 @@ public class EventRepository {
         rsvpEvent(groupId, eventId, rsvp)
                 .addOnSuccessListener(result -> {
                     android.util.Log.d("EventRepository", "Attendance updated successfully");
+                    // Log RSVP
+                    LogRepository logRepo = new LogRepository(db);
+                    Map<String, Object> metadata = new HashMap<>();
+                    metadata.put("status", status.getValue());
+                    logRepo.logGroupAction(groupId, "event_rsvp", "event", eventId, null, metadata);
                     onSuccess.onSuccess(result);
                 })
                 .addOnFailureListener(error -> {
@@ -514,6 +522,9 @@ public class EventRepository {
                 .delete()
                 .addOnSuccessListener(aVoid -> {
                     android.util.Log.d("EventRepository", "Event deleted successfully");
+                    // Log event deletion
+                    LogRepository logRepo = new LogRepository(db);
+                    logRepo.logGroupAction(groupId, "event_cancelled", "event", eventId, null, null);
                     onSuccess.onSuccess(null);
                 })
                 .addOnFailureListener(e -> {

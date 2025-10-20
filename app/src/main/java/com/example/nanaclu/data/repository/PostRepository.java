@@ -100,6 +100,11 @@ public class PostRepository {
             batch.commit()
                     .addOnSuccessListener(aVoid -> {
                         callback.onSuccess(post);
+                        // Log post creation
+                        LogRepository logRepo = new LogRepository(db);
+                        String snippet = post.content != null && post.content.length() > 60 
+                            ? post.content.substring(0, 60) + "..." : post.content;
+                        logRepo.logGroupAction(post.groupId, "post_created", "post", post.postId, snippet, null);
                     })
                     .addOnFailureListener(e -> {
                         callback.onError(e);
@@ -421,6 +426,9 @@ public class PostRepository {
                     Post deletedPost = new Post();
                     deletedPost.postId = postId;
                     callback.onSuccess(deletedPost);
+                    // Log post deletion
+                    LogRepository logRepo = new LogRepository(db);
+                    logRepo.logGroupAction(groupId, "post_deleted", "post", postId, null, null);
                 })
                 .addOnFailureListener(e -> {
                     callback.onError(e);

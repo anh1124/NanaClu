@@ -17,8 +17,12 @@ import androidx.appcompat.widget.Toolbar;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Group;
 import com.example.nanaclu.data.repository.GroupRepository;
+import com.example.nanaclu.data.repository.LogRepository;
 import com.example.nanaclu.ui.report.GroupReportActivity;
 import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class GroupSettingsActivity extends AppCompatActivity {
 
@@ -61,6 +65,7 @@ public class GroupSettingsActivity extends AppCompatActivity {
     private void setupUI() {
         // Setup click listeners for cards
         findViewById(R.id.cardEditInfo).setOnClickListener(v -> openEditInfoActivity());
+        findViewById(R.id.cardGroupLogs).setOnClickListener(v -> openGroupLogs());
         findViewById(R.id.cardDeleteGroup).setOnClickListener(v -> showDeleteGroupDialog());
         View cardPermissions = findViewById(R.id.cardPermissions);
         if (cardPermissions != null) {
@@ -137,6 +142,12 @@ public class GroupSettingsActivity extends AppCompatActivity {
         startActivityForResult(intent, 100);
     }
 
+    private void openGroupLogs() {
+        Intent intent = new Intent(this, com.example.nanaclu.ui.group.logs.GroupLogActivity.class);
+        intent.putExtra("groupId", groupId);
+        startActivity(intent);
+    }
+
     private void onPrivacySwitchChanged(CompoundButton buttonView, boolean isChecked) {
         if (currentGroup == null) return;
 
@@ -155,6 +166,11 @@ public class GroupSettingsActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess() {
                             Toast.makeText(GroupSettingsActivity.this, "Đã cập nhật chính sách tham gia", Toast.LENGTH_SHORT).show();
+                            // Log policy change
+                            LogRepository logRepo = new LogRepository(FirebaseFirestore.getInstance());
+                            Map<String, Object> metadata = new HashMap<>();
+                            metadata.put("requireApproval", currentGroup.requireApproval);
+                            logRepo.logGroupAction(groupId, "policy_changed", "settings", groupId, null, metadata);
                             updateUI();
                         }
 

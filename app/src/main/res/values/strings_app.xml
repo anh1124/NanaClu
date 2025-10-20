@@ -86,5 +86,29 @@
     <string name="file_uploaded">File đã được tải lên</string>
     <string name="file_downloaded">File đã được tải xuống</string>
 
+    <!-- Group Activity Log strings -->
+    <string name="group_logs_title">Nhật ký hoạt động</string>
+    <string name="group_logs_subtitle">Xem lịch sử hoạt động trong nhóm</string>
+    <string name="filter_by_actor">Lọc theo người thực hiện</string>
+    <string name="filter_by_type">Lọc theo loại hành động</string>
+    <string name="apply_filter">Áp dụng</string>
+    <string name="clear_filter">Xóa bộ lọc</string>
+    <string name="export_json">Xuất JSON</string>
+    <string name="no_logs_yet">Chưa có nhật ký hoạt động</string>
+    <string name="no_logs_description">Các hoạt động trong nhóm sẽ được ghi lại ở đây</string>
+    <string name="loading_logs">Đang tải nhật ký...</string>
+    <string name="error_loading_logs">Lỗi khi tải nhật ký: %1$s</string>
+    <string name="error_exporting">Lỗi khi xuất dữ liệu: %1$s</string>
+    <string name="file_saved">Đã lưu file: %1$s</string>
+    <string name="share_logs">Chia sẻ nhật ký hoạt động</string>
+    <string name="permission_required">Cần quyền ghi file để xuất dữ liệu</string>
+    <string name="all_actions">Tất cả</string>
+    <string name="all_actors">Tất cả</string>
+    
+    <!-- Sample strings for layout previews -->
+    <string name="sample_log_message">Nguyễn An tạo post \"Thông báo về quyền\"</string>
+    <string name="sample_actor_name">Nguyễn An</string>
+    <string name="sample_time_ago">2 giờ trước</string>
+
 </resources>
 

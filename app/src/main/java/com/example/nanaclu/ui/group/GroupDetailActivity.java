@@ -383,14 +383,48 @@ public class GroupDetailActivity extends AppCompatActivity {
         tvMemberCount.setOnClickListener(v -> openMembersActivity());
 
         if (group.coverImageId != null && !group.coverImageId.isEmpty()) {
-            loadImageUrlInto(imgCover, group.coverImageId);
+            android.util.Log.d("GroupDetailActivity", "Group coverImageId: " + group.coverImageId);
+            loadGroupImage(imgCover, group.coverImageId);
             // Add click listener for fullscreen view
             imgCover.setOnClickListener(v -> showFullscreenImage(group.coverImageId, "Cover Image"));
+        } else {
+            android.util.Log.d("GroupDetailActivity", "No cover image found");
+            imgCover.setImageResource(R.drawable.ic_image_placeholder);
         }
         if (group.avatarImageId != null && !group.avatarImageId.isEmpty()) {
-            loadImageUrlInto(imgGroupAvatar, group.avatarImageId);
+            loadGroupImage(imgGroupAvatar, group.avatarImageId);
             // Add click listener for fullscreen view
             imgGroupAvatar.setOnClickListener(v -> showFullscreenImage(group.avatarImageId, "Group Avatar"));
+        } else {
+            imgGroupAvatar.setImageResource(R.drawable.ic_image_placeholder);
+        }
+    }
+
+    /** Load group image using Glide for better compatibility with Firebase Storage URLs */
+    private void loadGroupImage(ImageView view, String imageUrl) {
+        try {
+            android.util.Log.d("GroupDetailActivity", "Loading image: " + imageUrl);
+            com.bumptech.glide.Glide.with(this)
+                    .load(imageUrl)
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_placeholder)
+                    .listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(com.bumptech.glide.load.engine.GlideException e, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                            android.util.Log.e("GroupDetailActivity", "Failed to load image: " + imageUrl, e);
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> target, com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
+                            android.util.Log.d("GroupDetailActivity", "Successfully loaded image: " + imageUrl);
+                            return false;
+                        }
+                    })
+                    .into(view);
+        } catch (Exception e) {
+            android.util.Log.e("GroupDetailActivity", "Exception loading image: " + imageUrl, e);
+            view.setImageResource(R.drawable.ic_image_placeholder);
         }
     }
 
