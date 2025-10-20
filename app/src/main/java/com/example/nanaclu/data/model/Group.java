@@ -16,6 +16,9 @@ public class Group {
     // New: if true, user requests must be approved before joining
     public boolean requireApproval;
 
+    // New: if true, posts must be approved by owner/admin before visible
+    public boolean requirePostApproval = false;
+
     public int memberCount;
     public int postCount;
 

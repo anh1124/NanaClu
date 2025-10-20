@@ -32,6 +32,9 @@ public class GroupSettingsActivity extends AppCompatActivity {
     private GroupRepository groupRepository;
     private Switch switchPrivacy;
     private TextView tvPrivacyStatus;
+    private com.google.android.material.switchmaterial.SwitchMaterial switchPostApproval;
+    private TextView tvPostApprovalStatus;
+    private View cardPendingPosts;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,10 +91,21 @@ public class GroupSettingsActivity extends AppCompatActivity {
             cardReports.setOnClickListener(v -> openReports());
         }
 
-        // Setup switch: Không cần duyệt (ON) / Cần phê duyệt (OFF)
+        // Setup switch: Không cần duyệt (ON) / Cần phê duyệt (OFF) cho tham gia nhóm
         switchPrivacy = findViewById(R.id.switchPrivacy);
         tvPrivacyStatus = findViewById(R.id.tvPrivacyStatus);
         switchPrivacy.setOnCheckedChangeListener(this::onPrivacySwitchChanged);
+
+        // Setup post approval controls
+        switchPostApproval = findViewById(R.id.switchPostApproval);
+        tvPostApprovalStatus = findViewById(R.id.tvPostApprovalStatus);
+        cardPendingPosts = findViewById(R.id.cardPendingPosts);
+        if (cardPendingPosts != null) {
+            cardPendingPosts.setOnClickListener(v -> openPendingPosts());
+        }
+        if (switchPostApproval != null) {
+            switchPostApproval.setOnCheckedChangeListener(this::onPostApprovalSwitchChanged);
+        }
     }
 
     private void openPermissions() {
@@ -125,6 +139,18 @@ public class GroupSettingsActivity extends AppCompatActivity {
             switchPrivacy.setChecked(noApprovalNeeded);
             switchPrivacy.setOnCheckedChangeListener(this::onPrivacySwitchChanged);
             updatePrivacyStatusText();
+
+            // Update post approval UI
+            if (switchPostApproval != null) {
+                switchPostApproval.setOnCheckedChangeListener(null);
+                boolean postApprovalEnabled = currentGroup.requirePostApproval;
+                switchPostApproval.setChecked(postApprovalEnabled);
+                switchPostApproval.setOnCheckedChangeListener(this::onPostApprovalSwitchChanged);
+                updatePostApprovalStatusText();
+            }
+            if (cardPendingPosts != null) {
+                cardPendingPosts.setVisibility(currentGroup.requirePostApproval ? View.VISIBLE : View.GONE);
+            }
         }
     }
 
@@ -133,6 +159,13 @@ public class GroupSettingsActivity extends AppCompatActivity {
             boolean noApprovalNeeded = currentGroup.requireApproval == false;
             String status = noApprovalNeeded ? "Không cần duyệt" : "Cần phê duyệt";
             tvPrivacyStatus.setText("Tham gia nhóm: " + status);
+        }
+    }
+
+    private void updatePostApprovalStatusText() {
+        if (currentGroup != null && tvPostApprovalStatus != null) {
+            String status = currentGroup.requirePostApproval ? "Bật" : "Tắt";
+            tvPostApprovalStatus.setText(status);
         }
     }
 
@@ -191,6 +224,54 @@ public class GroupSettingsActivity extends AppCompatActivity {
                     switchPrivacy.setOnCheckedChangeListener(GroupSettingsActivity.this::onPrivacySwitchChanged);
                 })
                 .show();
+    }
+
+    private void onPostApprovalSwitchChanged(CompoundButton buttonView, boolean isChecked) {
+        if (currentGroup == null) return;
+
+        String currentStatus = currentGroup.requirePostApproval ? "Bật" : "Tắt";
+        String newStatus = isChecked ? "Bật" : "Tắt";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Xác nhận thay đổi")
+                .setMessage("Thay đổi chế độ duyệt bài từ '" + currentStatus + "' sang '" + newStatus + "'?")
+                .setPositiveButton("Xác nhận", (dialog, which) -> {
+                    groupRepository.updatePostApprovalSetting(groupId, isChecked, new GroupRepository.UpdateCallback() {
+                        @Override
+                        public void onSuccess() {
+                            currentGroup.requirePostApproval = isChecked;
+                            updatePostApprovalStatusText();
+                            if (cardPendingPosts != null) {
+                                cardPendingPosts.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+                            }
+                            Toast.makeText(GroupSettingsActivity.this, "Đã cập nhật duyệt bài", Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Toast.makeText(GroupSettingsActivity.this, "Lỗi khi cập nhật: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            if (switchPostApproval != null) {
+                                switchPostApproval.setOnCheckedChangeListener(null);
+                                switchPostApproval.setChecked(!isChecked);
+                                switchPostApproval.setOnCheckedChangeListener(GroupSettingsActivity.this::onPostApprovalSwitchChanged);
+                            }
+                        }
+                    });
+                })
+                .setNegativeButton("Hủy", (dialog, which) -> {
+                    if (switchPostApproval != null) {
+                        switchPostApproval.setOnCheckedChangeListener(null);
+                        switchPostApproval.setChecked(!isChecked);
+                        switchPostApproval.setOnCheckedChangeListener(GroupSettingsActivity.this::onPostApprovalSwitchChanged);
+                    }
+                })
+                .show();
+    }
+
+    private void openPendingPosts() {
+        Intent i = new Intent(this, com.example.nanaclu.ui.post.PendingPostsActivity.class);
+        i.putExtra("groupId", groupId);
+        startActivity(i);
     }
 
     private void showDeleteGroupDialog() {

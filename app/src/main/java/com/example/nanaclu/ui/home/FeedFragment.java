@@ -90,7 +90,7 @@ public class FeedFragment extends BaseFragment {
         adapter = new PostAdapter(postRepository, new PostAdapter.PostActionListener() {
             @Override public void onLike(Post post) {}
             @Override public void onComment(Post post) { showComments(post); }
-            @Override public void onDelete(Post post) {}
+            @Override public void onDelete(Post post) { deletePost(post); }
             @Override public void onReport(Post post) {
                 if (post.groupId != null) {
                     com.example.nanaclu.ui.report.ReportBottomSheetDialogFragment reportSheet = 
@@ -337,5 +337,69 @@ public class FeedFragment extends BaseFragment {
     }
     private void showComments(Post post) {
         com.example.nanaclu.ui.common.CommentsBottomSheet.show(this, post);
+    }
+    
+    private void deletePost(Post post) {
+        if (post == null || post.postId == null || post.groupId == null) {
+            android.widget.Toast.makeText(requireContext(), "Không thể xóa bài viết này", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Check if current user is the author or has admin/owner role
+        String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null 
+                ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        
+        if (currentUserId == null) {
+            android.widget.Toast.makeText(requireContext(), "Chưa đăng nhập", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Check if user is author or has admin/owner role
+        if (!currentUserId.equals(post.authorId)) {
+            // Check if user is admin/owner
+            groupRepository.getMemberById(post.groupId, currentUserId, new GroupRepository.MemberCallback() {
+                @Override
+                public void onSuccess(com.example.nanaclu.data.model.Member member) {
+                    if (member == null || member.role == null || 
+                        (!"owner".equals(member.role) && !"admin".equals(member.role))) {
+                        android.widget.Toast.makeText(requireContext(), "Bạn không có quyền xóa bài viết này", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    // User is admin/owner, proceed with deletion
+                    confirmAndDeletePost(post);
+                }
+                
+                @Override
+                public void onError(Exception e) {
+                    android.widget.Toast.makeText(requireContext(), "Bạn không có quyền xóa bài viết này", android.widget.Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else {
+            // User is the author, proceed with deletion
+            confirmAndDeletePost(post);
+        }
+    }
+    
+    private void confirmAndDeletePost(Post post) {
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Xóa bài viết")
+                .setMessage("Bạn có chắc chắn muốn xóa bài viết này không?")
+                .setPositiveButton("Xóa", (dialog, which) -> {
+                    postRepository.deletePost(post.groupId, post.postId, new PostRepository.PostCallback() {
+                        @Override
+                        public void onSuccess(Post deletedPost) {
+                            // Remove from adapter
+                            adapter.removePost(post.postId);
+                            android.widget.Toast.makeText(requireContext(), "Đã xóa bài viết", android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                        
+                        @Override
+                        public void onError(Exception e) {
+                            android.widget.Toast.makeText(requireContext(), "Lỗi xóa bài viết: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
     }
 }
