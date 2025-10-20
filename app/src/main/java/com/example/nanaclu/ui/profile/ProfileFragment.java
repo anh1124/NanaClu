@@ -251,25 +251,39 @@ public class ProfileFragment extends BaseFragment {
         View btnConfirm = d.findViewById(R.id.btnConfirm);
         btnCancel.setOnClickListener(v -> d.dismiss());
         btnConfirm.setOnClickListener(v -> {
-            FirebaseAuth.getInstance().signOut();
-            // Clear Google Sign-In cached account to force account picker next time
-            com.google.android.gms.auth.api.signin.GoogleSignInOptions gso =
-                    new com.google.android.gms.auth.api.signin.GoogleSignInOptions.Builder(
-                            com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN)
-                            .requestIdToken(getString(R.string.default_web_client_id))
-                            .requestEmail()
-                            .build();
-            com.google.android.gms.auth.api.signin.GoogleSignInClient client =
-                    com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(requireContext(), gso);
-            client.signOut().addOnCompleteListener(task1 -> client.revokeAccess().addOnCompleteListener(task2 -> {
-                if (getActivity() != null) {
-                    getActivity().getSharedPreferences("auth", android.content.Context.MODE_PRIVATE)
-                            .edit().putBoolean("remember_me", false).apply();
-                    startActivity(new android.content.Intent(getActivity(), com.example.nanaclu.ui.auth.LoginActivity.class));
-                    getActivity().finish();
-                }
-                d.dismiss();
-            }));
+            // Show loading state
+            btnConfirm.setEnabled(false);
+            btnConfirm.setAlpha(0.5f);
+            
+            // Use AuthRepository for proper logout with cache clearing
+            com.example.nanaclu.data.repository.AuthRepository authRepo = 
+                    new com.example.nanaclu.data.repository.AuthRepository(requireContext());
+            
+            authRepo.logout(requireContext()).addOnCompleteListener(logoutTask -> {
+                // Clear Google Sign-In cached account to force account picker next time
+                com.google.android.gms.auth.api.signin.GoogleSignInOptions gso =
+                        new com.google.android.gms.auth.api.signin.GoogleSignInOptions.Builder(
+                                com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestIdToken(getString(R.string.default_web_client_id))
+                                .requestEmail()
+                                .build();
+                com.google.android.gms.auth.api.signin.GoogleSignInClient client =
+                        com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(requireContext(), gso);
+                
+                client.signOut().addOnCompleteListener(task1 -> 
+                    client.revokeAccess().addOnCompleteListener(task2 -> {
+                        if (getActivity() != null) {
+                            // Clear remember me setting
+                            getActivity().getSharedPreferences("auth", android.content.Context.MODE_PRIVATE)
+                                    .edit().putBoolean("remember_me", false).apply();
+                            
+                            // Navigate to login screen
+                            startActivity(new android.content.Intent(getActivity(), com.example.nanaclu.ui.auth.LoginActivity.class));
+                            getActivity().finish();
+                        }
+                        d.dismiss();
+                    }));
+            });
         });
 
         d.show();

@@ -1,11 +1,13 @@
 package com.example.nanaclu.data.repository;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 
 import androidx.annotation.Nullable;
 
 import com.example.nanaclu.data.model.User;
+import com.example.nanaclu.utils.CacheManager;
 import com.google.android.gms.auth.api.identity.BeginSignInRequest;
 import com.google.android.gms.auth.api.identity.Identity;
 import com.google.android.gms.auth.api.identity.SignInClient;
@@ -26,7 +28,16 @@ import com.google.android.gms.tasks.Task;
 public class AuthRepository {
     private final FirebaseAuth auth = FirebaseAuth.getInstance();
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
+    private Context context;
 
+    public AuthRepository() {
+        // Default constructor
+    }
+    
+    public AuthRepository(Context context) {
+        this.context = context;
+    }
+    
     public FirebaseUser getCurrentUser() {
         return auth.getCurrentUser();
     }
@@ -66,12 +77,28 @@ public class AuthRepository {
     }
 
     public Task<Void> logout() {
+        return logout(null);
+    }
+    
+    public Task<Void> logout(Context context) {
         FirebaseUser fUser = auth.getCurrentUser();
         if (fUser != null) {
             db.collection("users").document(fUser.getUid())
                     .update("status", "offline");
         }
+        
+        // Sign out from Firebase Auth first
         auth.signOut();
+        
+        // Clear all caches if context is provided
+        if (context != null) {
+            CacheManager cacheManager = new CacheManager(context);
+            return cacheManager.clearAllCaches()
+                    .addOnCompleteListener(task -> {
+                        cacheManager.shutdown();
+                    });
+        }
+        
         return com.google.android.gms.tasks.Tasks.forResult(null);
     }
 
