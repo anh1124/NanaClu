@@ -25,6 +25,7 @@ public class PostRepository {
     private FirebaseFirestore db;
     private FirebaseStorage storage;
     private static final String POSTS_COLLECTION = "posts";
+    private static final String PENDING_POSTS_COLLECTION = "pendingPosts";
     private static final String LIKES_COLLECTION = "likes";
     private static final String COMMENTS_COLLECTION = "comments";
     private static final String IMAGES_COLLECTION = "images";
@@ -113,6 +114,128 @@ public class PostRepository {
         } catch (Exception e) {
             callback.onError(e);
         }
+    }
+
+    /** Create a pending post under groups/{groupId}/pendingPosts/{postId} */
+    public void createPendingPost(Post post, PostCallback callback) {
+        try {
+            if (post.groupId == null || post.groupId.isEmpty()) {
+                callback.onError(new IllegalArgumentException("GroupId is required"));
+                return;
+            }
+            if (post.authorId == null || post.authorId.isEmpty()) {
+                callback.onError(new IllegalArgumentException("AuthorId is required"));
+                return;
+            }
+
+            if (post.postId == null || post.postId.isEmpty()) {
+                post.postId = java.util.UUID.randomUUID().toString();
+            }
+
+            long currentTime = System.currentTimeMillis();
+            post.createdAt = currentTime;
+            post.likeCount = 0;
+            post.commentCount = 0;
+
+            com.google.firebase.firestore.DocumentReference pendingRef = db.collection(GROUPS_COLLECTION)
+                    .document(post.groupId)
+                    .collection(PENDING_POSTS_COLLECTION)
+                    .document(post.postId);
+
+            pendingRef.set(post)
+                    .addOnSuccessListener(aVoid -> {
+                        callback.onSuccess(post);
+                        // Log pending post creation
+                        LogRepository logRepo = new LogRepository(db);
+                        String snippet = post.content != null && post.content.length() > 60
+                                ? post.content.substring(0, 60) + "..." : post.content;
+                        logRepo.logGroupAction(post.groupId, "pending_post_created", "post", post.postId, snippet, null);
+                    })
+                    .addOnFailureListener(callback::onError);
+        } catch (Exception e) {
+            callback.onError(e);
+        }
+    }
+
+    /** Get pending posts list */
+    public void getPendingPosts(String groupId, PostsCallback callback) {
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(PENDING_POSTS_COLLECTION)
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    java.util.List<Post> posts = new java.util.ArrayList<>();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        Post post = doc.toObject(Post.class);
+                        if (post != null) {
+                            post.groupId = groupId;
+                            posts.add(post);
+                        }
+                    }
+                    callback.onSuccess(posts);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    /** Approve a pending post: move to posts and remove from pending */
+    public void approvePost(String groupId, String postId, PostCallback callback) {
+        com.google.firebase.firestore.DocumentReference pendingRef = db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(PENDING_POSTS_COLLECTION)
+                .document(postId);
+        pendingRef.get().addOnSuccessListener(doc -> {
+            if (!doc.exists()) {
+                callback.onError(new Exception("Pending post not found"));
+                return;
+            }
+            Post post = doc.toObject(Post.class);
+            if (post == null) {
+                callback.onError(new Exception("Invalid post data"));
+                return;
+            }
+
+            com.google.firebase.firestore.WriteBatch batch = db.batch();
+            com.google.firebase.firestore.DocumentReference postRef = db.collection(GROUPS_COLLECTION)
+                    .document(groupId)
+                    .collection(POSTS_COLLECTION)
+                    .document(postId);
+            batch.set(postRef, post);
+            batch.delete(pendingRef);
+            com.google.firebase.firestore.DocumentReference groupRef = db.collection(GROUPS_COLLECTION).document(groupId);
+            batch.update(groupRef, "postCount", com.google.firebase.firestore.FieldValue.increment(1));
+            batch.commit()
+                    .addOnSuccessListener(aVoid -> {
+                        callback.onSuccess(post);
+                        // Log approval
+                        LogRepository logRepo = new LogRepository(db);
+                        logRepo.logGroupAction(groupId, "post_approved", "post", postId, null, null);
+                    })
+                    .addOnFailureListener(callback::onError);
+        }).addOnFailureListener(callback::onError);
+    }
+
+    /** Reject a pending post: delete from pending */
+    public void rejectPost(String groupId, String postId, PostCallback callback) {
+        com.google.firebase.firestore.DocumentReference pendingRef = db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(PENDING_POSTS_COLLECTION)
+                .document(postId);
+        pendingRef.get().addOnSuccessListener(doc -> {
+            if (!doc.exists()) {
+                callback.onError(new Exception("Pending post not found"));
+                return;
+            }
+            Post post = doc.toObject(Post.class);
+            pendingRef.delete()
+                    .addOnSuccessListener(aVoid -> {
+                        callback.onSuccess(post);
+                        // Log rejection
+                        LogRepository logRepo = new LogRepository(db);
+                        logRepo.logGroupAction(groupId, "post_rejected", "post", postId, null, null);
+                    })
+                    .addOnFailureListener(callback::onError);
+        }).addOnFailureListener(callback::onError);
     }
 
     /**

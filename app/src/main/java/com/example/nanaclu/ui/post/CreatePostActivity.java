@@ -243,12 +243,12 @@ public class CreatePostActivity extends AppCompatActivity {
             processImagesWithStorage(post);
         } else {
             // No images, create post directly
-            postRepository.createPost(post, new PostRepository.PostCallback() {
+            routePostCreation(post, new PostRepository.PostCallback() {
                 @Override
                 public void onSuccess(Post createdPost) {
                     runOnUiThread(() -> {
                         showLoading(false);
-                        Toast.makeText(CreatePostActivity.this, "Đăng bài thành công!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(CreatePostActivity.this, "Đã gửi bài đăng", Toast.LENGTH_SHORT).show();
                         setResult(Activity.RESULT_OK);
                         finish();
                     });
@@ -278,12 +278,12 @@ public class CreatePostActivity extends AppCompatActivity {
         
         if (imageDataList.isEmpty()) {
             // No valid images, create post without images
-            postRepository.createPost(post, new PostRepository.PostCallback() {
+            routePostCreation(post, new PostRepository.PostCallback() {
                 @Override
                 public void onSuccess(Post createdPost) {
                     runOnUiThread(() -> {
                         showLoading(false);
-                        Toast.makeText(CreatePostActivity.this, "Đăng bài thành công!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(CreatePostActivity.this, "Đã gửi bài đăng", Toast.LENGTH_SHORT).show();
                         setResult(Activity.RESULT_OK);
                         finish();
                     });
@@ -306,13 +306,13 @@ public class CreatePostActivity extends AppCompatActivity {
                 // Upload thành công, set URLs vào post
                 post.imageUrls = urls;
                 
-                // Tạo post với URLs
-                postRepository.createPost(post, new PostRepository.PostCallback() {
+                // Route post creation (check approval requirement)
+                routePostCreation(post, new PostRepository.PostCallback() {
                     @Override
                     public void onSuccess(Post createdPost) {
                         runOnUiThread(() -> {
                             showLoading(false);
-                            Toast.makeText(CreatePostActivity.this, "Đăng bài thành công!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(CreatePostActivity.this, "Đã gửi bài đăng", Toast.LENGTH_SHORT).show();
                             setResult(Activity.RESULT_OK);
                             finish();
                         });
@@ -334,6 +334,45 @@ public class CreatePostActivity extends AppCompatActivity {
                 });
             }
         );
+    }
+
+    /** Decide whether to create immediate post or pending post based on group setting and role */
+    private void routePostCreation(Post post, PostRepository.PostCallback callback) {
+        // Load group setting to check requirePostApproval
+        com.example.nanaclu.data.repository.GroupRepository gRepo = new com.example.nanaclu.data.repository.GroupRepository(FirebaseFirestore.getInstance());
+        gRepo.getGroupById(post.groupId, new com.example.nanaclu.data.repository.GroupRepository.GroupCallback() {
+            @Override
+            public void onSuccess(com.example.nanaclu.data.model.Group group) {
+                // If approval required and current user is not owner/admin -> pending
+                if (group != null && group.requirePostApproval) {
+                    gRepo.getMemberById(post.groupId, currentUserId, new com.example.nanaclu.data.repository.GroupRepository.MemberCallback() {
+                        @Override
+                        public void onSuccess(com.example.nanaclu.data.model.Member member) {
+                            boolean elevated = member != null && ("owner".equals(member.role) || "admin".equals(member.role));
+                            if (elevated) {
+                                postRepository.createPost(post, callback);
+                            } else {
+                                postRepository.createPendingPost(post, callback);
+                            }
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            // Fallback: treat as normal user
+                            postRepository.createPendingPost(post, callback);
+                        }
+                    });
+                } else {
+                    postRepository.createPost(post, callback);
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                // If cannot load group, fallback to direct create to avoid blocking user
+                postRepository.createPost(post, callback);
+            }
+        });
     }
 
     private byte[] convertImageToByteArray(String imagePath) {

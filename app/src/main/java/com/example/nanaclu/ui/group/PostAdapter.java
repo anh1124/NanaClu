@@ -75,6 +75,16 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         posts.addAll(moreItems);
         notifyItemRangeInserted(start, moreItems.size());
     }
+    
+    public void removePost(String postId) {
+        for (int i = 0; i < posts.size(); i++) {
+            if (posts.get(i).postId != null && posts.get(i).postId.equals(postId)) {
+                posts.remove(i);
+                notifyItemRemoved(i);
+                break;
+            }
+        }
+    }
 
     @NonNull
     @Override
