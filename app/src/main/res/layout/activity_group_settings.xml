@@ -136,6 +136,56 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Thống kê hoạt động -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardStatistics"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_bar_chart"
+                        android:layout_marginEnd="16dp"/>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Thống kê hoạt động"
+                            android:textSize="16sp"/>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Xem biểu đồ thống kê theo tháng/năm"
+                            android:textSize="12sp"
+                            android:textColor="@android:color/darker_gray"/>
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@android:drawable/ic_menu_more"/>
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Cài đặt quyền riêng tư -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
