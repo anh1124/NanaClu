@@ -1,5 +1,7 @@
 package com.example.nanaclu.viewmodel;
 
+import android.content.Context;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -68,6 +70,12 @@ public class AuthViewModel extends ViewModel {
     public void logout() {
         repository.logout();
         _user.setValue(null);
+    }
+    
+    public void logout(Context context) {
+        repository.logout(context).addOnCompleteListener(task -> {
+            _user.setValue(null);
+        });
     }
 }
 

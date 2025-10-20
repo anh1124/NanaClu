@@ -151,26 +151,29 @@ public class PinEntryActivity extends AppCompatActivity {
                 .remove("pin_hash")
                 .apply();
 
-        // Sign out from Firebase
-        FirebaseAuth.getInstance().signOut();
-
         // Clear auto login
         getSharedPreferences("auth", MODE_PRIVATE)
                 .edit()
                 .putBoolean("auto_login", false)
                 .apply();
 
-        // Go to login screen
-        Intent intent = new Intent(this, LoginActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        // Use AuthRepository for proper logout with cache clearing
+        com.example.nanaclu.data.repository.AuthRepository authRepo = 
+                new com.example.nanaclu.data.repository.AuthRepository(this);
+        
+        authRepo.logout(this).addOnCompleteListener(task -> {
+            // Go to login screen
+            Intent intent = new Intent(this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
 
-        if (isForgotPin) {
-            Toast.makeText(this, "Đã đăng xuất. Vui lòng đăng nhập lại", Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(this, "Đã đăng xuất do nhập sai PIN quá nhiều lần", Toast.LENGTH_LONG).show();
-        }
+            if (isForgotPin) {
+                Toast.makeText(this, "Đã đăng xuất. Vui lòng đăng nhập lại", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Đã đăng xuất do nhập sai PIN quá nhiều lần", Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private String hashPin(String pin) {
