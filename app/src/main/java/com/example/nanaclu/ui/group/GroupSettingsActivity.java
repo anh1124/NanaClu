@@ -90,6 +90,10 @@ public class GroupSettingsActivity extends AppCompatActivity {
         if (cardReports != null) {
             cardReports.setOnClickListener(v -> openReports());
         }
+        View cardStatistics = findViewById(R.id.cardStatistics);
+        if (cardStatistics != null) {
+            cardStatistics.setOnClickListener(v -> openStatistics());
+        }
 
         // Setup switch: Không cần duyệt (ON) / Cần phê duyệt (OFF) cho tham gia nhóm
         switchPrivacy = findViewById(R.id.switchPrivacy);
@@ -335,6 +339,29 @@ public class GroupSettingsActivity extends AppCompatActivity {
         Intent i = new Intent(this, GroupReportActivity.class);
         i.putExtra("groupId", groupId);
         startActivity(i);
+    }
+
+    private void openStatistics() {
+        // Kiểm tra quyền Owner/Admin
+        groupRepository.getMemberById(groupId, currentUserId, new GroupRepository.MemberCallback() {
+            @Override
+            public void onSuccess(com.example.nanaclu.data.model.Member member) {
+                if (member != null && ("owner".equals(member.role) || "admin".equals(member.role))) {
+                    Intent i = new Intent(GroupSettingsActivity.this, 
+                        com.example.nanaclu.ui.group.statistics.GroupStatisticsActivity.class);
+                    i.putExtra("groupId", groupId);
+                    startActivity(i);
+                } else {
+                    Toast.makeText(GroupSettingsActivity.this, 
+                        "Chỉ Owner và Admin mới có quyền xem thống kê", Toast.LENGTH_SHORT).show();
+                }
+            }
+            @Override
+            public void onError(Exception e) {
+                Toast.makeText(GroupSettingsActivity.this, 
+                    "Lỗi kiểm tra quyền", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     @Override

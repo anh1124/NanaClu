@@ -2,6 +2,13 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- Chart colors -->
+    <color name="chart_bar_primary">#4CAF50</color>
+    <color name="chart_bar_secondary">#2196F3</color>
+    <color name="chart_bar_tertiary">#FF9800</color>
+    <color name="chart_axis">#757575</color>
+    <color name="chart_text">#212121</color>
     <color name="link_purple">#7B61FF</color>
     <color name="search_purple_light">#F2ECFF</color>
     <color name="gray_hint">#9E9E9E</color>
