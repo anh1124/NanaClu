@@ -18,11 +18,14 @@ import androidx.appcompat.widget.Toolbar;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Group;
 import com.example.nanaclu.data.repository.GroupRepository;
+import com.example.nanaclu.data.repository.LogRepository;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 public class EditGroupInfoActivity extends AppCompatActivity {
 
@@ -44,6 +47,7 @@ public class EditGroupInfoActivity extends AppCompatActivity {
 
     private Uri pendingCoverUri, pendingAvatarUri;
     private boolean hasChanges = false;
+    private String oldName, oldDescription;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,8 +114,13 @@ public class EditGroupInfoActivity extends AppCompatActivity {
             @Override
             public void onSuccess(Group group) {
                 currentGroup = group;
+                oldName = group.name;
+                oldDescription = group.description;
                 etGroupName.setText(group.name);
                 etGroupDescription.setText(group.description);
+                
+                // Load current group images
+                loadGroupImages(group);
             }
 
             @Override
@@ -120,6 +129,39 @@ public class EditGroupInfoActivity extends AppCompatActivity {
                 finish();
             }
         });
+    }
+    
+    private void loadGroupImages(Group group) {
+        // Load cover image
+        if (group.coverImageId != null && !group.coverImageId.isEmpty()) {
+            try {
+                com.bumptech.glide.Glide.with(this)
+                        .load(group.coverImageId)
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_placeholder)
+                        .into(imgCoverPreview);
+            } catch (Exception e) {
+                imgCoverPreview.setImageResource(R.drawable.ic_image_placeholder);
+            }
+        } else {
+            imgCoverPreview.setImageResource(R.drawable.ic_image_placeholder);
+        }
+        
+        // Load avatar image
+        if (group.avatarImageId != null && !group.avatarImageId.isEmpty()) {
+            try {
+                com.bumptech.glide.Glide.with(this)
+                        .load(group.avatarImageId)
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_placeholder)
+                        .circleCrop()
+                        .into(imgAvatarPreview);
+            } catch (Exception e) {
+                imgAvatarPreview.setImageResource(R.drawable.ic_image_placeholder);
+            }
+        } else {
+            imgAvatarPreview.setImageResource(R.drawable.ic_image_placeholder);
+        }
     }
 
     private void saveGroupInfo() {
@@ -145,6 +187,30 @@ public class EditGroupInfoActivity extends AppCompatActivity {
 
         Runnable doUpdate = () -> groupRepository.updateGroup(currentGroup, new GroupRepository.UpdateCallback() {
             @Override public void onSuccess() {
+                android.util.Log.d("EditGroupInfoActivity", "✅ Group update successful, starting logging...");
+                
+                // Log changes
+                LogRepository logRepo = new LogRepository(FirebaseFirestore.getInstance());
+                if (!oldName.equals(currentGroup.name)) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging name change: " + oldName + " → " + currentGroup.name);
+                    Map<String, Object> meta = new HashMap<>();
+                    meta.put("from", oldName);
+                    meta.put("to", currentGroup.name);
+                    logRepo.logGroupAction(groupId, "group_updated", "group", groupId, "Đổi tên nhóm", meta);
+                }
+                if (!oldDescription.equals(currentGroup.description)) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging description change");
+                    logRepo.logGroupAction(groupId, "group_updated", "group", groupId, "Cập nhật mô tả", null);
+                }
+                if (pendingCoverUri != null) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging cover image update");
+                    logRepo.logGroupAction(groupId, "group_image_updated", "group", groupId, "Cập nhật ảnh bìa", null);
+                }
+                if (pendingAvatarUri != null) {
+                    android.util.Log.d("EditGroupInfoActivity", "📝 Logging avatar image update");
+                    logRepo.logGroupAction(groupId, "group_image_updated", "group", groupId, "Cập nhật ảnh đại diện", null);
+                }
+                
                 showLoading(false);
                 Toast.makeText(EditGroupInfoActivity.this, "Cập nhật thông tin nhóm thành công", Toast.LENGTH_SHORT).show();
                 hasChanges = false;
@@ -154,6 +220,7 @@ public class EditGroupInfoActivity extends AppCompatActivity {
                 finish();
             }
             @Override public void onError(Exception e) {
+                android.util.Log.e("EditGroupInfoActivity", "❌ Group update failed", e);
                 showLoading(false);
                 Toast.makeText(EditGroupInfoActivity.this, "Lỗi khi cập nhật: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }

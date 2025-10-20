@@ -67,6 +67,10 @@ public class CommentRepository {
                         if (parentCommentId != null) {
                             updateCommentReplyCount(groupId, postId, parentCommentId);
                         }
+                        // Log comment addition
+                        LogRepository logRepo = new LogRepository(db);
+                        String snippet = content.length() > 60 ? content.substring(0, 60) + "..." : content;
+                        logRepo.logGroupAction(groupId, "comment_added", "comment", commentId, snippet, null);
                         return com.google.android.gms.tasks.Tasks.forResult(commentId);
                     } else {
                         return com.google.android.gms.tasks.Tasks.forException(task.getException());
@@ -260,6 +264,9 @@ public class CommentRepository {
                 })
                 .continueWithTask(task -> {
                     if (task.isSuccessful()) {
+                        // Log comment deletion
+                        LogRepository logRepo = new LogRepository(db);
+                        logRepo.logGroupAction(groupId, "comment_deleted", "comment", commentId, null, null);
                         // Giảm comment count của post
                         return db.collection(GROUPS_COLLECTION)
                                 .document(groupId)
