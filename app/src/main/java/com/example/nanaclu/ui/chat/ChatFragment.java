@@ -59,14 +59,19 @@ public class ChatFragment extends BaseFragment {
         toolbar.setTitle(s);
         toolbar.setTitleTextColor(android.graphics.Color.WHITE);
 
-        toolbar.inflateMenu(R.menu.menu_chat);
+		toolbar.inflateMenu(R.menu.menu_chat);
+		// Add a left-side plus icon to start a new chat with friends
+		try {
+			toolbar.setNavigationIcon(R.drawable.ic_add_24);
+			toolbar.setNavigationOnClickListener(v -> openFriendPicker());
+		} catch (Exception ignored) {}
         // Replace menu item with custom action view to control icon size
         android.view.MenuItem item = toolbar.getMenu().findItem(R.id.action_new_chat);
         android.view.LayoutInflater.from(getContext());
         android.view.View action = android.view.LayoutInflater.from(getContext()).inflate(R.layout.menu_action_new_chat, toolbar, false);
         item.setActionView(action);
-        android.view.View btn = action.findViewById(R.id.btnNewChat);
-        btn.setOnClickListener(v -> android.widget.Toast.makeText(getContext(), "New chat", android.widget.Toast.LENGTH_SHORT).show());
+		android.view.View btn = action.findViewById(R.id.btnNewChat);
+		btn.setOnClickListener(v -> openFriendPicker());
 
         EditText edtSearch = root.findViewById(R.id.edtSearch);
         rv = root.findViewById(R.id.rvChatThreads);
@@ -295,6 +300,102 @@ public class ChatFragment extends BaseFragment {
         dialog.setContentView(v);
         dialog.show();
     }
+
+	private void openFriendPicker() {
+		if (getContext() == null) return;
+		BottomSheetDialog dialog = new BottomSheetDialog(getContext());
+		View v = View.inflate(getContext(), R.layout.bottomsheet_friend_picker, null);
+		androidx.recyclerview.widget.RecyclerView rvFriends = v.findViewById(R.id.recyclerView);
+		android.widget.ProgressBar progressBar = v.findViewById(R.id.progressBar);
+		android.widget.TextView tvEmpty = v.findViewById(R.id.tvEmpty);
+
+		rvFriends.setLayoutManager(new LinearLayoutManager(getContext()));
+		com.example.nanaclu.ui.adapter.UserSearchAdapter adapter = new com.example.nanaclu.ui.adapter.UserSearchAdapter(new java.util.ArrayList<>(), userId -> {
+			// Create or open private chat, then navigate
+			String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+					? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+			if (currentUid == null || userId == null || currentUid.equals(userId)) return;
+			com.example.nanaclu.data.repository.ChatRepository chatRepo = new com.example.nanaclu.data.repository.ChatRepository(FirebaseFirestore.getInstance());
+			new com.example.nanaclu.data.repository.UserRepository(FirebaseFirestore.getInstance()).getUserById(userId, new com.example.nanaclu.data.repository.UserRepository.UserCallback() {
+				@Override public void onSuccess(User user) {
+					chatRepo.getOrCreatePrivateChat(currentUid, userId)
+							.addOnSuccessListener(chatId -> {
+								// Unhide for opener so it appears in ChatFragment list
+								java.util.List<String> self = new java.util.ArrayList<>(); self.add(currentUid);
+								chatRepo.unarchiveForUsers(chatId, self);
+								Intent intent = new Intent(getContext(), ChatRoomActivity.class);
+								intent.putExtra("chatId", chatId);
+								intent.putExtra("chatType", "private");
+								intent.putExtra("chatTitle", user != null && user.displayName != null ? user.displayName : "Private Chat");
+								startActivity(intent);
+								dialog.dismiss();
+							})
+							.addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Lỗi mở chat: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show());
+				}
+				@Override public void onError(Exception e) {
+					android.widget.Toast.makeText(getContext(), "Lỗi tải thông tin bạn bè", android.widget.Toast.LENGTH_SHORT).show();
+				}
+			});
+		});
+		rvFriends.setAdapter(adapter);
+
+		progressBar.setVisibility(View.VISIBLE);
+		tvEmpty.setVisibility(View.GONE);
+
+		String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+				? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+		if (currentUserId == null) {
+			progressBar.setVisibility(View.GONE);
+			tvEmpty.setText("Chưa đăng nhập");
+			tvEmpty.setVisibility(View.VISIBLE);
+			dialog.setContentView(v);
+			dialog.show();
+			return;
+		}
+
+		com.example.nanaclu.data.repository.FriendshipRepository friendshipRepository = new com.example.nanaclu.data.repository.FriendshipRepository(FirebaseFirestore.getInstance());
+		com.example.nanaclu.data.repository.UserRepository userRepository = new com.example.nanaclu.data.repository.UserRepository(FirebaseFirestore.getInstance());
+
+		friendshipRepository.listFriends(currentUserId, 100)
+				.addOnSuccessListener(friendIds -> {
+					progressBar.setVisibility(View.GONE);
+					if (friendIds == null || friendIds.isEmpty()) {
+						tvEmpty.setText("Bạn chưa có bạn bè nào");
+						tvEmpty.setVisibility(View.VISIBLE);
+						return;
+					}
+					java.util.List<User> users = new java.util.ArrayList<>();
+					final int total = friendIds.size();
+					final int[] loaded = {0};
+					for (String fid : friendIds) {
+						userRepository.getUserById(fid, new com.example.nanaclu.data.repository.UserRepository.UserCallback() {
+							@Override public void onSuccess(User u) {
+								if (u != null) users.add(u);
+								loaded[0]++;
+								if (loaded[0] == total) {
+									adapter.setUsers(users);
+									tvEmpty.setVisibility(users.isEmpty() ? View.VISIBLE : View.GONE);
+								}
+							}
+							@Override public void onError(Exception e) {
+								loaded[0]++;
+								if (loaded[0] == total) {
+									adapter.setUsers(users);
+									tvEmpty.setVisibility(users.isEmpty() ? View.VISIBLE : View.GONE);
+								}
+							}
+						});
+					}
+				})
+				.addOnFailureListener(e -> {
+					progressBar.setVisibility(View.GONE);
+					tvEmpty.setText("Lỗi tải danh sách bạn bè");
+					tvEmpty.setVisibility(View.VISIBLE);
+				});
+
+		dialog.setContentView(v);
+		dialog.show();
+	}
 
     // ===== Models & Adapter =====
     static class ChatThread {
