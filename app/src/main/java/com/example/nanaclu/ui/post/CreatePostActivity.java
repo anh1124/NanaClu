@@ -2,6 +2,7 @@ package com.example.nanaclu.ui.post;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -10,10 +11,16 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.ImageButton;
+import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -45,18 +52,29 @@ import java.util.UUID;
 public class CreatePostActivity extends AppCompatActivity {
     private static final int PICK_IMAGES_REQUEST = 1001;
     private static final int PERMISSION_REQUEST_CODE = 1002;
+    private static final int PICK_VIDEO_REQUEST = 1004;
+    private static final int PERMISSION_VIDEO = 1003;
 
     private MaterialToolbar toolbar;
     private TextInputLayout tilContent;
     private TextInputEditText etContent;
     private MaterialCardView cardAddImage;
+    private MaterialCardView cardAddVideo;
     private RecyclerView rvImages;
     private MaterialButton btnPost;
     private ProgressBar progressBar;
+    
+    // Video UI components
+    private FrameLayout videoPreviewContainer;
+    private ImageView ivVideoThumb;
+    private ImageView ivPlayIcon;
+    private TextView tvVideoDuration;
+    private ImageButton btnRemoveVideo;
 
     private PostRepository postRepository;
     private SelectedImageAdapter imageAdapter;
     private List<String> selectedImagePaths = new ArrayList<>();
+    private Uri selectedVideoUri;
     private String groupId;
     private String currentUserId;
 
@@ -95,9 +113,17 @@ public class CreatePostActivity extends AppCompatActivity {
         tilContent = findViewById(R.id.tilContent);
         etContent = findViewById(R.id.etContent);
         cardAddImage = findViewById(R.id.cardAddImage);
+        cardAddVideo = findViewById(R.id.cardAddVideo);
         rvImages = findViewById(R.id.rvImages);
         btnPost = findViewById(R.id.btnPost);
         progressBar = findViewById(R.id.progressBar);
+        
+        // Video UI components
+        videoPreviewContainer = findViewById(R.id.videoPreviewContainer);
+        ivVideoThumb = findViewById(R.id.ivVideoThumb);
+        ivPlayIcon = findViewById(R.id.ivPlayIcon);
+        tvVideoDuration = findViewById(R.id.tvVideoDuration);
+        btnRemoveVideo = findViewById(R.id.btnRemoveVideo);
     }
     
     private void setupToolbar() {
@@ -126,6 +152,16 @@ public class CreatePostActivity extends AppCompatActivity {
                 requestPermission();
             }
         });
+
+        cardAddVideo.setOnClickListener(v -> {
+            if (checkVideoPermission()) {
+                pickVideo();
+            } else {
+                requestVideoPermission();
+            }
+        });
+
+        btnRemoveVideo.setOnClickListener(v -> removeVideo());
 
         btnPost.setOnClickListener(v -> createPost());
     }
@@ -168,6 +204,139 @@ public class CreatePostActivity extends AppCompatActivity {
         startActivityForResult(Intent.createChooser(intent, "Select Images"), PICK_IMAGES_REQUEST);
     }
 
+    private boolean checkVideoPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ (API 33+) - use READ_MEDIA_VIDEO
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) 
+                    == PackageManager.PERMISSION_GRANTED;
+        } else {
+            // Android 12 and below - use READ_EXTERNAL_STORAGE
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) 
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+
+    private void requestVideoPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ (API 33+) - request READ_MEDIA_VIDEO
+            ActivityCompat.requestPermissions(this, 
+                    new String[]{Manifest.permission.READ_MEDIA_VIDEO}, 
+                    PERMISSION_VIDEO);
+        } else {
+            // Android 12 and below - request READ_EXTERNAL_STORAGE
+            ActivityCompat.requestPermissions(this, 
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 
+                    PERMISSION_VIDEO);
+        }
+    }
+
+    private void pickVideo() {
+        Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setType("video/*");
+        startActivityForResult(Intent.createChooser(intent, "Select Video"), PICK_VIDEO_REQUEST);
+    }
+
+    private boolean validateVideoSize(Uri videoUri) {
+        try {
+            long sizeBytes = getVideoFileSizeBytes(videoUri);
+            long sizeMB = sizeBytes / (1024 * 1024);
+            if (sizeMB > 20) {
+                Toast.makeText(this, "Video quá lớn (>20MB)", Toast.LENGTH_SHORT).show();
+                return false;
+            }
+            if (sizeMB > 10) {
+                // Show warning but allow
+                new AlertDialog.Builder(this)
+                    .setMessage("Video >10MB. Tải lên có thể lâu. Tiếp tục?")
+                    .setPositiveButton("OK", (d, w) -> processVideo(videoUri))
+                    .setNegativeButton("Hủy", null)
+                    .show();
+                return false; // Will handle in dialog
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private long getVideoFileSizeBytes(Uri uri) {
+        long size = 0L;
+        try {
+            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null) {
+                int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (sizeIndex != -1 && cursor.moveToFirst()) {
+                    Long value = cursor.getLong(sizeIndex);
+                    if (value != null) size = value;
+                }
+                cursor.close();
+            }
+            if (size <= 0) {
+                android.content.res.AssetFileDescriptor afd = getContentResolver().openAssetFileDescriptor(uri, "r");
+                if (afd != null) {
+                    size = afd.getLength();
+                    afd.close();
+                }
+            }
+        } catch (Exception ignored) { }
+        return Math.max(size, 0L);
+    }
+
+    private void processVideo(Uri videoUri) {
+        selectedVideoUri = videoUri;
+        selectedImagePaths.clear(); // Clear images
+		imageAdapter.setImages(new ArrayList<>());
+        cardAddImage.setEnabled(false); // Disable image picker
+        showVideoPreview(videoUri);
+    }
+
+    private void showVideoPreview(Uri videoUri) {
+        // Generate thumbnail
+        Bitmap thumbnail = PostRepository.generateVideoThumbnail(this, videoUri);
+        if (thumbnail != null) {
+            ivVideoThumb.setImageBitmap(thumbnail);
+        }
+
+        // Get video metadata
+        PostRepository.VideoMetadata metadata = PostRepository.getVideoMetadata(this, videoUri);
+        long sizeBytes = getVideoFileSizeBytes(videoUri);
+        String info = formatDuration(metadata.duration);
+        if (sizeBytes > 0) info += " · " + formatSize(sizeBytes);
+        tvVideoDuration.setText(info);
+
+        // Show video preview
+        videoPreviewContainer.setVisibility(View.VISIBLE);
+    }
+
+    private String formatDuration(long durationMs) {
+        long seconds = durationMs / 1000;
+        long minutes = seconds / 60;
+        seconds = seconds % 60;
+        return String.format("%d:%02d", minutes, seconds);
+    }
+
+    private String formatSize(long bytes) {
+        if (bytes <= 0) return "0 B";
+        final String[] units = new String[]{"B", "KB", "MB", "GB"};
+        int unitIndex = 0;
+        double value = (double) bytes;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024.0;
+            unitIndex++;
+        }
+        if (unitIndex <= 1) {
+            return String.format(java.util.Locale.getDefault(), "%.0f %s", value, units[unitIndex]);
+        }
+        return String.format(java.util.Locale.getDefault(), "%.1f %s", value, units[unitIndex]);
+    }
+
+    private void removeVideo() {
+        selectedVideoUri = null;
+        videoPreviewContainer.setVisibility(View.GONE);
+        cardAddImage.setEnabled(true); // Re-enable image picker
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -194,6 +363,13 @@ public class CreatePostActivity extends AppCompatActivity {
                 }
                 
                 imageAdapter.setImages(selectedImagePaths);
+            }
+        } else if (requestCode == PICK_VIDEO_REQUEST && resultCode == Activity.RESULT_OK) {
+            if (data != null && data.getData() != null) {
+                Uri videoUri = data.getData();
+                if (validateVideoSize(videoUri)) {
+                    processVideo(videoUri);
+                }
             }
         }
     }
@@ -223,8 +399,8 @@ public class CreatePostActivity extends AppCompatActivity {
     private void createPost() {
         String content = etContent.getText().toString().trim();
         
-        if (content.isEmpty() && selectedImagePaths.isEmpty()) {
-            Toast.makeText(this, "Vui lòng nhập nội dung hoặc chọn hình ảnh", Toast.LENGTH_SHORT).show();
+        if (content.isEmpty() && selectedImagePaths.isEmpty() && selectedVideoUri == null) {
+            Toast.makeText(this, "Vui lòng nhập nội dung hoặc chọn hình ảnh/video", Toast.LENGTH_SHORT).show();
             return;
         }
         
@@ -238,11 +414,13 @@ public class CreatePostActivity extends AppCompatActivity {
         post.content = content;
         post.imageUrls = new ArrayList<>();
 
-        // Process images
-        if (!selectedImagePaths.isEmpty()) {
+        // Process video first (mutual exclusion with images)
+        if (selectedVideoUri != null) {
+            createPostWithVideo(post);
+        } else if (!selectedImagePaths.isEmpty()) {
             processImagesWithStorage(post);
         } else {
-            // No images, create post directly
+            // No media, create post directly
             routePostCreation(post, new PostRepository.PostCallback() {
                 @Override
                 public void onSuccess(Post createdPost) {
@@ -334,6 +512,76 @@ public class CreatePostActivity extends AppCompatActivity {
                 });
             }
         );
+    }
+
+    private void createPostWithVideo(Post post) {
+        // 1. Generate thumbnail
+        Bitmap thumb = PostRepository.generateVideoThumbnail(this, selectedVideoUri);
+        if (thumb == null) {
+            runOnUiThread(() -> {
+                showLoading(false);
+                Toast.makeText(this, "Không thể tạo thumbnail cho video", Toast.LENGTH_SHORT).show();
+            });
+            return;
+        }
+        byte[] thumbBytes = PostRepository.compressBitmapToJpeg(thumb);
+        
+        // 2. Get metadata
+        PostRepository.VideoMetadata meta = PostRepository.getVideoMetadata(this, selectedVideoUri);
+        
+        // 3. Upload thumbnail
+        postRepository.uploadVideoThumbnail(thumbBytes, groupId, post.postId,
+            thumbUrl -> {
+                // 4. Upload video with progress
+                postRepository.uploadVideoToStorage(selectedVideoUri, groupId, post.postId,
+                    progress -> {
+                        // Update progress on UI thread
+                        runOnUiThread(() -> {
+                            int progressPercent = (int) (100.0 * progress.getBytesTransferred() / progress.getTotalByteCount());
+                            // Could show progress dialog here
+                        });
+                    },
+                    videoUrl -> {
+                        // 5. Create post with video fields
+                        post.hasVideo = true;
+                        post.videoUrl = videoUrl;
+                        post.videoThumbUrl = thumbUrl;
+                        post.videoDurationMs = meta.duration;
+                        post.videoWidth = meta.width;
+                        post.videoHeight = meta.height;
+                        routePostCreation(post, new PostRepository.PostCallback() {
+                            @Override
+                            public void onSuccess(Post createdPost) {
+                                runOnUiThread(() -> {
+                                    showLoading(false);
+                                    Toast.makeText(CreatePostActivity.this, "Đã gửi bài đăng", Toast.LENGTH_SHORT).show();
+                                    setResult(Activity.RESULT_OK);
+                                    finish();
+                                });
+                            }
+                            
+                            @Override
+                            public void onError(Exception e) {
+                                runOnUiThread(() -> {
+                                    showLoading(false);
+                                    Toast.makeText(CreatePostActivity.this, "Lỗi tạo bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        });
+                    },
+                    error -> {
+                        runOnUiThread(() -> {
+                            showLoading(false);
+                            Toast.makeText(CreatePostActivity.this, "Lỗi upload video: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        });
+                    });
+            },
+            error -> {
+                runOnUiThread(() -> {
+                    showLoading(false);
+                    Toast.makeText(CreatePostActivity.this, "Lỗi upload thumbnail: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            });
     }
 
     /** Decide whether to create immediate post or pending post based on group setting and role */
@@ -434,6 +682,7 @@ public class CreatePostActivity extends AppCompatActivity {
         btnPost.setEnabled(!show);
         etContent.setEnabled(!show);
         cardAddImage.setEnabled(!show);
+        cardAddVideo.setEnabled(!show);
     }
     
     @Override
@@ -444,6 +693,12 @@ public class CreatePostActivity extends AppCompatActivity {
                 pickImages();
             } else {
                 Toast.makeText(this, "Permission denied. Cannot access images.", Toast.LENGTH_LONG).show();
+            }
+        } else if (requestCode == PERMISSION_VIDEO) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                pickVideo();
+            } else {
+                Toast.makeText(this, "Permission denied. Cannot access videos.", Toast.LENGTH_LONG).show();
             }
         }
     }

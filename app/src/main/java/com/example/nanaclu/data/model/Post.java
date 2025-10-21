@@ -14,6 +14,14 @@ public class Post {
     public Long editedAt;
     public int likeCount;
     public int commentCount;
+    
+    // Video fields
+    public boolean hasVideo;
+    public String videoUrl;
+    public String videoThumbUrl;
+    public long videoDurationMs;
+    public int videoWidth;
+    public int videoHeight;
 
     public Post() {
         this.imageUrls = new ArrayList<>(); // Initialize empty list

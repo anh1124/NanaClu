@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
                      android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -39,6 +40,7 @@
         <activity android:name=".ui.post.CreatePostActivity" android:exported="false" />
         <activity android:name=".ui.post.PostDetailActivity" android:exported="false" />
         <activity android:name=".ui.post.ImageViewerActivity" android:exported="false" />
+        <activity android:name=".ui.video.VideoPlayerActivity" android:exported="false" />
         <activity android:name=".ui.post.PendingPostsActivity" android:exported="false" />
         <activity android:name=".ui.auth.LoginActivity" android:exported="false" />
         <activity android:name=".ui.auth.RegisterActivity" android:exported="false" />
