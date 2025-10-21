@@ -639,16 +639,17 @@ public class ChatRoomActivity extends BaseActivity {
                                     .setNegativeButton("Hủy", null)
                                     .show();
                         } else {
-                            // For private chat, use original logic
+                            // For private chat, archive (soft delete) for current user: hide + clear history
                             new androidx.appcompat.app.AlertDialog.Builder(this)
                                     .setTitle("Xóa đoạn chat")
-                                    .setMessage("Bạn chỉ xóa ở phía bạn. Khi cả hai cùng xóa, đoạn chat mới bị xóa khỏi máy chủ. Tiếp tục?")
+                                    .setMessage("Bạn chỉ ẩn cuộc trò chuyện và xóa lịch sử cũ ở phía bạn. Khi cả hai cùng xóa, đoạn chat sẽ bị xóa khỏi máy chủ. Tiếp tục?")
                                     .setPositiveButton("Xóa", (dd, w) -> {
                                         String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
                                                 ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
                                         if (uid == null) { Toast.makeText(this, "Chưa đăng nhập", Toast.LENGTH_SHORT).show(); return; }
+                                        long now = System.currentTimeMillis();
                                         new com.example.nanaclu.data.repository.ChatRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance())
-                                                .hideChatForUser(chatId, uid)
+                                                .archiveForUser(chatId, uid, now)
                                                 .addOnSuccessListener(aVoid -> {
                                                     Toast.makeText(this, "Đã ẩn đoạn chat", Toast.LENGTH_SHORT).show();
                                                     finish();

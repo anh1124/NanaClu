@@ -132,6 +132,10 @@ public class ProfileActivity extends AppCompatActivity {
     private void createPrivateChatAndOpen(String currentUid, String otherUid) {
         chatRepository.getOrCreatePrivateChat(currentUid, otherUid)
             .addOnSuccessListener(chatId -> {
+                // If this user had archived the chat earlier, unhide it on open (keep clearedAt)
+                java.util.List<String> self = new java.util.ArrayList<>();
+                self.add(currentUid);
+                chatRepository.unarchiveForUsers(chatId, self);
                 Intent intent = new Intent(this, ChatRoomActivity.class);
                 intent.putExtra("chatId", chatId);
                 // Use the loaded user's name for chat title
