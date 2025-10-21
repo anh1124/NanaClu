@@ -43,7 +43,29 @@ public class LoginActivity extends AppCompatActivity {
         TextView tvGoRegister = findViewById(R.id.tvGoRegister);
 
         btnLogin.setOnClickListener(v -> {
-            viewModel.loginWithEmail(edtEmail.getText().toString().trim(), edtPassword.getText().toString());
+            String email = edtEmail.getText().toString().trim();
+            String password = edtPassword.getText().toString();
+            
+            // Validation
+            if (email.isEmpty()) {
+                edtEmail.setError("Vui lòng nhập email");
+                edtEmail.requestFocus();
+                return;
+            }
+            
+            if (password.isEmpty()) {
+                edtPassword.setError("Vui lòng nhập mật khẩu");
+                edtPassword.requestFocus();
+                return;
+            }
+            
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                edtEmail.setError("Email không hợp lệ");
+                edtEmail.requestFocus();
+                return;
+            }
+            
+            viewModel.loginWithEmail(email, password);
             getSharedPreferences("auth", MODE_PRIVATE).edit().putBoolean("remember_me", cbRemember.isChecked()).apply();
         });
 

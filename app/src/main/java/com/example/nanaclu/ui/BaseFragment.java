@@ -26,7 +26,11 @@ public abstract class BaseFragment extends Fragment {
         };
         
         IntentFilter filter = new IntentFilter(ThemeUtils.ACTION_THEME_CHANGED);
-        requireContext().registerReceiver(themeChangeReceiver, filter);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            requireContext().registerReceiver(themeChangeReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            requireContext().registerReceiver(themeChangeReceiver, filter);
+        }
     }
 
     @Override

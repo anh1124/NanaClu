@@ -7,15 +7,26 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.example.nanaclu.R;
+import com.example.nanaclu.utils.NoticeCenter;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class HomeActivity extends AppCompatActivity {
     private int[] tabOrder = new int[]{R.id.nav_home, R.id.nav_group, R.id.nav_chat, R.id.nav_me};
+    private NoticeCenter noticeCenter;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+
+        // Start NoticeCenter
+        noticeCenter = NoticeCenter.getInstance();
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null 
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (currentUid != null) {
+            noticeCenter.start(currentUid, getApplication());
+        }
 
         BottomNavigationView bottom = findViewById(R.id.bottom_nav);
         if (bottom != null) {
@@ -50,6 +61,15 @@ public class HomeActivity extends AppCompatActivity {
             } else {
                 bottom.setSelectedItemId(R.id.nav_home);
             }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Stop NoticeCenter
+        if (noticeCenter != null) {
+            noticeCenter.stop();
         }
     }
 

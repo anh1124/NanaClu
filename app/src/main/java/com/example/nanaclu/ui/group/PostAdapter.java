@@ -23,6 +23,7 @@ import com.example.nanaclu.data.model.Post;
 import com.example.nanaclu.data.repository.PostRepository;
 import com.example.nanaclu.data.repository.UserRepository;
 import com.example.nanaclu.data.repository.GroupRepository;
+import com.example.nanaclu.data.repository.NoticeRepository;
 import com.example.nanaclu.data.model.User;
 import com.example.nanaclu.data.model.Group;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -47,6 +48,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     private final PostActionListener actionListener;
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
+    private final NoticeRepository noticeRepository;
     private final String currentUserId;
     private final boolean showGroupName; // true for feed, false for group detail
 
@@ -59,6 +61,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         this.actionListener = actionListener;
         this.userRepository = new UserRepository(FirebaseFirestore.getInstance());
         this.groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
+        this.noticeRepository = new NoticeRepository(FirebaseFirestore.getInstance());
         this.currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
         this.showGroupName = showGroupName;
     }
@@ -265,6 +268,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                             btnLike.setImageResource(R.drawable.heart1);
                             fetchAndUpdateLikeCount(post);
                             btnLike.setEnabled(true);
+                            
+                            // Create notice for post author
+                            createLikeNotice(post);
                         }, e -> {
                             btnLike.setEnabled(true);
                         });
@@ -678,5 +684,26 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             // Note: We can't reload the avatar here because we're in a different context
             // The avatar will be updated on the next refresh
         }
+    }
+
+    private void createLikeNotice(Post post) {
+        if (currentUserId == null || currentUserId.equals(post.authorId)) {
+            return; // Không tạo thông báo cho chính mình
+        }
+
+        // Lấy tên user hiện tại
+        userRepository.getUserById(currentUserId, new UserRepository.UserCallback() {
+            @Override
+            public void onSuccess(User user) {
+                String actorName = user != null ? user.displayName : "Người dùng";
+                noticeRepository.createPostLiked(post.groupId, post.postId, currentUserId, actorName, post.authorId);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                // Fallback với tên mặc định
+                noticeRepository.createPostLiked(post.groupId, post.postId, currentUserId, "Người dùng", post.authorId);
+            }
+        });
     }
 }

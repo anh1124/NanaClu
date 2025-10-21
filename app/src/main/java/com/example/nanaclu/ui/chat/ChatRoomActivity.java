@@ -29,6 +29,7 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import com.example.nanaclu.utils.FileActionsUtil;
+import com.example.nanaclu.utils.ActiveScreenTracker;
 
 public class ChatRoomActivity extends BaseActivity {
     private static final int PICK_IMAGE_REQUEST = 1001;
@@ -107,6 +108,9 @@ public class ChatRoomActivity extends BaseActivity {
         setupRecyclerView();
         setupViewModel();
         setupClickListeners();
+        
+        // Set active chat for notification suppression
+        ActiveScreenTracker.setActiveChatId(chatId);
     }
 
     private void initViews() {
@@ -705,5 +709,12 @@ public class ChatRoomActivity extends BaseActivity {
         } catch (Exception e) {
             Toast.makeText(this, "Lỗi mở file: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Clear active chat
+        ActiveScreenTracker.setActiveChatId(null);
     }
 }

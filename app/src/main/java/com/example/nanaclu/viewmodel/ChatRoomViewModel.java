@@ -12,6 +12,9 @@ import com.example.nanaclu.data.model.Message;
 import com.example.nanaclu.data.repository.ChatRepository;
 import com.example.nanaclu.data.repository.FileRepository;
 import com.example.nanaclu.data.repository.MessageRepository;
+import com.example.nanaclu.data.repository.NoticeRepository;
+import com.example.nanaclu.data.repository.UserRepository;
+import com.example.nanaclu.data.model.User;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
@@ -22,6 +25,8 @@ import java.util.List;
 public class ChatRoomViewModel extends ViewModel {
     private final ChatRepository chatRepo;
     private final MessageRepository msgRepo;
+    private final NoticeRepository noticeRepo;
+    private final UserRepository userRepo;
     private FileRepository fileRepo;
    
     private Long oldestMessageTimestamp = null; // Dùng để tải tin nhắn cũ hơn
@@ -66,6 +71,8 @@ public class ChatRoomViewModel extends ViewModel {
     public ChatRoomViewModel() {
         this.chatRepo = new ChatRepository(FirebaseFirestore.getInstance());
         this.msgRepo = new MessageRepository(FirebaseFirestore.getInstance(), FirebaseStorage.getInstance());
+        this.noticeRepo = new NoticeRepository(FirebaseFirestore.getInstance());
+        this.userRepo = new UserRepository(FirebaseFirestore.getInstance());
     }
 
     public void initFileRepository(Context context) {
@@ -226,6 +233,8 @@ _messages.postValue(updated);
                 .addOnSuccessListener(id -> {
                     _sending.postValue(false);
                     // Rely on realtime listener to update UI
+                    // Create notice for other chat members
+                    createMessageNotice(text);
                 })
                 .addOnFailureListener(e -> { _sending.postValue(false); _error.postValue(e.getMessage()); });
     }
@@ -240,6 +249,8 @@ _messages.postValue(updated);
                 .addOnSuccessListener(id -> {
                     _sending.postValue(false);
                     // Rely on realtime listener to update UI
+                    // Create notice for other chat members
+                    createMessageNotice("Đã gửi ảnh");
                 })
                 .addOnFailureListener(e -> { _sending.postValue(false); _error.postValue(e.getMessage()); });
     }
@@ -359,6 +370,8 @@ _messages.postValue(updated);
         msgRepo.sendMessage(chatId, message, chatType, groupId)
                 .addOnSuccessListener(messageId -> {
                     // Message sent successfully
+                    // Create notice for other chat members
+                    createMessageNotice("Đã gửi file");
                 })
                 .addOnFailureListener(e -> {
                     _fileError.postValue("Lỗi gửi tin nhắn: " + e.getMessage());
@@ -403,6 +416,81 @@ _messages.postValue(updated);
             }
         }
         _chatFiles.postValue(allFiles);
+    }
+
+    private void createMessageNotice(String previewText) {
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (currentUid == null) return;
+
+        // Get current user name
+        userRepo.getUserById(currentUid, new UserRepository.UserCallback() {
+            @Override
+            public void onSuccess(User user) {
+                String actorName = user != null ? user.displayName : "Người dùng";
+                
+                // Get chat members and create notices
+                getChatMembers(chatId, new ChatMembersCallback() {
+                    @Override
+                    public void onSuccess(List<String> memberIds) {
+                        // Remove current user from recipients
+                        List<String> targetUids = new ArrayList<>();
+                        for (String memberId : memberIds) {
+                            if (!memberId.equals(currentUid)) {
+                                targetUids.add(memberId);
+                            }
+                        }
+                        
+                        if (!targetUids.isEmpty()) {
+                            noticeRepo.createMessageNotice(chatId, chatType, groupId, currentUid, actorName, targetUids, previewText);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Fallback: try to create notice anyway
+                        android.util.Log.e("ChatRoomViewModel", "Error getting chat members", e);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(Exception e) {
+                // Fallback with default name
+                String actorName = "Người dùng";
+                getChatMembers(chatId, new ChatMembersCallback() {
+                    @Override
+                    public void onSuccess(List<String> memberIds) {
+                        List<String> targetUids = new ArrayList<>();
+                        for (String memberId : memberIds) {
+                            if (!memberId.equals(currentUid)) {
+                                targetUids.add(memberId);
+                            }
+                        }
+                        
+                        if (!targetUids.isEmpty()) {
+                            noticeRepo.createMessageNotice(chatId, chatType, groupId, currentUid, actorName, targetUids, previewText);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        android.util.Log.e("ChatRoomViewModel", "Error getting chat members", e);
+                    }
+                });
+            }
+        });
+    }
+
+    private void getChatMembers(String chatId, ChatMembersCallback callback) {
+        chatRepo.getChatMembers(chatId)
+                .addOnSuccessListener(callback::onSuccess)
+                .addOnFailureListener(callback::onError);
+    }
+
+    private interface ChatMembersCallback {
+        void onSuccess(List<String> memberIds);
+        void onError(Exception e);
     }
 
     @Override

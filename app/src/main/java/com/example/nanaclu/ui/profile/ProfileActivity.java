@@ -281,7 +281,7 @@ public class ProfileActivity extends AppCompatActivity {
      */
     private void acceptFriendRequest() {
         showLoading(true);
-        friendshipRepository.acceptFriendRequest(userId, currentUserId)
+        friendshipRepository.acceptFriendRequest(currentUserId, userId)
                 .addOnSuccessListener(aVoid -> {
                     showLoading(false);
                     loadFriendshipStatus(findViewById(R.id.btnFriendAction));
@@ -299,7 +299,7 @@ public class ProfileActivity extends AppCompatActivity {
      */
     private void declineFriendRequest() {
         showLoading(true);
-        friendshipRepository.declineFriendRequest(userId, currentUserId)
+        friendshipRepository.declineFriendRequest(currentUserId, userId)
                 .addOnSuccessListener(aVoid -> {
                     showLoading(false);
                     loadFriendshipStatus(findViewById(R.id.btnFriendAction));

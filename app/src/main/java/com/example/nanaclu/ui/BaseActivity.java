@@ -26,7 +26,11 @@ public abstract class BaseActivity extends AppCompatActivity {
         };
         
         IntentFilter filter = new IntentFilter(ThemeUtils.ACTION_THEME_CHANGED);
-        registerReceiver(themeChangeReceiver, filter);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(themeChangeReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(themeChangeReceiver, filter);
+        }
     }
 
     @Override
