@@ -88,6 +88,24 @@ public class NoticeRepository {
     }
 
     /**
+     * Đánh dấu nhiều thông báo đã xem (batch)
+     */
+    public Task<Void> markSeenBatch(String uid, List<String> noticeIds) {
+        if (noticeIds == null || noticeIds.isEmpty()) {
+            return Tasks.forResult(null);
+        }
+        WriteBatch batch = db.batch();
+        for (String id : noticeIds) {
+            DocumentReference ref = db.collection("users")
+                    .document(uid)
+                    .collection("notices")
+                    .document(id);
+            batch.update(ref, "seen", true);
+        }
+        return batch.commit();
+    }
+
+    /**
      * Đếm số thông báo chưa xem
      */
     public Task<Integer> getUnreadCount(String uid) {
@@ -103,6 +121,28 @@ public class NoticeRepository {
                         Log.e(TAG, "Error getting unread count", task.getException());
                         return 0;
                     }
+                });
+    }
+
+    /**
+     * Lấy danh sách ID các thông báo chưa xem
+     */
+    public Task<List<String>> getUnseenNoticeIds(String uid) {
+        return db.collection("users")
+                .document(uid)
+                .collection("notices")
+                .whereEqualTo("seen", false)
+                .get()
+                .continueWith(task -> {
+                    List<String> ids = new ArrayList<>();
+                    if (task.isSuccessful()) {
+                        for (DocumentSnapshot d : task.getResult().getDocuments()) {
+                            ids.add(d.getId());
+                        }
+                    } else {
+                        Log.e(TAG, "Error fetching unseen notice IDs", task.getException());
+                    }
+                    return ids;
                 });
     }
 
