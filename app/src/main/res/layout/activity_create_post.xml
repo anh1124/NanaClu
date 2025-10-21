@@ -61,12 +61,12 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Images Section -->
+            <!-- Media Section -->
             <TextView
-                android:id="@+id/tvImagesLabel"
+                android:id="@+id/tvMediaLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Hình ảnh"
+                android:text="Hình ảnh &amp; Video"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:layout_marginTop="24dp"
@@ -74,27 +74,103 @@
                 app:layout_constraintTop_toBottomOf="@id/tilContent"
                 app:layout_constraintStart_toStartOf="parent" />
 
-            <!-- Add Image Button -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardAddImage"
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginBottom="8dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="2dp"
-                app:cardBackgroundColor="@color/light_gray"
-                app:layout_constraintTop_toBottomOf="@id/tvImagesLabel"
+            <!-- Media Buttons Row -->
+            <LinearLayout
+                android:id="@+id/layoutMediaButtons"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                app:layout_constraintTop_toBottomOf="@id/tvMediaLabel"
                 app:layout_constraintStart_toStartOf="parent">
 
+                <!-- Add Image Button -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardAddImage"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_marginEnd="12dp"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="@color/light_gray">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/ic_add_photo"
+                        android:scaleType="centerInside"
+                        android:padding="16dp" />
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Add Video Button -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardAddVideo"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="@color/light_gray">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:src="@drawable/ic_video_24"
+                        android:scaleType="centerInside"
+                        android:padding="16dp" />
+
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
+            <!-- Video Preview Container -->
+            <FrameLayout
+                android:id="@+id/videoPreviewContainer"
+                android:layout_width="0dp"
+                android:layout_height="200dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                android:background="@color/light_gray"
+                app:layout_constraintTop_toBottomOf="@id/layoutMediaButtons"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
                 <ImageView
+                    android:id="@+id/ivVideoThumb"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:src="@drawable/ic_add_photo"
-                    android:scaleType="centerInside"
-                    android:padding="16dp" />
+                    android:scaleType="centerCrop" />
 
-            </com.google.android.material.card.MaterialCardView>
+                <ImageView
+                    android:id="@+id/ivPlayIcon"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_play_circle_filled_24"
+                    android:background="@android:color/transparent" />
+
+                <TextView
+                    android:id="@+id/tvVideoDuration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|end"
+                    android:layout_margin="12dp"
+                    android:background="#80000000"
+                    android:padding="6dp"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
+
+                <ImageButton
+                    android:id="@+id/btnRemoveVideo"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="top|end"
+                    android:layout_margin="8dp"
+                    android:background="@drawable/circle_background"
+                    android:src="@drawable/ic_close_24"
+                    android:scaleType="centerInside" />
+
+            </FrameLayout>
 
             <!-- Images Grid -->
             <androidx.recyclerview.widget.RecyclerView
@@ -105,7 +181,7 @@
                 android:orientation="horizontal"
                 app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
                 app:spanCount="3"
-                app:layout_constraintTop_toBottomOf="@id/cardAddImage"
+                app:layout_constraintTop_toBottomOf="@id/layoutMediaButtons"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 

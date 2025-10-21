@@ -12,6 +12,14 @@ import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 import androidx.annotation.Nullable;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
+import android.net.Uri;
+import android.graphics.Matrix;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -625,5 +633,172 @@ public class PostRepository {
                 .get()
                 .addOnSuccessListener(snap -> onSuccess.onSuccess(snap.exists()))
                 .addOnFailureListener(onFailure);
+    }
+
+    // ---------- Video Upload API ----------
+    
+    /**
+     * Upload video to Firebase Storage
+     * @param videoUri URI of the video file
+     * @param groupId Group ID for organizing storage
+     * @param postId Post ID for organizing storage
+     * @param progressListener Progress listener for upload tracking
+     * @param onSuccess Success callback with video URL
+     * @param onFailure Failure callback
+     */
+    public void uploadVideoToStorage(Uri videoUri, String groupId, String postId,
+                                   com.google.firebase.storage.OnProgressListener<UploadTask.TaskSnapshot> progressListener,
+                                   com.google.android.gms.tasks.OnSuccessListener<String> onSuccess,
+                                   com.google.android.gms.tasks.OnFailureListener onFailure) {
+        String storagePath = "videos/group_posts/" + groupId + "/" + postId + "/video.mp4";
+        StorageReference videoRef = storage.getReference().child(storagePath);
+        
+        UploadTask uploadTask = videoRef.putFile(videoUri);
+        
+        if (progressListener != null) {
+            uploadTask.addOnProgressListener(progressListener);
+        }
+        
+        uploadTask.addOnSuccessListener(taskSnapshot -> {
+            videoRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                onSuccess.onSuccess(uri.toString());
+            }).addOnFailureListener(onFailure);
+        }).addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Upload video thumbnail to Firebase Storage
+     * @param jpegBytes JPEG bytes of the thumbnail
+     * @param groupId Group ID for organizing storage
+     * @param postId Post ID for organizing storage
+     * @param onSuccess Success callback with thumbnail URL
+     * @param onFailure Failure callback
+     */
+    public void uploadVideoThumbnail(byte[] jpegBytes, String groupId, String postId,
+                                   com.google.android.gms.tasks.OnSuccessListener<String> onSuccess,
+                                   com.google.android.gms.tasks.OnFailureListener onFailure) {
+        String storagePath = "videos/group_posts/" + groupId + "/" + postId + "/thumb.jpg";
+        StorageReference thumbRef = storage.getReference().child(storagePath);
+        
+        UploadTask uploadTask = thumbRef.putBytes(jpegBytes);
+        uploadTask.addOnSuccessListener(taskSnapshot -> {
+            thumbRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                onSuccess.onSuccess(uri.toString());
+            }).addOnFailureListener(onFailure);
+        }).addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Generate video thumbnail using MediaMetadataRetriever
+     * @param context Android context
+     * @param videoUri URI of the video file
+     * @return Bitmap thumbnail or null if failed
+     */
+    public static Bitmap generateVideoThumbnail(Context context, Uri videoUri) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(context, videoUri);
+            
+            // Try to get frame at 1 second, fallback to first frame
+            Bitmap thumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            if (thumbnail == null) {
+                thumbnail = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            }
+            
+            // Resize thumbnail to max width 640px to reduce file size
+            if (thumbnail != null) {
+                int maxWidth = 640;
+                int width = thumbnail.getWidth();
+                int height = thumbnail.getHeight();
+                
+                if (width > maxWidth) {
+                    float ratio = (float) height / width;
+                    int newHeight = (int) (maxWidth * ratio);
+                    thumbnail = Bitmap.createScaledBitmap(thumbnail, maxWidth, newHeight, true);
+                }
+            }
+            
+            return thumbnail;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        } finally {
+            try {
+                retriever.release();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Get video metadata using MediaMetadataRetriever
+     * @param context Android context
+     * @param videoUri URI of the video file
+     * @return VideoMetadata object with duration, width, height, fileSize
+     */
+    public static VideoMetadata getVideoMetadata(Context context, Uri videoUri) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(context, videoUri);
+            
+            String durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            String widthStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+            String heightStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+            
+            long duration = durationStr != null ? Long.parseLong(durationStr) : 0;
+            int width = widthStr != null ? Integer.parseInt(widthStr) : 0;
+            int height = heightStr != null ? Integer.parseInt(heightStr) : 0;
+            
+            // Get file size
+            long fileSize = 0;
+            try {
+                File file = new File(videoUri.getPath());
+                if (file.exists()) {
+                    fileSize = file.length();
+                }
+            } catch (Exception e) {
+                // File size might not be available for content:// URIs
+            }
+            
+            return new VideoMetadata(duration, width, height, fileSize);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new VideoMetadata(0, 0, 0, 0);
+        } finally {
+            try {
+                retriever.release();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Compress bitmap to JPEG bytes
+     * @param bitmap Bitmap to compress
+     * @return JPEG bytes
+     */
+    public static byte[] compressBitmapToJpeg(Bitmap bitmap) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+        return baos.toByteArray();
+    }
+
+    /**
+     * Video metadata class
+     */
+    public static class VideoMetadata {
+        public long duration;
+        public int width;
+        public int height;
+        public long fileSize;
+
+        public VideoMetadata(long duration, int width, int height, long fileSize) {
+            this.duration = duration;
+            this.width = width;
+            this.height = height;
+            this.fileSize = fileSize;
+        }
     }
 }

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:gravity="center_vertical"
+    android:background="#80000000">
+
+    <ImageButton
+        android:id="@+id/btnPlayPause"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/circle_background"
+        android:src="@drawable/ic_play_arrow_24"
+        android:scaleType="centerInside"
+        android:padding="12dp" />
+
+    <TextView
+        android:id="@+id/tvCurrentTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0:00"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:layout_marginStart="12dp"
+        android:minWidth="40dp"
+        android:gravity="center" />
+
+    <SeekBar
+        android:id="@+id/seekBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:progressTint="@android:color/white"
+        android:thumbTint="@android:color/white" />
+
+    <TextView
+        android:id="@+id/tvDuration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0:00"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:layout_marginEnd="12dp"
+        android:minWidth="40dp"
+        android:gravity="center" />
+
+    <ImageButton
+        android:id="@+id/btnMute"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/circle_background"
+        android:src="@drawable/ic_volume_up_24"
+        android:scaleType="centerInside"
+        android:padding="12dp" />
+
+    <ImageButton
+        android:id="@+id/btnFullscreen"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/circle_background"
+        android:src="@drawable/ic_fullscreen_24"
+        android:scaleType="centerInside"
+        android:padding="12dp" />
+
+</LinearLayout>

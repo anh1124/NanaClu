@@ -127,6 +127,12 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         ImageView ivThreeLeft, ivThreeTopRight, ivThreeBottomRight;
         ImageView ivFourTopLeft, ivFourTopRight, ivFourBottomLeft, ivFourBottomRight;
         View overlayMore; TextView tvMoreCount;
+        
+        // video views
+        FrameLayout videoContainer;
+        ImageView ivVideoThumb;
+        ImageView ivPlayOverlay;
+        TextView tvVideoDuration;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -144,6 +150,12 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             imageContainer = itemView.findViewById(R.id.imageContainer);
             tvLikeCount = itemView.findViewById(R.id.tvLikeCount);
             tvCommentCount = itemView.findViewById(R.id.tvCommentCount);
+            
+            // Video views
+            videoContainer = itemView.findViewById(R.id.videoContainer);
+            ivVideoThumb = itemView.findViewById(R.id.ivVideoThumb);
+            ivPlayOverlay = itemView.findViewById(R.id.ivPlayOverlay);
+            tvVideoDuration = itemView.findViewById(R.id.tvVideoDuration);
         }
 
         void bind(Post post) {
@@ -230,7 +242,12 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 }
             });
 
-            setupImagesDynamic(post);
+            // Setup video or images (mutual exclusion)
+            if (post.hasVideo && post.videoUrl != null && post.videoThumbUrl != null) {
+                setupVideoDisplay(post);
+            } else {
+                setupImagesDynamic(post);
+            }
 
             ivAuthorAvatar.setOnClickListener(v -> openProfile(post.authorId));
             tvAuthorName.setOnClickListener(v -> openProfile(post.authorId));
@@ -558,6 +575,42 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 }
             }
             imageContainer.addView(grid);
+        }
+
+        private void setupVideoDisplay(Post post) {
+            // Hide image container
+            imageContainer.setVisibility(View.GONE);
+            
+            // Show video container
+            videoContainer.setVisibility(View.VISIBLE);
+            
+            // Load video thumbnail
+            Glide.with(itemView.getContext())
+                .load(post.videoThumbUrl)
+                .apply(new RequestOptions()
+                    .transform(new CenterCrop())
+                    .placeholder(R.drawable.image_background)
+                    .error(R.drawable.image_background))
+                .into(ivVideoThumb);
+            
+            // Set video duration
+            tvVideoDuration.setText(formatDuration(post.videoDurationMs));
+            
+            // Set click listener to open video player
+            videoContainer.setOnClickListener(v -> {
+                android.content.Intent intent = new android.content.Intent(
+                    itemView.getContext(), com.example.nanaclu.ui.video.VideoPlayerActivity.class);
+                intent.putExtra("videoUrl", post.videoUrl);
+                intent.putExtra("postId", post.postId);
+                itemView.getContext().startActivity(intent);
+            });
+        }
+
+        private String formatDuration(long durationMs) {
+            long seconds = durationMs / 1000;
+            long minutes = seconds / 60;
+            seconds = seconds % 60;
+            return String.format("%d:%02d", minutes, seconds);
         }
 
         private void setTextAvatar(ImageView img, String displayName, String email) {
