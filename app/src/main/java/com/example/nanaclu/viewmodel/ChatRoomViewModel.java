@@ -36,6 +36,7 @@ public class ChatRoomViewModel extends ViewModel {
     private String chatType;
     private String groupId;
     private Long anchorTs; // for pagination older messages
+    private Long clearedAtBaseline = 0L; // hide history before this timestamp
 
 
     
@@ -96,8 +97,15 @@ public class ChatRoomViewModel extends ViewModel {
         }
         _messages.postValue(new ArrayList<>());
         android.util.Log.d("ChatRoomVM", "init: chatId=" + chatId + ", chatType=" + chatType + ", groupId=" + groupId);
-        // Attach realtime listener
-        messagesReg = msgRepo.listenMessages(chatId, chatType, groupId, (snap, err) -> {
+        // Fetch clearedAt, then attach realtime listener to avoid flashing old history
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        com.google.android.gms.tasks.Task<Long> getCleared = (currentUid == null)
+                ? com.google.android.gms.tasks.Tasks.forResult(0L)
+                : chatRepo.getClearedAt(chatId, currentUid);
+        getCleared.addOnSuccessListener(val -> {
+            clearedAtBaseline = (val != null) ? val : 0L;
+            messagesReg = msgRepo.listenMessages(chatId, chatType, groupId, (snap, err) -> {
             if (err != null) {
                 _error.postValue(err.getMessage());
                 return;
@@ -106,8 +114,12 @@ public class ChatRoomViewModel extends ViewModel {
             if (snap != null) {
                 for (com.google.firebase.firestore.DocumentSnapshot ds : snap.getDocuments()) {
                     Message m = ds.toObject(Message.class);
-                    if (m != null) {
-                        list.add(m);
+                        if (m != null) {
+                            // Apply clearedAt filtering: only messages newer than clearedAt
+                            if (clearedAtBaseline != null && clearedAtBaseline > 0L && m.createdAt <= clearedAtBaseline) {
+                                continue;
+                            }
+                            list.add(m);
                         // =================== LOGGING ===================
                         String logMessage = " | Type: " + m.type +
                                             " | Author: " + (m.authorName != null ? m.authorName : "N/A") +
@@ -148,11 +160,27 @@ public class ChatRoomViewModel extends ViewModel {
                     android.util.Log.d("ChatRoomVM_LIST_SORTED", "ID: " + m.messageId + ", createdAt: " + m.createdAt + ", type: " + m.type + ", content: " + contentLog);
                 }
             }
-            _messages.postValue(list);
-            if (!list.isEmpty()) {
-                Message last = list.get(list.size() - 1);
-                anchorTs = last.createdAt;
-            }
+                _messages.postValue(list);
+                if (!list.isEmpty()) {
+                    Message last = list.get(list.size() - 1);
+                    anchorTs = last.createdAt;
+                }
+            });
+        }).addOnFailureListener(e -> {
+            // Even if failed, attach listener without baseline to avoid blocking UI
+            clearedAtBaseline = 0L;
+            messagesReg = msgRepo.listenMessages(chatId, chatType, groupId, (snap, err) -> {
+                if (err != null) { _error.postValue(err.getMessage()); return; }
+                List<Message> list = new ArrayList<>();
+                if (snap != null) {
+                    for (com.google.firebase.firestore.DocumentSnapshot ds : snap.getDocuments()) {
+                        Message m = ds.toObject(Message.class);
+                        if (m != null) list.add(m);
+                    }
+                }
+                _messages.postValue(list);
+                if (!list.isEmpty()) anchorTs = list.get(list.size() - 1).createdAt;
+            });
         });
 
     }

@@ -300,6 +300,115 @@ public class ChatRepository {
         return Tasks.whenAll(rootUpdate, groupUpdate).continueWithTask(t -> Tasks.forResult(null));
     }
 
+    /**
+     * Archive (soft delete) chat for a user: hide thread and clear local history baseline.
+     * Sets: hidden=true, clearedAt=now, lastReadAt=now for the membership of this user.
+     * Still keeps the chat document; if later all members are hidden (private), auto-delete is applied.
+     */
+    public Task<Void> archiveForUser(String chatId, String userId, long now) {
+        if (chatId == null || userId == null) return Tasks.forException(new IllegalArgumentException("null"));
+        android.util.Log.d("ChatRepository", "archiveForUser: chatId=" + chatId + ", userId=" + userId + ", now=" + now);
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("hidden", true);
+        updates.put("clearedAt", now);
+        updates.put("lastReadAt", now);
+
+        // Root path membership
+        Task<Void> root = db.collection(CHATS).document(chatId)
+                .collection(MEMBERS).document(userId)
+                .update(updates);
+
+        // Group path membership (if exists)
+        Task<Void> group = db.collectionGroup("chats")
+                .whereEqualTo("chatId", chatId)
+                .limit(1)
+                .get()
+                .continueWithTask(t -> {
+                    if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) {
+                        return Tasks.forResult(null);
+                    }
+                    com.google.firebase.firestore.DocumentSnapshot chatDoc = t.getResult().getDocuments().get(0);
+                    return chatDoc.getReference().collection(MEMBERS).document(userId).update(updates);
+                });
+
+        return Tasks.whenAll(root, group).continueWithTask(t -> tryDeleteIfBothHidden(chatId));
+    }
+
+    /**
+     * Unarchive (unhide) chat for the given users: sets hidden=false for each membership.
+     * Does not modify clearedAt; previous history threshold remains intact.
+     */
+    public Task<Void> unarchiveForUsers(String chatId, java.util.List<String> userIds) {
+        if (chatId == null || userIds == null || userIds.isEmpty()) return Tasks.forResult(null);
+        android.util.Log.d("ChatRepository", "unarchiveForUsers: chatId=" + chatId + ", users=" + userIds.size());
+
+        List<Task<Void>> tasks = new ArrayList<>();
+        for (String uid : userIds) {
+            if (uid == null) continue;
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("hidden", false);
+
+            // Root path
+            tasks.add(db.collection(CHATS).document(chatId)
+                    .collection(MEMBERS).document(uid)
+                    .update(updates));
+
+            // Group path (if exists)
+            tasks.add(db.collectionGroup("chats")
+                    .whereEqualTo("chatId", chatId)
+                    .limit(1)
+                    .get()
+                    .continueWithTask(t -> {
+                        if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) {
+                            return Tasks.forResult(null);
+                        }
+                        com.google.firebase.firestore.DocumentSnapshot chatDoc = t.getResult().getDocuments().get(0);
+                        return chatDoc.getReference().collection(MEMBERS).document(uid).update(updates);
+                    }));
+        }
+        return Tasks.whenAll(tasks);
+    }
+
+    /**
+     * Read the clearedAt baseline for a user's membership in a chat. Returns 0L if not set.
+     */
+    public Task<Long> getClearedAt(String chatId, String userId) {
+        if (chatId == null || userId == null) return Tasks.forResult(0L);
+
+        // Try root membership first
+        Task<Long> root = db.collection(CHATS).document(chatId)
+                .collection(MEMBERS).document(userId)
+                .get()
+                .continueWith(t -> {
+                    if (!t.isSuccessful() || t.getResult() == null || !t.getResult().exists()) return null;
+                    Long v = t.getResult().getLong("clearedAt");
+                    return v;
+                });
+
+        return root.continueWithTask(rt -> {
+            Long val = rt.getResult();
+            if (val != null) return Tasks.forResult(val);
+            // Fallback to group membership if any
+            return db.collectionGroup("chats")
+                    .whereEqualTo("chatId", chatId)
+                    .limit(1)
+                    .get()
+                    .continueWithTask(t -> {
+                        if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) {
+                            return Tasks.forResult(0L);
+                        }
+                        com.google.firebase.firestore.DocumentSnapshot chatDoc = t.getResult().getDocuments().get(0);
+                        return chatDoc.getReference().collection(MEMBERS).document(userId).get()
+                                .continueWith(mt -> {
+                                    if (!mt.isSuccessful() || mt.getResult() == null || !mt.getResult().exists()) return 0L;
+                                    Long v2 = mt.getResult().getLong("clearedAt");
+                                    return v2 != null ? v2 : 0L;
+                                });
+                    });
+        });
+    }
+
     /** Hide chat for current user (soft delete). Only when all members hide (private) then delete chat doc. */
     public Task<Void> hideChatForUser(String chatId, String userId) {
         if (chatId == null || userId == null) return Tasks.forException(new IllegalArgumentException("null"));

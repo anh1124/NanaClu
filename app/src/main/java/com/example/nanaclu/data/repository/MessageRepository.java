@@ -74,11 +74,12 @@ public class MessageRepository {
         data.put("content", text);
         data.put("createdAt", FieldValue.serverTimestamp());
         return msgRef.set(data).continueWithTask(t -> {
-            if (t.isSuccessful()) {
-                // Update last message metadata
-                chatRepository.updateLastMessageMeta(chatId, text, authorId, System.currentTimeMillis());
-            }
-            return Tasks.forResult(msgRef.getId());
+            if (!t.isSuccessful()) throw t.getException();
+            // Chain: update last meta -> unarchive recipients -> return id
+            long now = System.currentTimeMillis();
+            return chatRepository.updateLastMessageMeta(chatId, text, authorId, now)
+                    .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
+                    .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
         });
     }
 
@@ -118,11 +119,11 @@ public class MessageRepository {
                     data.put("content", url);
                     data.put("createdAt", FieldValue.serverTimestamp());
                     return msgRef.set(data).continueWithTask(done -> {
-                        if (done.isSuccessful()) {
-                            // Update last message metadata for image
-                            chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, System.currentTimeMillis());
-                        }
-                        return Tasks.forResult(msgRef.getId());
+                        if (!done.isSuccessful()) throw done.getException();
+                        long now = System.currentTimeMillis();
+                        return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
+                                .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
+                                .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
                     });
                 });
     }
@@ -170,11 +171,11 @@ public class MessageRepository {
                     data.put("content", url);
                     data.put("createdAt", FieldValue.serverTimestamp());
                     return msgRef.set(data).continueWithTask(done -> {
-                        if (done.isSuccessful()) {
-                            // Update last message metadata for image
-                            chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, System.currentTimeMillis());
-                        }
-                        return Tasks.forResult(msgRef.getId());
+                        if (!done.isSuccessful()) throw done.getException();
+                        long now = System.currentTimeMillis();
+                        return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
+                                .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
+                                .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
                     });
                 });
     }
@@ -453,14 +454,12 @@ public class MessageRepository {
         }
 
         return msgRef.set(message).continueWithTask(task -> {
-            if (task.isSuccessful()) {
-                // Update last message metadata
-                String lastMessageContent = getLastMessageContent(message);
-                chatRepository.updateLastMessageMeta(chatId, lastMessageContent, message.authorId, message.createdAt);
-                return Tasks.forResult(msgRef.getId());
-            } else {
-                throw task.getException();
-            }
+            if (!task.isSuccessful()) throw task.getException();
+            // Update last meta -> unarchive recipients -> return id
+            String lastMessageContent = getLastMessageContent(message);
+            return chatRepository.updateLastMessageMeta(chatId, lastMessageContent, message.authorId, message.createdAt)
+                    .continueWithTask(x -> performUnarchiveAfterSend(chatId, message.authorId))
+                    .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
         });
     }
 
@@ -481,6 +480,22 @@ public class MessageRepository {
             default:
                 return message.content != null ? message.content : "Message";
         }
+    }
+
+    /**
+     * After sending a message, unhide the thread for all recipients (not the sender).
+     */
+    private Task<Void> performUnarchiveAfterSend(String chatId, String senderId) {
+        if (chatId == null || senderId == null) return Tasks.forResult(null);
+        return chatRepository.getChatMembers(chatId).continueWithTask(t -> {
+            if (!t.isSuccessful() || t.getResult() == null) return Tasks.forResult(null);
+            List<String> recipients = new ArrayList<>();
+            for (String uid : t.getResult()) {
+                if (!senderId.equals(uid)) recipients.add(uid);
+            }
+            if (recipients.isEmpty()) return Tasks.forResult(null);
+            return chatRepository.unarchiveForUsers(chatId, recipients);
+        });
     }
 
 }
