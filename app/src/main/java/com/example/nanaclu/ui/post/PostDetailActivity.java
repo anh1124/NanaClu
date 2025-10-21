@@ -23,6 +23,10 @@ import com.bumptech.glide.Glide;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Post;
 import com.google.firebase.Timestamp;
+import com.example.nanaclu.data.repository.NoticeRepository;
+import com.example.nanaclu.data.repository.UserRepository;
+import com.example.nanaclu.data.model.User;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -50,6 +54,7 @@ public class PostDetailActivity extends AppCompatActivity {
 
     private String groupId;
     private String postId;
+    private String postAuthorId;
     private boolean isTextExpanded = false;
 
     @Override
@@ -105,6 +110,8 @@ public class PostDetailActivity extends AppCompatActivity {
                 .addOnSuccessListener(doc -> {
                     Post post = doc.toObject(Post.class);
                     if (post == null) return;
+                    // store author for notices
+                    postAuthorId = post.authorId;
                     
                     // Load author name
                     loadAuthorName(post.authorId);
@@ -372,7 +379,24 @@ public class PostDetailActivity extends AppCompatActivity {
         db.collection("groups").document(groupId)
                 .collection("posts").document(postId)
                 .collection("comments")
-                .add(data);
+                .add(data)
+                .addOnSuccessListener(ref -> {
+                    // create notice for post author (skip self)
+                    String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                    if (currentUid == null || postAuthorId == null || postAuthorId.equals(currentUid)) return;
+                    UserRepository userRepo = new UserRepository(FirebaseFirestore.getInstance());
+                    userRepo.getUserById(currentUid, new UserRepository.UserCallback() {
+                        @Override public void onSuccess(User user) {
+                            String actorName = user != null ? user.displayName : "Người dùng";
+                            new NoticeRepository(FirebaseFirestore.getInstance())
+                                    .createPostCommented(groupId, postId, ref.getId(), currentUid, actorName, postAuthorId);
+                        }
+                        @Override public void onError(Exception e) {
+                            new NoticeRepository(FirebaseFirestore.getInstance())
+                                    .createPostCommented(groupId, postId, ref.getId(), currentUid, "Người dùng", postAuthorId);
+                        }
+                    });
+                });
     }
 
     // ----- Simple data holder for comments -----

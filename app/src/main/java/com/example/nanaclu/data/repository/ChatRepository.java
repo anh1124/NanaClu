@@ -384,5 +384,65 @@ public class ChatRepository {
 
         return Tasks.whenAll(deleteMain, deleteGroup);
     }
+
+    /**
+     * Get chat members for a given chatId
+     */
+    public Task<List<String>> getChatMembers(String chatId) {
+        if (chatId == null) return Tasks.forException(new IllegalArgumentException("chatId null"));
+        
+        // Try to get members from root chats collection first
+        return getRootChatMembers(chatId)
+                .continueWithTask(task -> {
+                    if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                        return Tasks.forResult(task.getResult());
+                    }
+                    
+                    // If not found in root, try group chats
+                    return getGroupChatMembers(chatId);
+                });
+    }
+    
+    private Task<List<String>> getRootChatMembers(String chatId) {
+        return db.collection(CHATS).document(chatId).collection(MEMBERS)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        return new ArrayList<String>();
+                    }
+                    
+                    List<String> memberIds = new ArrayList<>();
+                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        memberIds.add(doc.getId());
+                    }
+                    return memberIds;
+                });
+    }
+    
+    private Task<List<String>> getGroupChatMembers(String chatId) {
+        return db.collectionGroup("chats")
+                .whereEqualTo("chatId", chatId)
+                .limit(1)
+                .get()
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful() || task.getResult().isEmpty()) {
+                        return Tasks.forException(new Exception("Chat not found"));
+                    }
+                    
+                    DocumentSnapshot chatDoc = task.getResult().getDocuments().get(0);
+                    return chatDoc.getReference().collection(MEMBERS).get()
+                            .continueWith(memberTask -> {
+                                if (!memberTask.isSuccessful()) {
+                                    throw memberTask.getException();
+                                }
+                                
+                                List<String> groupMemberIds = new ArrayList<>();
+                                for (DocumentSnapshot doc : memberTask.getResult().getDocuments()) {
+                                    groupMemberIds.add(doc.getId());
+                                }
+                                return groupMemberIds;
+                            });
+                });
+    }
 }
 

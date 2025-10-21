@@ -62,7 +62,10 @@ public class EventDetailActivity extends AppCompatActivity {
         eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
         groupId = getIntent().getStringExtra(EXTRA_GROUP_ID);
 
+        android.util.Log.d("EventDetailActivity", "onCreate with eventId=" + eventId + ", groupId=" + groupId);
+        
         if (eventId == null || groupId == null) {
+            android.util.Log.e("EventDetailActivity", "Missing required data: eventId=" + eventId + ", groupId=" + groupId);
             Toast.makeText(this, "Lỗi: Không tìm thấy sự kiện", Toast.LENGTH_SHORT).show();
             finish();
             return;

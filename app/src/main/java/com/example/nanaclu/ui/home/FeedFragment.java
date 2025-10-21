@@ -19,6 +19,7 @@ import com.example.nanaclu.ui.group.PostAdapter;
 import com.example.nanaclu.data.repository.PostRepository;
 import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.data.model.Post;
+import com.example.nanaclu.utils.NoticeCenter;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -30,6 +31,7 @@ public class FeedFragment extends BaseFragment {
     private PostRepository postRepository;
     private GroupRepository groupRepository;
     private SwipeRefreshLayout swipeRefresh;
+    private NoticeCenter noticeCenter;
 
     private boolean isLoading;
     private boolean reachedEnd;
@@ -68,11 +70,14 @@ public class FeedFragment extends BaseFragment {
                     startActivity(intent);
                     return true;
                 } else if (item.getItemId() == R.id.action_notice) {
-                    android.widget.Toast.makeText(requireContext(), "Notice clicked", android.widget.Toast.LENGTH_SHORT).show();
+                    // Mở NotificationsActivity
+                    android.content.Intent intent = new android.content.Intent(requireContext(), com.example.nanaclu.ui.notifications.NotificationsActivity.class);
+                    startActivity(intent);
                     return true;
                 }
                 return false;
             });
+
             android.util.Log.d(TAG, "Toolbar initialized. bgColor=" + color + ", title=NANACLUB");
         } else {
             android.util.Log.w(TAG, "Toolbar is null in layout");
@@ -80,6 +85,12 @@ public class FeedFragment extends BaseFragment {
 
         postRepository = new PostRepository(FirebaseFirestore.getInstance());
         groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
+        noticeCenter = NoticeCenter.getInstance();
+
+        // Setup notification badge after noticeCenter is initialized
+        if (toolbar != null) {
+            setupNotificationBadge(toolbar);
+        }
 
         swipeRefresh = root.findViewById(R.id.swipeRefreshFeed);
         rvFeed = root.findViewById(R.id.rvFeed);
@@ -401,5 +412,24 @@ public class FeedFragment extends BaseFragment {
                 })
                 .setNegativeButton("Hủy", null)
                 .show();
+    }
+
+    private void setupNotificationBadge(androidx.appcompat.widget.Toolbar toolbar) {
+        // Check if noticeCenter is initialized
+        if (noticeCenter == null) {
+            android.util.Log.w(TAG, "NoticeCenter is null, cannot setup notification badge");
+            return;
+        }
+        
+        // Observe unread count and update icon
+        noticeCenter.getUnreadCount().observe(this, unreadCount -> {
+            if (unreadCount != null && unreadCount > 0) {
+                // Có thông báo chưa đọc - dùng icon notification1
+                toolbar.getMenu().findItem(R.id.action_notice).setIcon(R.drawable.ic_notifications_active_24);
+            } else {
+                // Không có thông báo chưa đọc - dùng icon notification0
+                toolbar.getMenu().findItem(R.id.action_notice).setIcon(R.drawable.ic_notifications_none_24);
+            }
+        });
     }
 }

@@ -60,6 +60,7 @@
         <activity android:name=".ui.search.SearchUsersActivity" android:exported="false" />
         <activity android:name=".ui.friends.FriendsActivity" android:exported="false" />
         <activity android:name=".ui.friends.BlockedUsersActivity" android:exported="false" />
+        <activity android:name=".ui.notifications.NotificationsActivity" android:exported="false" />
         <activity android:name=".ui.admin.AdminDashboardActivity" />
 
         <!-- FileProvider for sharing files -->

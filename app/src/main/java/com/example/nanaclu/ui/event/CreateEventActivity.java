@@ -21,7 +21,12 @@ import com.bumptech.glide.Glide;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Event;
 import com.example.nanaclu.data.repository.EventRepository;
+import com.example.nanaclu.data.repository.NoticeRepository;
+import com.example.nanaclu.data.repository.UserRepository;
+import com.example.nanaclu.data.repository.GroupRepository;
+import com.example.nanaclu.data.model.User;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.auth.FirebaseAuth;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -226,6 +231,9 @@ public class CreateEventActivity extends AppCompatActivity {
                     public void onSuccess(String eventId) {
                         Toast.makeText(CreateEventActivity.this, "Đã tạo sự kiện thành công!", Toast.LENGTH_SHORT).show();
 
+                        // Create notice for all group members
+                        createEventNotice(eventId, title);
+
                         // Return to previous screen
                         Intent resultIntent = new Intent();
                         resultIntent.putExtra("eventId", eventId);
@@ -253,5 +261,80 @@ public class CreateEventActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void createEventNotice(String eventId, String eventTitle) {
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (currentUid == null) {
+            android.util.Log.w("CreateEventActivity", "Current user is null, cannot create event notice");
+            return;
+        }
+
+        android.util.Log.d("CreateEventActivity", "Creating event notice for eventId: " + eventId + ", groupId: " + groupId);
+
+        // Get current user name
+        UserRepository userRepo = new UserRepository(FirebaseFirestore.getInstance());
+        userRepo.getUserById(currentUid, new UserRepository.UserCallback() {
+            @Override
+            public void onSuccess(User user) {
+                String actorName = user != null ? user.displayName : "Người dùng";
+                android.util.Log.d("CreateEventActivity", "Got actor name: " + actorName);
+
+                // Get group members
+                GroupRepository groupRepo = new GroupRepository(FirebaseFirestore.getInstance());
+                groupRepo.getGroupMembers(groupId, new GroupRepository.GroupMembersCallback() {
+                    @Override
+                    public void onSuccess(java.util.List<String> memberIds) {
+                        android.util.Log.d("CreateEventActivity", "Got group members: " + memberIds.size() + " members");
+                        
+                        // Create notices for all members
+                        NoticeRepository noticeRepo = new NoticeRepository(FirebaseFirestore.getInstance());
+                        noticeRepo.createGroupEventNotice(groupId, eventId, currentUid, actorName, memberIds, eventTitle)
+                                .addOnSuccessListener(aVoid -> {
+                                    android.util.Log.d("CreateEventActivity", "Successfully created event notices for " + memberIds.size() + " members");
+                                })
+                                .addOnFailureListener(e -> {
+                                    android.util.Log.e("CreateEventActivity", "Failed to create event notices", e);
+                                });
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        android.util.Log.e("CreateEventActivity", "Failed to get group members", e);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(Exception e) {
+                android.util.Log.e("CreateEventActivity", "Failed to get current user", e);
+                // Fallback with default name
+                String actorName = "Người dùng";
+                
+                // Get group members with fallback name
+                GroupRepository groupRepo = new GroupRepository(FirebaseFirestore.getInstance());
+                groupRepo.getGroupMembers(groupId, new GroupRepository.GroupMembersCallback() {
+                    @Override
+                    public void onSuccess(java.util.List<String> memberIds) {
+                        android.util.Log.d("CreateEventActivity", "Got group members (fallback): " + memberIds.size() + " members");
+                        
+                        NoticeRepository noticeRepo = new NoticeRepository(FirebaseFirestore.getInstance());
+                        noticeRepo.createGroupEventNotice(groupId, eventId, currentUid, actorName, memberIds, eventTitle)
+                                .addOnSuccessListener(aVoid -> {
+                                    android.util.Log.d("CreateEventActivity", "Successfully created event notices (fallback) for " + memberIds.size() + " members");
+                                })
+                                .addOnFailureListener(e -> {
+                                    android.util.Log.e("CreateEventActivity", "Failed to create event notices (fallback)", e);
+                                });
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        android.util.Log.e("CreateEventActivity", "Failed to get group members (fallback)", e);
+                    }
+                });
+            }
+        });
     }
 }

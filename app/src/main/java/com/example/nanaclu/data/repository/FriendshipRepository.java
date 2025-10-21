@@ -72,6 +72,10 @@ public class FriendshipRepository {
                 data.put("updatedAt", FieldValue.serverTimestamp());
 
                 transaction.set(docRef, data);
+                
+                // Tạo notice cho người nhận lời mời
+                createFriendRequestNotice(currentUid, targetUid);
+                
                 return "pending";
             }
 
@@ -127,12 +131,17 @@ public class FriendshipRepository {
 
             String status = snapshot.getString("status");
             String addresseeId = snapshot.getString("addresseeId");
+            String requesterId = snapshot.getString("requesterId");
 
             if (!"pending".equals(status)) {
                 throw new RuntimeException("Friendship is not pending");
             }
 
+            // Kiểm tra xem currentUid có phải là addressee không
+            // (người nhận lời mời kết bạn)
+            android.util.Log.d("FriendshipRepository", "Checking accept permission: currentUid=" + currentUid + ", addresseeId=" + addresseeId + ", requesterId=" + requesterId);
             if (!currentUid.equals(addresseeId)) {
+                android.util.Log.e("FriendshipRepository", "Current user " + currentUid + " is not the addressee " + addresseeId + " for requester " + requesterId);
                 throw new RuntimeException("Only addressee can accept friend request");
             }
 
@@ -142,6 +151,9 @@ public class FriendshipRepository {
             updates.put("acceptedAt", FieldValue.serverTimestamp());
             updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.update(docRef, updates);
+
+            // Tạo notice cho người gửi lời mời
+            createFriendAcceptedNotice(currentUid, requesterId);
 
             return null;
         });
@@ -443,5 +455,47 @@ public class FriendshipRepository {
                     }
                     return blockedUserIds;
                 });
+    }
+
+    private void createFriendRequestNotice(String requesterId, String targetUserId) {
+        // Lấy tên người gửi lời mời
+        com.example.nanaclu.data.repository.UserRepository userRepo = new com.example.nanaclu.data.repository.UserRepository(db);
+        userRepo.getUserById(requesterId, new com.example.nanaclu.data.repository.UserRepository.UserCallback() {
+            @Override
+            public void onSuccess(com.example.nanaclu.data.model.User user) {
+                String requesterName = user != null ? user.displayName : "Người dùng";
+                com.example.nanaclu.data.repository.NoticeRepository noticeRepo = new com.example.nanaclu.data.repository.NoticeRepository(db);
+                noticeRepo.createFriendRequestNotice(requesterId, requesterName, targetUserId);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                // Fallback với tên mặc định
+                String requesterName = "Người dùng";
+                com.example.nanaclu.data.repository.NoticeRepository noticeRepo = new com.example.nanaclu.data.repository.NoticeRepository(db);
+                noticeRepo.createFriendRequestNotice(requesterId, requesterName, targetUserId);
+            }
+        });
+    }
+
+    private void createFriendAcceptedNotice(String accepterId, String requesterId) {
+        // Lấy tên người chấp nhận
+        com.example.nanaclu.data.repository.UserRepository userRepo = new com.example.nanaclu.data.repository.UserRepository(db);
+        userRepo.getUserById(accepterId, new com.example.nanaclu.data.repository.UserRepository.UserCallback() {
+            @Override
+            public void onSuccess(com.example.nanaclu.data.model.User user) {
+                String accepterName = user != null ? user.displayName : "Người dùng";
+                com.example.nanaclu.data.repository.NoticeRepository noticeRepo = new com.example.nanaclu.data.repository.NoticeRepository(db);
+                noticeRepo.createFriendAcceptedNotice(accepterId, accepterName, requesterId);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                // Fallback với tên mặc định
+                String accepterName = "Người dùng";
+                com.example.nanaclu.data.repository.NoticeRepository noticeRepo = new com.example.nanaclu.data.repository.NoticeRepository(db);
+                noticeRepo.createFriendAcceptedNotice(accepterId, accepterName, requesterId);
+            }
+        });
     }
 }
