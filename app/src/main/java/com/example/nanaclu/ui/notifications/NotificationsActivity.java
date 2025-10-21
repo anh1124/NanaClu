@@ -15,6 +15,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Notice;
 import com.example.nanaclu.ui.adapter.NoticeAdapter;
+
+import java.util.List;
 import com.example.nanaclu.utils.NoticeCenter;
 import com.example.nanaclu.utils.ThemeUtils;
 import com.example.nanaclu.viewmodel.NoticeViewModel;
@@ -52,6 +54,14 @@ public class NotificationsActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         viewModel.startListening();
+    }
+
+    /**
+     * Manual refresh method to force reload from Firestore
+     */
+    public void refreshFromFirestore() {
+        android.util.Log.d("NotificationsActivity", "Manual refresh from Firestore");
+        viewModel.refresh();
     }
 
     private void initViews() {
@@ -125,8 +135,25 @@ public class NotificationsActivity extends AppCompatActivity {
         });
 
         fabMarkAllSeen.setOnClickListener(v -> {
-            viewModel.markAllSeen();
+            // Log unseen count
+            List<Notice> currentNotices = adapter.getCurrentList();
+            int unseenCount = 0;
+            if (currentNotices != null) {
+                for (Notice n : currentNotices) if (!n.isSeen()) unseenCount++;
+            }
+            android.util.Log.d("NotificationsActivity", "FAB clicked. Unseen count=" + unseenCount);
+
+            // Perform per-item seen update with logs and immediate UI update
+            viewModel.markAllSeenIndividually();
+
+            // Update global badge
             noticeCenter.markAllSeen();
+            
+            // Force refresh from Firestore after a short delay to ensure DB updates are reflected
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                android.util.Log.d("NotificationsActivity", "Refreshing from Firestore after mark all seen");
+                viewModel.refresh();
+            }, 1000);
         });
     }
 

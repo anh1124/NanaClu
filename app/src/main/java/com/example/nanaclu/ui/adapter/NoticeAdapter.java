@@ -90,10 +90,9 @@ public class NoticeAdapter extends ListAdapter<Notice, NoticeAdapter.NoticeViewH
                 cardView.setBackgroundColor(itemView.getContext().getResources().getColor(android.R.color.white));
             } else {
                 vUnreadIndicator.setVisibility(View.VISIBLE);
-                // Set background to light theme color for unread notices
+                // Set background to very light, pastel theme color for unread notices
                 int themeColor = ThemeUtils.getThemeColor(itemView.getContext());
-                // Make it lighter (add transparency or lighten)
-                int lightColor = lightenColor(themeColor, 0.8f);
+                int lightColor = lightenColor(themeColor, 0.95f);
                 cardView.setBackgroundColor(lightColor);
             }
 
@@ -145,6 +144,9 @@ public class NoticeAdapter extends ListAdapter<Notice, NoticeAdapter.NoticeViewH
         private int lightenColor(int color, float factor) {
             float[] hsv = new float[3];
             android.graphics.Color.colorToHSV(color, hsv);
+            // Reduce saturation for softer look
+            hsv[1] = Math.max(0f, hsv[1] * 0.25f);
+            // Increase brightness aggressively
             hsv[2] = Math.min(1.0f, hsv[2] + (1.0f - hsv[2]) * factor);
             return android.graphics.Color.HSVToColor(hsv);
         }

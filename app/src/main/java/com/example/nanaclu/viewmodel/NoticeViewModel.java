@@ -140,7 +140,8 @@ public class NoticeViewModel extends ViewModel {
                                 break;
                             }
                         }
-                        notices.setValue(currentNotices);
+                        // Emit a new list instance to trigger ListAdapter diff
+                        notices.setValue(new ArrayList<>(currentNotices));
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -153,20 +154,64 @@ public class NoticeViewModel extends ViewModel {
      */
     public void markAllSeen() {
         if (currentUid == null) return;
-        
-        noticeRepository.markAllSeen(currentUid)
+        // Batch mark all currently loaded unseen items as seen in Firestore
+        List<Notice> currentNotices = notices.getValue();
+        List<String> idsToMark = new ArrayList<>();
+        if (currentNotices != null) {
+            for (Notice n : currentNotices) {
+                if (!n.isSeen()) idsToMark.add(n.getId());
+            }
+        }
+
+        noticeRepository.markSeenBatch(currentUid, idsToMark)
                 .addOnSuccessListener(aVoid -> {
                     // Cập nhật local data
-                    List<Notice> currentNotices = notices.getValue();
-                    if (currentNotices != null) {
-                        for (Notice notice : currentNotices) {
+                    List<Notice> list = notices.getValue();
+                    if (list != null) {
+                        for (Notice notice : list) {
                             notice.setSeen(true);
                         }
-                        notices.setValue(currentNotices);
+                        notices.setValue(new ArrayList<>(list));
                     }
                 })
                 .addOnFailureListener(e -> {
                     error.setValue("Lỗi đánh dấu tất cả đã xem: " + e.getMessage());
+                });
+    }
+
+    /**
+     * Đánh dấu từng thông báo đã xem (ghi DB từng cái, kèm log)
+     */
+    public void markAllSeenIndividually() {
+        if (currentUid == null) return;
+
+        // Always fetch fresh unseen list from DB to avoid UI-sync mismatch
+        noticeRepository.getUnseenNoticeIds(currentUid)
+                .addOnSuccessListener(ids -> {
+                    int unseenCount = ids != null ? ids.size() : 0;
+                    android.util.Log.d("NoticeViewModel", "markAllSeenIndividually (DB) unseenCount=" + unseenCount);
+
+                    // Update UI immediately for those IDs
+                    List<Notice> currentNotices = notices.getValue();
+                    if (currentNotices != null && ids != null) {
+                        for (Notice n : currentNotices) {
+                            if (ids.contains(n.getId())) n.setSeen(true);
+                        }
+                        notices.setValue(new ArrayList<>(currentNotices));
+                    }
+
+                    // Update DB one-by-one with logs
+                    if (ids != null) {
+                        for (String id : ids) {
+                            final String noticeId = id;
+                            noticeRepository.markSeen(currentUid, noticeId)
+                                    .addOnSuccessListener(aVoid -> android.util.Log.d("NoticeViewModel", "Marked seen in DB: " + noticeId))
+                                    .addOnFailureListener(e -> android.util.Log.e("NoticeViewModel", "Failed to mark seen: " + noticeId, e));
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("NoticeViewModel", "Failed to fetch unseen IDs", e);
                 });
     }
 
