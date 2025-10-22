@@ -105,7 +105,7 @@ app/
    - Admin/Owner mới có quyền xóa/chỉnh sửa bài viết trong nhóm.  
    - Chỉ người tạo sự kiện mới có quyền huỷ sự kiện.  
 4. **Ảnh**: Dùng `Firebase Storage` thay cho base64 (cải thiện hiệu suất và giảm kích thước database).
-5. **Chat realtime**: Sử dụng Firestore `addSnapshotListener` để đồng bộ tin nhắn theo thời gian thực. FCM dùng cho thông báo hệ thống (kick/block/mention) và đánh thức app khi cần, không truyền nội dung chat.
+5. **Chat realtime**: Sử dụng Firestore `addSnapshotListener` để đồng bộ tin nhắn theo thời gian thực. FCM hiện CHƯA được tích hợp; dự kiến dùng cho thông báo hệ thống (kick/block/mention) trong tương lai, không truyền nội dung chat.
 6. **Trạng thái online**: (Tuỳ chọn) dùng Realtime Database hoặc Firestore presence; hiện tại dự án chưa bật Realtime Database mặc định.
 7. **Code style**:
    - Tên class PascalCase (`UserViewModel`)  
@@ -118,7 +118,7 @@ app/
 ---
 
 ## 🔁 Chiến lược cập nhật dữ liệu (hiện tại)
-- **Chat**: Realtime bằng Firestore `addSnapshotListener`; danh sách hội thoại dựa trên metadata `lastMessage`/`lastMessageAt` (có fallback lấy message cuối nếu thiếu metadata cũ). FCM dùng cho thông báo hệ thống (kick/block/mention), không mang nội dung chat.
+- **Chat**: Realtime bằng Firestore `addSnapshotListener`; danh sách hội thoại dựa trên metadata `lastMessage`/`lastMessageAt` (có fallback lấy message cuối nếu thiếu metadata cũ). FCM hiện chưa tích hợp nên chưa có push notification; tạm thời chỉ có thông báo trong ứng dụng (in‑app) qua cơ chế Notice/Badge.
 - **Feed & bình luận**: Kéo để làm mới (pull-to-refresh) + phân trang `startAfter`. Có thể cân nhắc listener ở GroupDetail để auto-refresh khi cần (đánh đổi chi phí).
 - **Badge/đếm số**: Tính toán phía client sau mỗi lần fetch; tránh đếm động tốn chi phí.
 - **Giảm chi phí & hạn chế**: Cache trong `ViewModel`, chỉ gọi lại khi màn hình active; tránh gọi khi app nền; thêm chỉ số/điều kiện truy vấn phù hợp (index, `whereEqualTo`, `orderBy`).
