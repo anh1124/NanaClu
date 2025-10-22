@@ -12,7 +12,7 @@ Mô tả ngắn: Các tác nhân chính và chức năng tương tác trong ứn
 Mô tả chi tiết:
 - Người dùng (User) có thể đăng ký/đăng nhập, quản lý hồ sơ, tham gia nhóm, tạo bài viết, bình luận, thả tim, chat, RSVP sự kiện.
 - Quản trị (Admin/Owner) có thể duyệt bài, quản lý thành viên, chặn/kick, xem thống kê, nhật ký hoạt động.
-- Hệ thống FCM gửi thông báo đẩy các sự kiện quan trọng (tin nhắn mới, mention, yêu cầu kết bạn, phê duyệt...).
+- Thông báo hiện tại là in‑app (badge/list). FCM CHƯA tích hợp; có thể bổ sung trong tương lai.
 - Firebase (Auth, Firestore, Storage) cung cấp nền tảng xác thực, dữ liệu realtime, lưu trữ tệp.
 
 ```
@@ -44,7 +44,7 @@ Mô tả chi tiết:
                 |
                 v
       +--------------------------------------------------+
-      |              Thông báo đẩy (FCM)                 |
+      |           Thông báo trong ứng dụng (In‑App)      |
       +--------------------------------------------------+
 ```
 
@@ -53,7 +53,7 @@ Mô tả chi tiết:
 Mô tả ngắn: Bối cảnh ứng dụng Android và các dịch vụ Firebase liên quan.
 
 Mô tả chi tiết:
-- Ứng dụng Android giao tiếp với Firebase Auth (đăng nhập), Firestore (dữ liệu), Storage (tệp), FCM (push), và có thể mở Deep Link.
+- Ứng dụng Android giao tiếp với Firebase Auth (đăng nhập), Firestore (dữ liệu), Storage (tệp); Deep Link hỗ trợ điều hướng. FCM CHƯA được tích hợp.
 - Tập tin Firestore Rules và Storage Rules kiểm soát truy cập; Admin console hỗ trợ cấu hình.
 - Người dùng tương tác qua mạng di động/Wi‑Fi; CDN Firebase phân phối nội dung nhanh.
 
@@ -63,7 +63,7 @@ Mô tả chi tiết:
 |  - App (UI/VM/Repo)     |                               |  - Auth                  |
 |  - Cache/Media/Intents  |                               |  - Firestore             |
 +------------+------------+                               |  - Storage               |
-             |                                            |  - FCM (Messaging)       |
+             |                                            |  - (FCM chưa tích hợp)   |
              | Deep Link / Intent                         |  - Hosting/CDN (tuỳ chọn)|
              v                                            +------------+------------+
        +-----+-----+                                                      |
@@ -83,7 +83,7 @@ Mô tả chi tiết:
 - Người dùng mở màn tạo bài, nhập nội dung, chọn ảnh/video.
 - Ứng dụng upload tệp lên Storage, lưu metadata bài viết vào Firestore.
 - Nếu nhóm bật duyệt bài, tạo trạng thái "pending" cho Admin/Owner duyệt.
-- Sau khi đăng/bật duyệt: cập nhật feed, gửi thông báo (in‑app/FCM) đến thành viên quan trọng.
+- Sau khi đăng/bật duyệt: cập nhật feed, gửi thông báo trong ứng dụng (in‑app) đến thành viên quan trọng.
 
 ```
 User -> Màn "Tạo bài" -> Nhập nội dung/đính kèm
@@ -91,7 +91,7 @@ User -> Màn "Tạo bài" -> Nhập nội dung/đính kèm
       -> [Upload] Ảnh/Video -> Firebase Storage (trả về URL)
       -> [Ghi] Document Post -> Firestore (status: published|pending)
       -> Nếu pending: tạo Notice cho Admin/Owner
-      -> Nếu published: cập nhật lastPost, push FCM (tuỳ chọn)
+      -> Nếu published: cập nhật lastPost; (tuỳ chọn tương lai) đẩy push khi tích hợp FCM
       -> Hiển thị bài trong Feed người dùng
 ```
 
@@ -102,14 +102,14 @@ Mô tả ngắn: Luồng gửi ảnh/tệp trong phòng chat nhóm.
 Mô tả chi tiết:
 - Người dùng chọn ảnh/tệp, app nén/resize ảnh nếu cần.
 - Upload lên Storage theo cấu trúc thư mục chat; ghi message vào Firestore kèm downloadUrl.
-- Lắng nghe realtime để hiển thị ngay trên tất cả thiết bị; gửi FCM wakeup.
+- Lắng nghe realtime để hiển thị ngay trên tất cả thiết bị.
 
 ```
 User -> Chọn ảnh/tệp
       -> [Upload] Storage: /chats/{chatId}/(images|files)/...
       -> [Ghi] Firestore: messages (type=image|file, downloadUrl)
       -> Realtime listener nhận message mới -> cập nhật UI
-      -> FCM (tuỳ chọn): thông báo tin nhắn mới
+      -> (Tuỳ chọn tương lai): push khi tích hợp FCM
 ```
 
 
@@ -207,7 +207,7 @@ Mô tả chi tiết:
 +-------------------+             +--------------------------+
 |  Android Device   |             |   Firebase Cloud (BaaS)  |
 |  - App APK        |<----------->| - Auth / Firestore       |
-|  - Media3/Glide   |   HTTPS     | - Storage / FCM          |
+|  - Media3/Glide   |   HTTPS     | - Storage                |
 +-------------------+             +--------------------------+
 ```
 
@@ -227,18 +227,17 @@ Mô tả chi tiết:
 ```
 
 
-### 10) Notification Flow (FCM + In‑App)
+### 10) Notification Flow (In‑App, chưa có FCM)
 Mô tả ngắn: Cách thông báo được phát sinh và hiển thị.
 
 Mô tả chi tiết:
 - Sự kiện (message mới, mention, phê duyệt, mời nhóm) tạo notice trong Firestore.
-- Serverless/Cloud Function (tuỳ chọn) hoặc client trigger gửi FCM đến người nhận.
-- Ứng dụng nhận FCM hiển thị notification và điều hướng deep link.
+- Serverless/Cloud Function (tuỳ chọn) hoặc client trigger có thể được thêm sau khi tích hợp FCM.
+- Hiện tại: thông báo trong ứng dụng dựa trên dữ liệu từ Firestore (Notice/Badge).
 
 ```
-Event -> Notice doc -> (Cloud Function/Client) -> FCM Topic/Token -> Thiết bị
-                                                  -> Hiển thị Notification
-                                                  -> Mở màn hình liên quan
+Event -> Notice doc -> App lắng nghe -> Hiển thị in‑app (badge/list)
+                      (Tương lai: Cloud Function/FCM -> Push)
 ```
 
 
@@ -297,7 +296,7 @@ Mô tả ngắn: Nguyên tắc cấp quyền và ràng buộc dữ liệu.
 Mô tả chi tiết:
 - Chỉ thành viên group được đọc/ghi post, comment, message trong group đó.
 - Chỉ tác giả hoặc admin/owner được sửa/xoá bài viết; validate kích thước tệp.
-- Chỉ thành viên chat được đọc tin nhắn; token FCM gắn theo user.
+- Chỉ thành viên chat được đọc tin nhắn; (tương lai) token FCM sẽ gắn theo user khi tích hợp.
 
 ```
 [Rules]
