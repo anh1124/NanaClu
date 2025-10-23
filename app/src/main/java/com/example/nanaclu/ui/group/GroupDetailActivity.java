@@ -51,8 +51,6 @@ public class GroupDetailActivity extends AppCompatActivity {
     private boolean reachedEnd = false;
     private SwipeRefreshLayout swipeRefreshLayout;
 
-    // Demo: notification icon state (notification0/notification1)
-    private boolean groupHasNotifications = false;
 
     // Backup groupId for debugging
     private String backupGroupId;
@@ -351,11 +349,6 @@ public class GroupDetailActivity extends AppCompatActivity {
             approveItem.setVisible(isAdminOrOwner);
         }
 
-        // Update notification icon 0/1
-        MenuItem notiItem = menu.findItem(R.id.action_group_notifications);
-        if (notiItem != null) {
-            notiItem.setIcon(groupHasNotifications ? R.drawable.ic_notifications_active_24 : R.drawable.ic_notifications_none_24);
-        }
     }
 
     private void updateUI(Group group) {
@@ -549,10 +542,8 @@ public class GroupDetailActivity extends AppCompatActivity {
         int id = item.getItemId();
         System.out.println("GroupDetailActivity: onMenuItemClick - groupId = " + groupId);
 
-        if (id == R.id.action_group_notifications) {
-            Intent intent = new Intent(this, GroupNotificationsActivity.class);
-            intent.putExtra("groupId", groupId);
-            startActivity(intent);
+        if (id == R.id.action_search_posts) {
+            showSearchDialog();
             return true;
         } else if (id == R.id.action_group_events) {
             // Open GroupEventActivity
@@ -620,6 +611,50 @@ public class GroupDetailActivity extends AppCompatActivity {
                 .setView(dialogView)
                 .setPositiveButton("Đóng", null)
                 .show();
+    }
+
+    private void showSearchDialog() {
+        // Inflate dialog layout
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_search_posts, null);
+
+        // Get views from layout
+        android.widget.RadioGroup radioGroupSearchType = dialogView.findViewById(R.id.radioGroupSearchType);
+        android.widget.RadioButton radioContent = dialogView.findViewById(R.id.radioContent);
+        android.widget.RadioButton radioAuthor = dialogView.findViewById(R.id.radioAuthor);
+        android.widget.EditText edtSearchQuery = dialogView.findViewById(R.id.edtSearchQuery);
+        android.widget.Button btnCancel = dialogView.findViewById(R.id.btnCancel);
+        android.widget.Button btnSearch = dialogView.findViewById(R.id.btnSearch);
+
+        // Set default search type
+        radioContent.setChecked(true);
+
+        // Create dialog
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+
+        // Set button click listeners
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        btnSearch.setOnClickListener(v -> {
+            String searchQuery = edtSearchQuery.getText().toString().trim();
+            if (searchQuery.isEmpty()) {
+                Toast.makeText(this, "Vui lòng nhập từ khóa tìm kiếm", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Determine search type
+            String searchType = radioContent.isChecked() ? 
+                com.example.nanaclu.ui.group.SearchResultsActivity.SEARCH_TYPE_CONTENT : 
+                com.example.nanaclu.ui.group.SearchResultsActivity.SEARCH_TYPE_AUTHOR;
+
+            // Start search activity
+            com.example.nanaclu.ui.group.SearchResultsActivity.start(this, groupId, searchType, searchQuery);
+            dialog.dismiss();
+        });
+
+        dialog.show();
     }
 
     private void showLeaveGroupDialog() {

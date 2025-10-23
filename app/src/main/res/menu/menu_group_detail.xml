@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/action_group_notifications"
-        android:title="Thông báo nhóm"
-        android:icon="@drawable/ic_notifications_none_24"
+        android:id="@+id/action_search_posts"
+        android:title="Tìm kiếm bài viết"
+        android:icon="@android:drawable/ic_menu_search"
         app:showAsAction="always" />
 
     <item
