@@ -146,6 +146,46 @@ public class AuthViewModel extends ViewModel {
             _user.setValue(null);
         });
     }
+
+    public void changePassword(String currentPassword, String newPassword) {
+        _loading.setValue(true);
+        _error.setValue(null);
+        repository.changePassword(currentPassword, newPassword)
+                .addOnCompleteListener(task -> {
+                    _loading.setValue(false);
+                    if (task.isSuccessful()) {
+                        // Password changed successfully - let the dialog handle success message
+                        _error.setValue("SUCCESS");
+                    } else {
+                        String errorMessage = "Đổi mật khẩu thất bại";
+                        if (task.getException() != null) {
+                            String originalMessage = task.getException().getMessage();
+                            if (originalMessage != null) {
+                                String lowerMessage = originalMessage.toLowerCase();
+                                // Translate common Firebase auth errors to Vietnamese
+                                if (lowerMessage.contains("wrong password") || 
+                                    lowerMessage.contains("invalid credential") ||
+                                    lowerMessage.contains("incorrect")) {
+                                    errorMessage = "Mật khẩu hiện tại không đúng";
+                                } else if (lowerMessage.contains("weak password")) {
+                                    errorMessage = "Mật khẩu mới quá yếu (tối thiểu 6 ký tự)";
+                                } else if (lowerMessage.contains("requires recent authentication")) {
+                                    errorMessage = "Vui lòng đăng nhập lại để đổi mật khẩu";
+                                } else if (lowerMessage.contains("too many requests")) {
+                                    errorMessage = "Quá nhiều lần thử. Vui lòng thử lại sau";
+                                } else if (lowerMessage.contains("network")) {
+                                    errorMessage = "Lỗi kết nối mạng";
+                                } else if (lowerMessage.contains("not using email/password")) {
+                                    errorMessage = "Chỉ có thể đổi mật khẩu với tài khoản email/mật khẩu";
+                                } else {
+                                    errorMessage = originalMessage; // Keep original if no translation found
+                                }
+                            }
+                        }
+                        _error.setValue(errorMessage);
+                    }
+                });
+    }
 }
 
 

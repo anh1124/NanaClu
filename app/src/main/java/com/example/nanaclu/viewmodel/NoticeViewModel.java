@@ -215,6 +215,28 @@ public class NoticeViewModel extends ViewModel {
                 });
     }
 
+    /**
+     * Xóa tất cả thông báo khỏi subcollection
+     */
+    public void deleteAllNotifications() {
+        if (currentUid == null) return;
+
+        android.util.Log.d("NoticeViewModel", "Deleting all notifications for user: " + currentUid);
+        
+        // Clear UI immediately
+        notices.setValue(new ArrayList<>());
+        
+        // Delete all notifications from Firestore
+        noticeRepository.deleteAllNotifications(currentUid)
+                .addOnSuccessListener(aVoid -> {
+                    android.util.Log.d("NoticeViewModel", "Successfully deleted all notifications");
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("NoticeViewModel", "Failed to delete all notifications", e);
+                    error.setValue("Lỗi xóa thông báo: " + e.getMessage());
+                });
+    }
+
     // Getters
     public LiveData<List<Notice>> getNotices() {
         return notices;

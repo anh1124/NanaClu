@@ -179,29 +179,54 @@ public class NoticeRepository {
      * Tạo thông báo khi có người comment bài viết
      */
     public Task<Void> createPostCommented(String groupId, String postId, String commentId, String actorId, String actorName, String targetUid) {
+        Log.d(TAG, "=== START createPostCommented ===");
+        Log.d(TAG, "groupId: " + groupId);
+        Log.d(TAG, "postId: " + postId);
+        Log.d(TAG, "commentId: " + commentId);
+        Log.d(TAG, "actorId: " + actorId);
+        Log.d(TAG, "actorName: " + actorName);
+        Log.d(TAG, "targetUid: " + targetUid);
+        
         if (actorId.equals(targetUid)) {
+            Log.d(TAG, "SKIP: Actor and target are the same user");
             return Tasks.forResult(null); // Không tạo thông báo cho chính mình
         }
 
         String noticeId = UUID.randomUUID().toString();
+        Log.d(TAG, "Generated noticeId: " + noticeId);
+        
         Notice notice = new Notice(
                 noticeId,
                 "comment",
                 actorId,
                 actorName,
-                "comment",
-                commentId,
+                "post",
+                postId,
                 groupId,
                 "Bài viết có bình luận mới",
                 actorName + " đã bình luận bài viết của bạn",
                 targetUid
         );
+        
+        Log.d(TAG, "Created notice object:");
+        Log.d(TAG, "  - id: " + notice.getId());
+        Log.d(TAG, "  - type: " + notice.getType());
+        Log.d(TAG, "  - title: " + notice.getTitle());
+        Log.d(TAG, "  - message: " + notice.getMessage());
+        Log.d(TAG, "  - targetUserId: " + notice.getTargetUserId());
 
+        Log.d(TAG, "Saving notice to Firestore...");
         return db.collection("users")
                 .document(targetUid)
                 .collection("notices")
                 .document(noticeId)
-                .set(notice.toMap());
+                .set(notice.toMap())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ Notice saved successfully to Firestore");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to save notice to Firestore", e);
+                });
     }
 
     /**
@@ -239,7 +264,7 @@ public class NoticeRepository {
 
         WriteBatch batch = db.batch();
         String title = "group".equals(chatType) ? "Tin nhắn nhóm mới" : "Tin nhắn mới";
-        String message = actorName + ": " + (previewText != null ? previewText : "Đã gửi tin nhắn");
+        String message = actorName + " đã gửi tin nhắn";
 
         for (String targetUid : targetUids) {
             if (actorId.equals(targetUid)) {
@@ -397,5 +422,36 @@ public class NoticeRepository {
                 .document(noticeId);
 
         return noticeRef.set(notice.toMap());
+    }
+
+    /**
+     * Xóa tất cả thông báo của user
+     */
+    public Task<Void> deleteAllNotifications(String uid) {
+        Log.d(TAG, "Deleting all notifications for user: " + uid);
+        
+        return db.collection("users")
+                .document(uid)
+                .collection("notices")
+                .get()
+                .continueWith(task -> {
+                    if (task.isSuccessful()) {
+                        WriteBatch batch = db.batch();
+                        for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                            batch.delete(doc.getReference());
+                        }
+                        return batch.commit();
+                    } else {
+                        Log.e(TAG, "Error fetching notifications to delete", task.getException());
+                        return Tasks.forException(task.getException());
+                    }
+                })
+                .continueWith(task -> {
+                    if (task.isSuccessful()) {
+                        return null;
+                    } else {
+                        throw task.getException();
+                    }
+                });
     }
 }

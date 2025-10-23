@@ -125,6 +125,38 @@ public class AuthRepository {
                             .continueWithTask(v -> com.google.android.gms.tasks.Tasks.forResult(task.getResult()));
                 });
     }
+
+    // Change password for email/password users
+    public Task<Void> changePassword(String currentPassword, String newPassword) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            return com.google.android.gms.tasks.Tasks.forException(new IllegalStateException("No user logged in"));
+        }
+
+        // Check if user is email/password provider
+        boolean isEmailProvider = false;
+        for (com.google.firebase.auth.UserInfo provider : user.getProviderData()) {
+            if ("password".equals(provider.getProviderId())) {
+                isEmailProvider = true;
+                break;
+            }
+        }
+
+        if (!isEmailProvider) {
+            return com.google.android.gms.tasks.Tasks.forException(new IllegalStateException("User is not using email/password authentication"));
+        }
+
+        // Re-authenticate with current password
+        AuthCredential credential = com.google.firebase.auth.EmailAuthProvider.getCredential(user.getEmail(), currentPassword);
+        return user.reauthenticate(credential)
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException();
+                    }
+                    // Update password
+                    return user.updatePassword(newPassword);
+                });
+    }
 }
 
 
