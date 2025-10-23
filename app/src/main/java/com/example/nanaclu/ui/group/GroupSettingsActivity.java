@@ -35,6 +35,8 @@ public class GroupSettingsActivity extends AppCompatActivity {
     private com.google.android.material.switchmaterial.SwitchMaterial switchPostApproval;
     private TextView tvPostApprovalStatus;
     private View cardPendingPosts;
+    private TextView tvGroupCode;
+    private com.google.android.material.button.MaterialButton btnRegenerateCode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,6 +112,18 @@ public class GroupSettingsActivity extends AppCompatActivity {
         if (switchPostApproval != null) {
             switchPostApproval.setOnCheckedChangeListener(this::onPostApprovalSwitchChanged);
         }
+
+        // Setup group code UI
+        tvGroupCode = findViewById(R.id.tvGroupCode);
+        btnRegenerateCode = findViewById(R.id.btnRegenerateCode);
+        
+        if (tvGroupCode != null) {
+            tvGroupCode.setOnClickListener(v -> copyGroupCodeToClipboard());
+        }
+        
+        if (btnRegenerateCode != null) {
+            btnRegenerateCode.setOnClickListener(v -> showRegenerateCodeDialog());
+        }
     }
 
     private void openPermissions() {
@@ -155,6 +169,14 @@ public class GroupSettingsActivity extends AppCompatActivity {
             if (cardPendingPosts != null) {
                 cardPendingPosts.setVisibility(currentGroup.requirePostApproval ? View.VISIBLE : View.GONE);
             }
+
+            // Update group code UI
+            if (tvGroupCode != null) {
+                tvGroupCode.setText(currentGroup.code != null ? currentGroup.code : "N/A");
+            }
+            
+            // Check permission for regenerate code button
+            checkRegenerateCodePermission();
         }
     }
 
@@ -372,5 +394,100 @@ public class GroupSettingsActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void checkRegenerateCodePermission() {
+        if (btnRegenerateCode == null) return;
+        
+        groupRepository.getMemberById(groupId, currentUserId, new GroupRepository.MemberCallback() {
+            @Override
+            public void onSuccess(com.example.nanaclu.data.model.Member member) {
+                if (member != null && ("owner".equals(member.role) || "admin".equals(member.role))) {
+                    btnRegenerateCode.setEnabled(true);
+                    btnRegenerateCode.setAlpha(1.0f);
+                } else {
+                    btnRegenerateCode.setEnabled(false);
+                    btnRegenerateCode.setAlpha(0.5f);
+                }
+            }
+            
+            @Override
+            public void onError(Exception e) {
+                btnRegenerateCode.setEnabled(false);
+                btnRegenerateCode.setAlpha(0.5f);
+            }
+        });
+    }
+
+    private void showRegenerateCodeDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Random lại mã mời?")
+                .setMessage("Mã mời cũ sẽ không còn sử dụng được. Bạn có chắc chắn?")
+                .setPositiveButton("Random", (dialog, which) -> regenerateGroupCode())
+                .setNegativeButton("Hủy", null)
+                .show();
+    }
+
+    private void regenerateGroupCode() {
+        if (currentGroup == null) return;
+        
+        String oldCode = currentGroup.code;
+        
+        // Show loading state
+        if (btnRegenerateCode != null) {
+            btnRegenerateCode.setEnabled(false);
+            btnRegenerateCode.setText("Đang tạo...");
+        }
+        
+        groupRepository.regenerateGroupCode(groupId, new GroupRepository.RegenerateCodeCallback() {
+            @Override
+            public void onSuccess(String newCode) {
+                // Update UI
+                if (tvGroupCode != null) {
+                    tvGroupCode.setText(newCode);
+                }
+                
+                // Update current group object
+                currentGroup.code = newCode;
+                
+                // Log the action
+                com.example.nanaclu.data.repository.LogRepository logRepo = 
+                        new com.example.nanaclu.data.repository.LogRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+                java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+                metadata.put("oldCode", oldCode);
+                metadata.put("newCode", newCode);
+                logRepo.logGroupAction(groupId, "code_regenerated", "group", groupId, null, metadata);
+                
+                // Show success message
+                Toast.makeText(GroupSettingsActivity.this, "Mã mới: " + newCode, Toast.LENGTH_LONG).show();
+                
+                // Reset button state
+                if (btnRegenerateCode != null) {
+                    btnRegenerateCode.setEnabled(true);
+                    btnRegenerateCode.setText("Random");
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Toast.makeText(GroupSettingsActivity.this, "Lỗi tạo mã mới: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                
+                // Reset button state
+                if (btnRegenerateCode != null) {
+                    btnRegenerateCode.setEnabled(true);
+                    btnRegenerateCode.setText("Random");
+                }
+            }
+        });
+    }
+
+    private void copyGroupCodeToClipboard() {
+        if (currentGroup == null || currentGroup.code == null) return;
+        
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        android.content.ClipData clip = android.content.ClipData.newPlainText("Group Code", currentGroup.code);
+        clipboard.setPrimaryClip(clip);
+        
+        Toast.makeText(this, "Đã sao chép mã: " + currentGroup.code, Toast.LENGTH_SHORT).show();
     }
 }
