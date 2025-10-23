@@ -5,4 +5,6 @@
     <external-files-path name="external_files" path="." />
     <!-- Cho phép truy cập thư mục Download public để mở file manager -->
     <external-path name="downloads" path="Download/" />
+    <!-- Camera temp files -->
+    <external-files-path name="camera_images" path="Pictures/" />
 </paths>

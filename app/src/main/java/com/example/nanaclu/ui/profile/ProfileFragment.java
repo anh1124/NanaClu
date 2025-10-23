@@ -100,7 +100,7 @@ public class ProfileFragment extends BaseFragment {
         btnPick.setOnClickListener(v -> openColorPicker(toolbar, colorPreview));
         friendsRow.setOnClickListener(v -> openFriendsActivity());
         securityRow.setOnClickListener(v -> openSecurityActivity());
-        // Bắt sự kiện click avatar để mở dashboard admin nếu đủ điều kiện
+        // Bắt sự kiện click avatar để mở EditProfileActivity hoặc admin dashboard
         imgAvatar.setOnClickListener(v -> {
             long now = System.currentTimeMillis();
             if (now - lastAvatarClickTime > CLICK_RESET_TIMEOUT_MS) {
@@ -108,6 +108,7 @@ public class ProfileFragment extends BaseFragment {
             }
             lastAvatarClickTime = now;
             avatarClickCount++;
+            
             if (avatarClickCount == 5) {
                 avatarClickCount = 0; // reset về 0 để tránh double trigger
                 // Kiểm tra quyền admin từ Firestore
@@ -131,9 +132,42 @@ public class ProfileFragment extends BaseFragment {
                         android.widget.Toast.makeText(getContext(), "Lỗi kiểm tra quyền admin: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
                     }
                 });
+            } else {
+                // Single click - mở EditProfileActivity
+                android.content.Intent intent = new android.content.Intent(getContext(), com.example.nanaclu.ui.profile.EditProfileActivity.class);
+                startActivityForResult(intent, 1001);
             }
         });
         return root;
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1001 && resultCode == android.app.Activity.RESULT_OK) {
+            // Profile updated successfully, refresh the display
+            refreshProfileData();
+        }
+    }
+
+    private void refreshProfileData() {
+        // Reload cached profile data
+        android.content.SharedPreferences up = requireContext().getSharedPreferences("user_profile", android.content.Context.MODE_PRIVATE);
+        String cachedName = up.getString("displayName", null);
+        String cachedEmail = up.getString("email", null);
+        String cachedPhoto = up.getString("photoUrl", null);
+        
+        if (getView() != null) {
+            TextView tvDisplayName = getView().findViewById(R.id.tvDisplayName);
+            TextView tvEmail = getView().findViewById(R.id.tvEmail);
+            android.widget.ImageView imgAvatar = getView().findViewById(R.id.imgAvatar);
+            
+            if (cachedName != null) tvDisplayName.setText(cachedName);
+            if (cachedEmail != null) tvEmail.setText(cachedEmail);
+            if (cachedPhoto != null) {
+                setupUserAvatar(imgAvatar, cachedName, cachedEmail, cachedPhoto);
+            }
+        }
     }
 
     @Override
