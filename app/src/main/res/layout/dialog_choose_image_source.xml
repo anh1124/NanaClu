@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chọn nguồn ảnh"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCamera"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chụp ảnh từ Camera"
+        android:layout_marginBottom="8dp"
+        android:drawableStart="@drawable/ic_camera"
+        android:drawablePadding="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnGallery"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chọn từ thư viện"
+        android:layout_marginBottom="8dp"
+        android:drawableStart="@drawable/ic_photo_library"
+        android:drawablePadding="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Hủy"
+        style="@style/Widget.Material3.Button.TextButton" />
+
+</LinearLayout>

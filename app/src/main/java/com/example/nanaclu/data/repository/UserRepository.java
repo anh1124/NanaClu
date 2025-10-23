@@ -45,8 +45,57 @@ public class UserRepository {
         }
     }
 
+    public void updateUserDisplayName(String userId, String displayName, UserUpdateCallback callback) {
+        if (displayName == null || displayName.trim().isEmpty()) {
+            callback.onError(new IllegalArgumentException("Display name cannot be empty"));
+            return;
+        }
+        
+        db.collection(USERS_COLLECTION)
+                .document(userId)
+                .update("displayName", displayName.trim())
+                .addOnSuccessListener(aVoid -> {
+                    android.util.Log.d("UserRepository", "Updated displayName for user: " + userId);
+                    callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("UserRepository", "Failed to update displayName for user: " + userId, e);
+                    callback.onError(e);
+                });
+    }
+
+    public void updateUserProfile(String userId, String displayName, String photoUrl, UserUpdateCallback callback) {
+        if (displayName == null || displayName.trim().isEmpty()) {
+            callback.onError(new IllegalArgumentException("Display name cannot be empty"));
+            return;
+        }
+
+        java.util.Map<String, Object> updates = new java.util.HashMap<>();
+        updates.put("displayName", displayName.trim());
+        if (photoUrl != null && !photoUrl.isEmpty()) {
+            updates.put("photoUrl", photoUrl);
+        }
+
+        db.collection(USERS_COLLECTION)
+                .document(userId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    android.util.Log.d("UserRepository", "Updated profile for user: " + userId);
+                    callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("UserRepository", "Failed to update profile for user: " + userId, e);
+                    callback.onError(e);
+                });
+    }
+
     public interface UserCallback {
         void onSuccess(User user);
+        void onError(Exception e);
+    }
+
+    public interface UserUpdateCallback {
+        void onSuccess();
         void onError(Exception e);
     }
 }
