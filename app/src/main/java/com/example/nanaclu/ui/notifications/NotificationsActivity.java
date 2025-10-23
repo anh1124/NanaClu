@@ -92,12 +92,23 @@ public class NotificationsActivity extends AppCompatActivity {
             public void onNoticeClick(Notice notice) {
                 // Đánh dấu đã xem trước khi navigate
                 if (!notice.isSeen()) {
+                    if (notice.getId().startsWith("grouped_")) {
+                        // Thông báo nhóm - mark seen tất cả thông báo gốc
+                        String originalIds = notice.getTargetUserId();
+                        if (originalIds != null && !originalIds.isEmpty()) {
+                            String[] ids = originalIds.split(",");
+                            for (String id : ids) {
+                                viewModel.markSeen(id.trim());
+                            }
+                        }
+                    } else {
+                        // Thông báo thật - mark seen bình thường
+                        viewModel.markSeen(notice.getId());
+                    }
+                    
                     // Cập nhật UI ngay lập tức
                     notice.setSeen(true);
                     adapter.notifyItemChanged(adapter.getCurrentList().indexOf(notice));
-                    
-                    // Cập nhật database
-                    viewModel.markSeen(notice.getId());
                 }
                 
                 // Navigate đến màn hình đích
@@ -135,24 +146,23 @@ public class NotificationsActivity extends AppCompatActivity {
         });
 
         fabMarkAllSeen.setOnClickListener(v -> {
-            // Log unseen count
+            // Log current notices count
             List<Notice> currentNotices = adapter.getCurrentList();
-            int unseenCount = 0;
-            if (currentNotices != null) {
-                for (Notice n : currentNotices) if (!n.isSeen()) unseenCount++;
-            }
-            android.util.Log.d("NotificationsActivity", "FAB clicked. Unseen count=" + unseenCount);
+            int totalCount = currentNotices != null ? currentNotices.size() : 0;
+            android.util.Log.d("NotificationsActivity", "FAB clicked. Total notices=" + totalCount);
 
-            // Perform per-item seen update with logs and immediate UI update
-            viewModel.markAllSeenIndividually();
+            // Show loading state
+            android.widget.Toast.makeText(this, "Đang xóa thông báo...", android.widget.Toast.LENGTH_SHORT).show();
+
+            // Delete all notifications from subcollection
+            viewModel.deleteAllNotifications();
 
             // Update global badge
             noticeCenter.markAllSeen();
             
-            // Force refresh from Firestore after a short delay to ensure DB updates are reflected
+            // Show success message after a delay
             new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                android.util.Log.d("NotificationsActivity", "Refreshing from Firestore after mark all seen");
-                viewModel.refresh();
+                android.widget.Toast.makeText(this, "Đã xóa tất cả thông báo", android.widget.Toast.LENGTH_SHORT).show();
             }, 1000);
         });
     }

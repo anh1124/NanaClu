@@ -103,15 +103,33 @@ public class PostDetailActivity extends AppCompatActivity {
     }
 
     private void loadPost() {
-        if (groupId == null || postId == null) return;
+        android.util.Log.d("PostDetailActivity", "=== START loadPost ===");
+        android.util.Log.d("PostDetailActivity", "groupId: " + groupId);
+        android.util.Log.d("PostDetailActivity", "postId: " + postId);
+        
+        if (groupId == null || postId == null) {
+            android.util.Log.e("PostDetailActivity", "groupId or postId is null");
+            return;
+        }
+        
+        android.util.Log.d("PostDetailActivity", "Loading post from Firestore...");
         db.collection("groups").document(groupId)
                 .collection("posts").document(postId)
                 .get()
                 .addOnSuccessListener(doc -> {
+                    android.util.Log.d("PostDetailActivity", "Firestore query completed");
+                    android.util.Log.d("PostDetailActivity", "Document exists: " + doc.exists());
+                    android.util.Log.d("PostDetailActivity", "Document ID: " + doc.getId());
+                    
                     Post post = doc.toObject(Post.class);
-                    if (post == null) return;
+                    if (post == null) {
+                        android.util.Log.e("PostDetailActivity", "Post is null - document exists: " + doc.exists());
+                        android.util.Log.e("PostDetailActivity", "Document data: " + doc.getData());
+                        return;
+                    }
                     // store author for notices
                     postAuthorId = post.authorId;
+                    android.util.Log.d("PostDetailActivity", "Post loaded successfully. postAuthorId: " + postAuthorId);
                     
                     // Load author name
                     loadAuthorName(post.authorId);
@@ -355,6 +373,11 @@ public class PostDetailActivity extends AppCompatActivity {
     }
 
     private void loadComments() {
+        if (groupId == null || postId == null) {
+            android.util.Log.e("PostDetailActivity", "groupId or postId is null - groupId: " + groupId + ", postId: " + postId);
+            return;
+        }
+        
         db.collection("groups").document(groupId)
                 .collection("posts").document(postId)
                 .collection("comments")
@@ -373,29 +396,84 @@ public class PostDetailActivity extends AppCompatActivity {
     }
 
     private void addComment(String text) {
+        android.util.Log.d("PostDetailActivity", "=== START addComment ===");
+        android.util.Log.d("PostDetailActivity", "Comment text: " + text);
+        android.util.Log.d("PostDetailActivity", "groupId: " + groupId);
+        android.util.Log.d("PostDetailActivity", "postId: " + postId);
+        android.util.Log.d("PostDetailActivity", "postAuthorId: " + postAuthorId);
+        
         Map<String, Object> data = new HashMap<>();
         data.put("text", text);
         data.put("createdAt", FieldValue.serverTimestamp());
+        
+        android.util.Log.d("PostDetailActivity", "Adding comment to Firestore...");
         db.collection("groups").document(groupId)
                 .collection("posts").document(postId)
                 .collection("comments")
                 .add(data)
                 .addOnSuccessListener(ref -> {
+                    android.util.Log.d("PostDetailActivity", "=== COMMENT ADDED SUCCESSFULLY ===");
+                    android.util.Log.d("PostDetailActivity", "Comment ID: " + ref.getId());
+                    
                     // create notice for post author (skip self)
                     String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-                    if (currentUid == null || postAuthorId == null || postAuthorId.equals(currentUid)) return;
+                    android.util.Log.d("PostDetailActivity", "Current user ID: " + currentUid);
+                    android.util.Log.d("PostDetailActivity", "Post author ID: " + postAuthorId);
+                    
+                    if (currentUid == null) {
+                        android.util.Log.w("PostDetailActivity", "SKIP: currentUid is null");
+                        return;
+                    }
+                    
+                    if (postAuthorId == null) {
+                        android.util.Log.w("PostDetailActivity", "SKIP: postAuthorId is null");
+                        return;
+                    }
+                    
+                    if (postAuthorId.equals(currentUid)) {
+                        android.util.Log.w("PostDetailActivity", "SKIP: User commenting on their own post");
+                        return;
+                    }
+                    
+                    android.util.Log.d("PostDetailActivity", "Creating notice for post author...");
                     UserRepository userRepo = new UserRepository(FirebaseFirestore.getInstance());
                     userRepo.getUserById(currentUid, new UserRepository.UserCallback() {
                         @Override public void onSuccess(User user) {
                             String actorName = user != null ? user.displayName : "Người dùng";
+                            android.util.Log.d("PostDetailActivity", "User info retrieved. actorName: " + actorName);
+                            android.util.Log.d("PostDetailActivity", "Calling createPostCommented with:");
+                            android.util.Log.d("PostDetailActivity", "  - groupId: " + groupId);
+                            android.util.Log.d("PostDetailActivity", "  - postId: " + postId);
+                            android.util.Log.d("PostDetailActivity", "  - commentId: " + ref.getId());
+                            android.util.Log.d("PostDetailActivity", "  - actorId: " + currentUid);
+                            android.util.Log.d("PostDetailActivity", "  - actorName: " + actorName);
+                            android.util.Log.d("PostDetailActivity", "  - targetUid: " + postAuthorId);
+                            
                             new NoticeRepository(FirebaseFirestore.getInstance())
-                                    .createPostCommented(groupId, postId, ref.getId(), currentUid, actorName, postAuthorId);
+                                    .createPostCommented(groupId, postId, ref.getId(), currentUid, actorName, postAuthorId)
+                                    .addOnSuccessListener(aVoid -> {
+                                        android.util.Log.d("PostDetailActivity", "✅ Comment notice created successfully!");
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        android.util.Log.e("PostDetailActivity", "❌ Failed to create comment notice", e);
+                                    });
                         }
                         @Override public void onError(Exception e) {
+                            android.util.Log.e("PostDetailActivity", "Failed to get user info, using default name", e);
+                            android.util.Log.d("PostDetailActivity", "Calling createPostCommented with default name...");
                             new NoticeRepository(FirebaseFirestore.getInstance())
-                                    .createPostCommented(groupId, postId, ref.getId(), currentUid, "Người dùng", postAuthorId);
+                                    .createPostCommented(groupId, postId, ref.getId(), currentUid, "Người dùng", postAuthorId)
+                                    .addOnSuccessListener(aVoid -> {
+                                        android.util.Log.d("PostDetailActivity", "✅ Comment notice created successfully with default name!");
+                                    })
+                                    .addOnFailureListener(err -> {
+                                        android.util.Log.e("PostDetailActivity", "❌ Failed to create comment notice with default name", err);
+                                    });
                         }
                     });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("PostDetailActivity", "❌ Failed to add comment to Firestore", e);
                 });
     }
 

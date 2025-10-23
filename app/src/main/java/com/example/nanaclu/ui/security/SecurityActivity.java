@@ -12,10 +12,13 @@ import androidx.appcompat.widget.Toolbar;
 
 import com.example.nanaclu.R;
 import com.example.nanaclu.utils.ThemeUtils;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class SecurityActivity extends AppCompatActivity {
     private SharedPreferences securityPrefs;
     private LinearLayout pinRow;
+    private LinearLayout changePasswordRow;
     private TextView pinStatus;
     private com.google.android.material.materialswitch.MaterialSwitch switchPinEnabled;
 
@@ -29,6 +32,7 @@ public class SecurityActivity extends AppCompatActivity {
         setupToolbar();
         setupViews();
         updatePinStatus();
+        checkPasswordChangeAvailability();
     }
 
     private void setupToolbar() {
@@ -47,10 +51,19 @@ public class SecurityActivity extends AppCompatActivity {
 
     private void setupViews() {
         pinRow = findViewById(R.id.pinRow);
+        changePasswordRow = findViewById(R.id.changePasswordRow);
         pinStatus = findViewById(R.id.pinStatus);
         switchPinEnabled = findViewById(R.id.switchPinEnabled);
 
         pinRow.setOnClickListener(v -> showSetupPinDialog());
+        changePasswordRow.setOnClickListener(v -> {
+            if (changePasswordRow.isEnabled()) {
+                showChangePasswordDialog();
+            } else {
+                // Show message for disabled state
+                Toast.makeText(this, "Chức năng này không khả dụng với tài khoản Google", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // Setup switch listener
         switchPinEnabled.setOnCheckedChangeListener(this::onSwitchChanged);
@@ -151,6 +164,60 @@ public class SecurityActivity extends AppCompatActivity {
     private String hashPin(String pin) {
         // Simple hash for demo - in production use proper hashing
         return String.valueOf(pin.hashCode());
+    }
+
+    private void checkPasswordChangeAvailability() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            // Check if user is using email/password authentication
+            boolean isEmailProvider = false;
+            for (com.google.firebase.auth.UserInfo provider : currentUser.getProviderData()) {
+                if ("password".equals(provider.getProviderId())) {
+                    isEmailProvider = true;
+                    break;
+                }
+            }
+            
+            // Always show password change row, but with different states
+            changePasswordRow.setVisibility(View.VISIBLE);
+            
+            if (isEmailProvider) {
+                // Enable for email/password users
+                changePasswordRow.setEnabled(true);
+                changePasswordRow.setAlpha(1.0f);
+                updatePasswordChangeText("Thay đổi mật khẩu tài khoản");
+            } else {
+                // Disable for OAuth users (Google)
+                changePasswordRow.setEnabled(false);
+                changePasswordRow.setAlpha(0.6f);
+                updatePasswordChangeText("Không hoạt động với OAuth (Google)");
+            }
+        } else {
+            changePasswordRow.setVisibility(View.GONE);
+        }
+    }
+    
+    private void updatePasswordChangeText(String text) {
+        TextView tvDescription = changePasswordRow.findViewById(R.id.tvPasswordDescription);
+        if (tvDescription != null) {
+            tvDescription.setText(text);
+        }
+    }
+
+    private void showChangePasswordDialog() {
+        ChangePasswordDialog dialog = new ChangePasswordDialog(this, new ChangePasswordDialog.ChangePasswordCallback() {
+            @Override
+            public void onPasswordChanged() {
+                android.util.Log.d("PasswordChange", "onPasswordChanged callback called");
+                Toast.makeText(SecurityActivity.this, "Mật khẩu đã được thay đổi thành công", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onCancel() {
+                // User cancelled - do nothing
+            }
+        });
+        dialog.show();
     }
 
     @Override
