@@ -31,7 +31,10 @@
         app:boxCornerRadiusTopStart="16dp"
         app:boxCornerRadiusTopEnd="16dp"
         app:boxCornerRadiusBottomStart="16dp"
-        app:boxCornerRadiusBottomEnd="16dp">
+        app:boxCornerRadiusBottomEnd="16dp"
+        app:boxStrokeWidth="0dp"
+        app:boxStrokeWidthFocused="0dp"
+        >
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/edtEmail"
@@ -56,7 +59,10 @@
         app:boxCornerRadiusTopEnd="16dp"
         app:boxCornerRadiusBottomStart="16dp"
         app:boxCornerRadiusBottomEnd="16dp"
-        app:endIconMode="password_toggle">
+        app:endIconMode="password_toggle"
+        app:boxStrokeWidth="0dp"
+        app:boxStrokeWidthFocused="0dp"
+        >
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/edtPassword"
