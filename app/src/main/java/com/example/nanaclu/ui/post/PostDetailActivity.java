@@ -47,6 +47,7 @@ public class PostDetailActivity extends AppCompatActivity {
     private CommentsAdapter adapter;
     private TextView tvAuthor, tvTime, tvContent, tvShowMore, tvLikeCount;
     private ViewGroup layoutTextControls;
+    private View btnShare;
     private android.widget.ImageView imgAuthorAvatar;
     private androidx.constraintlayout.widget.ConstraintLayout imageArea;
     private LinearLayout btnLike;
@@ -80,6 +81,7 @@ public class PostDetailActivity extends AppCompatActivity {
         btnLike = findViewById(R.id.btnLike);
         ivLike = findViewById(R.id.ivLike);
         tvLikeCount = findViewById(R.id.tvLikeCount);
+        btnShare = findViewById(R.id.btnShare);
 
         rvComments = findViewById(R.id.rvComments);
         rvComments.setLayoutManager(new LinearLayoutManager(this));
@@ -97,6 +99,11 @@ public class PostDetailActivity extends AppCompatActivity {
 
         // Setup like button
         setupLikeButton();
+
+        // Setup share button
+        btnShare.setOnClickListener(v -> {
+            com.example.nanaclu.utils.ShareLinkUtils.copyPostLink(this, postId);
+        });
 
         loadPost();
         loadComments();

@@ -32,6 +32,7 @@ public class ProfileFragment extends BaseFragment {
         View colorPreview = root.findViewById(R.id.colorPreview);
         View btnPick = root.findViewById(R.id.btnPickColor);
         View friendsRow = root.findViewById(R.id.friendsRow);
+        View openLinkRow = root.findViewById(R.id.openLinkRow);
         View securityRow = root.findViewById(R.id.securityRow);
         androidx.appcompat.widget.Toolbar toolbar = root.findViewById(R.id.toolbar);
         android.widget.ImageView imgAvatar = root.findViewById(R.id.imgAvatar);
@@ -99,6 +100,7 @@ public class ProfileFragment extends BaseFragment {
         btnLogout.setOnClickListener(v -> openConfirmLogoutDialog());
         btnPick.setOnClickListener(v -> openColorPicker(toolbar, colorPreview));
         friendsRow.setOnClickListener(v -> openFriendsActivity());
+        openLinkRow.setOnClickListener(v -> openLinkBottomSheet());
         securityRow.setOnClickListener(v -> openSecurityActivity());
         // Bắt sự kiện click avatar để mở EditProfileActivity hoặc admin dashboard
         imgAvatar.setOnClickListener(v -> {
@@ -490,6 +492,11 @@ public class ProfileFragment extends BaseFragment {
             android.util.Log.e("ProfileAvatar", "❌ Error creating text drawable: " + e.getMessage(), e);
             throw e;
         }
+    }
+
+    private void openLinkBottomSheet() {
+        com.example.nanaclu.ui.common.OpenLinkBottomSheet bottomSheet = new com.example.nanaclu.ui.common.OpenLinkBottomSheet();
+        bottomSheet.show(getParentFragmentManager(), "open_link_bottom_sheet");
     }
 }
 

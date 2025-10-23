@@ -39,6 +39,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
     public interface PostActionListener {
         void onLike(Post post);
         void onComment(Post post);
+        void onShare(Post post);
         void onDelete(Post post);
         void onReport(Post post);
     }
@@ -110,7 +111,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         TextView tvAuthorName, tvCreatedAt, tvContent, tvGroupName;
         TextView tvShowMore;
         ViewGroup layoutTextControls;
-        ImageView btnLike; View btnComment;
+        ImageView btnLike; View btnComment, btnShare;
         ImageView ivAuthorAvatar;
         View btnMore;
         ViewGroup imageContainer;
@@ -144,6 +145,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             tvGroupName = itemView.findViewById(R.id.tvGroupName);
             btnLike = itemView.findViewById(R.id.btnLike);
             btnComment = itemView.findViewById(R.id.btnComment);
+            btnShare = itemView.findViewById(R.id.btnShare);
             ivAuthorAvatar = itemView.findViewById(R.id.ivAuthorAvatar);
             btnMore = itemView.findViewById(R.id.btnMore);
 
@@ -299,6 +301,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             });
             btnComment.setOnClickListener(v -> {
                 if (actionListener != null) actionListener.onComment(post);
+            });
+            btnShare.setOnClickListener(v -> {
+                if (actionListener != null) actionListener.onShare(post);
             });
 
             btnMore.setOnClickListener(v -> {

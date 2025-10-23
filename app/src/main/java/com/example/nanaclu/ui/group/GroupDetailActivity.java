@@ -225,6 +225,10 @@ public class GroupDetailActivity extends AppCompatActivity {
                 CommentsBottomSheet.show(GroupDetailActivity.this, post);
             }
             @Override
+            public void onShare(Post post) {
+                com.example.nanaclu.utils.ShareLinkUtils.copyPostLink(GroupDetailActivity.this, post.postId);
+            }
+            @Override
             public void onDelete(Post post) {
                 // Tạo custom dialog với ProgressBar
                 androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(GroupDetailActivity.this);
