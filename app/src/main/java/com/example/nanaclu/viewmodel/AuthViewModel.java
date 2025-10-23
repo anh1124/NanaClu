@@ -34,7 +34,28 @@ public class AuthViewModel extends ViewModel {
                     if (task.isSuccessful()) {
                         _user.setValue(repository.getCurrentUser());
                     } else {
-                        _error.setValue(task.getException() != null ? task.getException().getMessage() : "Register failed");
+                        String errorMessage = "Đăng ký thất bại";
+                        if (task.getException() != null) {
+                            String originalMessage = task.getException().getMessage();
+                            if (originalMessage != null) {
+                                String lowerMessage = originalMessage.toLowerCase();
+                                // Translate common Firebase auth errors to Vietnamese
+                                if (lowerMessage.contains("email already in use")) {
+                                    errorMessage = "Email đã được sử dụng";
+                                } else if (lowerMessage.contains("weak password")) {
+                                    errorMessage = "Mật khẩu quá yếu";
+                                } else if (lowerMessage.contains("invalid email")) {
+                                    errorMessage = "Email không hợp lệ";
+                                } else if (lowerMessage.contains("too many requests")) {
+                                    errorMessage = "Quá nhiều lần thử. Vui lòng thử lại sau";
+                                } else if (lowerMessage.contains("network")) {
+                                    errorMessage = "Lỗi kết nối mạng";
+                                } else {
+                                    errorMessage = originalMessage; // Keep original if no translation found
+                                }
+                            }
+                        }
+                        _error.setValue(errorMessage);
                     }
                 });
     }
@@ -48,7 +69,36 @@ public class AuthViewModel extends ViewModel {
                     if (task.isSuccessful()) {
                         _user.setValue(repository.getCurrentUser());
                     } else {
-                        _error.setValue(task.getException() != null ? task.getException().getMessage() : "Login failed");
+                        String errorMessage = "Đăng nhập thất bại";
+                        if (task.getException() != null) {
+                            String originalMessage = task.getException().getMessage();
+                            if (originalMessage != null) {
+                                String lowerMessage = originalMessage.toLowerCase();
+                                // Translate common Firebase auth errors to Vietnamese
+                                if (lowerMessage.contains("supplied auth credential is incorrect") || 
+                                    lowerMessage.contains("invalid credential") || 
+                                    (lowerMessage.contains("incorrect") && lowerMessage.contains("credential")) ||
+                                    lowerMessage.contains("malformed") ||
+                                    lowerMessage.contains("expired")) {
+                                    errorMessage = "Sai tên đăng nhập hoặc mật khẩu";
+                                } else if (lowerMessage.contains("user not found")) {
+                                    errorMessage = "Tài khoản không tồn tại";
+                                } else if (lowerMessage.contains("wrong password")) {
+                                    errorMessage = "Sai mật khẩu";
+                                } else if (lowerMessage.contains("invalid email")) {
+                                    errorMessage = "Email không hợp lệ";
+                                } else if (lowerMessage.contains("user disabled")) {
+                                    errorMessage = "Tài khoản đã bị vô hiệu hóa";
+                                } else if (lowerMessage.contains("too many requests")) {
+                                    errorMessage = "Quá nhiều lần thử. Vui lòng thử lại sau";
+                                } else if (lowerMessage.contains("network")) {
+                                    errorMessage = "Lỗi kết nối mạng";
+                                } else {
+                                    errorMessage = originalMessage; // Keep original if no translation found
+                                }
+                            }
+                        }
+                        _error.setValue(errorMessage);
                     }
                 });
     }
@@ -62,7 +112,26 @@ public class AuthViewModel extends ViewModel {
                     if (task.isSuccessful()) {
                         _user.setValue(repository.getCurrentUser());
                     } else {
-                        _error.setValue(task.getException() != null ? task.getException().getMessage() : "Google Login failed");
+                        String errorMessage = "Đăng nhập Google thất bại";
+                        if (task.getException() != null) {
+                            String originalMessage = task.getException().getMessage();
+                            if (originalMessage != null) {
+                                String lowerMessage = originalMessage.toLowerCase();
+                                // Translate common Firebase auth errors to Vietnamese
+                                if (lowerMessage.contains("network")) {
+                                    errorMessage = "Lỗi kết nối mạng";
+                                } else if (lowerMessage.contains("cancelled")) {
+                                    errorMessage = "Đăng nhập bị hủy";
+                                } else if (lowerMessage.contains("invalid")) {
+                                    errorMessage = "Lỗi xác thực Google";
+                                } else if (lowerMessage.contains("account")) {
+                                    errorMessage = "Lỗi tài khoản Google";
+                                } else {
+                                    errorMessage = originalMessage; // Keep original if no translation found
+                                }
+                            }
+                        }
+                        _error.setValue(errorMessage);
                     }
                 });
     }
