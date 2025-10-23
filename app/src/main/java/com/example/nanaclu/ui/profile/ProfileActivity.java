@@ -67,7 +67,12 @@ public class ProfileActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("Profile");
+            // Show "(Bạn)" if viewing own profile
+            if (userId.equals(currentUserId)) {
+                getSupportActionBar().setTitle("Profile (Bạn)");
+            } else {
+                getSupportActionBar().setTitle("Profile");
+            }
         }
         toolbar.setNavigationOnClickListener(v -> finish());
 

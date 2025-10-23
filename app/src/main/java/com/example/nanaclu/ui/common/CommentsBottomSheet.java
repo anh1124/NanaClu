@@ -129,6 +129,28 @@ public class CommentsBottomSheet {
                             .show();
                 }
             }
+        }, new CommentAdapter.OnUserClickListener() {
+            @Override
+            public void onUserClick(String userId) {
+                // Open profile when clicking on comment author
+                Context ctx = getContextFromObject(context);
+                if (ctx instanceof android.app.Activity) {
+                    android.content.Intent intent = new android.content.Intent(ctx, com.example.nanaclu.ui.profile.ProfileActivity.class);
+                    intent.putExtra("userId", userId);
+                    ctx.startActivity(intent);
+                } else if (ctx != null) {
+                    // If context is from Fragment, we need to get the Activity
+                    android.app.Activity activity = null;
+                    if (context instanceof Fragment) {
+                        activity = ((Fragment) context).getActivity();
+                    }
+                    if (activity != null) {
+                        android.content.Intent intent = new android.content.Intent(activity, com.example.nanaclu.ui.profile.ProfileActivity.class);
+                        intent.putExtra("userId", userId);
+                        activity.startActivity(intent);
+                    }
+                }
+            }
         }, post.groupId, post.postId);
         rv.setAdapter(adapter);
         
@@ -209,6 +231,17 @@ public class CommentsBottomSheet {
 
         int[] loadedCount = {0};
         for (Comment comment : comments) {
+            // Skip comments with null authorId
+            if (comment.authorId == null || comment.authorId.isEmpty()) {
+                comment.authorName = "Người dùng";
+                comment.authorAvatar = null;
+                loadedCount[0]++;
+                if (loadedCount[0] == comments.size()) {
+                    adapter.updateComments(comments);
+                }
+                continue;
+            }
+            
             userRepo.getUserById(comment.authorId, new UserRepository.UserCallback() {
                 @Override
                 public void onSuccess(com.example.nanaclu.data.model.User user) {
