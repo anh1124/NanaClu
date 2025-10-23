@@ -71,6 +71,10 @@ public class CommentRepository {
                         LogRepository logRepo = new LogRepository(db);
                         String snippet = content.length() > 60 ? content.substring(0, 60) + "..." : content;
                         logRepo.logGroupAction(groupId, "comment_added", "comment", commentId, snippet, null);
+                        
+                        // Create notice for post author (skip self)
+                        createCommentNotice(groupId, postId, commentId, currentUserId);
+                        
                         return com.google.android.gms.tasks.Tasks.forResult(commentId);
                     } else {
                         return com.google.android.gms.tasks.Tasks.forException(task.getException());
@@ -276,6 +280,73 @@ public class CommentRepository {
                     } else {
                         return com.google.android.gms.tasks.Tasks.forException(task.getException());
                     }
+                });
+    }
+
+    /**
+     * Tạo thông báo khi có comment mới
+     */
+    private void createCommentNotice(String groupId, String postId, String commentId, String actorId) {
+        android.util.Log.d("CommentRepository", "=== START createCommentNotice ===");
+        android.util.Log.d("CommentRepository", "groupId: " + groupId);
+        android.util.Log.d("CommentRepository", "postId: " + postId);
+        android.util.Log.d("CommentRepository", "commentId: " + commentId);
+        android.util.Log.d("CommentRepository", "actorId: " + actorId);
+        
+        // Lấy thông tin post để biết tác giả
+        db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(POSTS_COLLECTION)
+                .document(postId)
+                .get()
+                .addOnSuccessListener(postDoc -> {
+                    if (postDoc.exists()) {
+                        String postAuthorId = postDoc.getString("authorId");
+                        android.util.Log.d("CommentRepository", "Post author ID: " + postAuthorId);
+                        
+                        // Không tạo notice cho chính mình
+                        if (postAuthorId != null && !postAuthorId.equals(actorId)) {
+                            // Lấy thông tin user hiện tại
+                            UserRepository userRepo = new UserRepository(db);
+                            userRepo.getUserById(actorId, new UserRepository.UserCallback() {
+                                @Override
+                                public void onSuccess(com.example.nanaclu.data.model.User user) {
+                                    String actorName = user != null ? user.displayName : "Người dùng";
+                                    android.util.Log.d("CommentRepository", "Creating notice for post author: " + postAuthorId + ", actorName: " + actorName);
+                                    
+                                    // Tạo notice
+                                    NoticeRepository noticeRepo = new NoticeRepository(db);
+                                    noticeRepo.createPostCommented(groupId, postId, commentId, actorId, actorName, postAuthorId)
+                                            .addOnSuccessListener(aVoid -> {
+                                                android.util.Log.d("CommentRepository", "✅ Comment notice created successfully!");
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                android.util.Log.e("CommentRepository", "❌ Failed to create comment notice", e);
+                                            });
+                                }
+                                
+                                @Override
+                                public void onError(Exception e) {
+                                    android.util.Log.e("CommentRepository", "Failed to get user info, using default name", e);
+                                    NoticeRepository noticeRepo = new NoticeRepository(db);
+                                    noticeRepo.createPostCommented(groupId, postId, commentId, actorId, "Người dùng", postAuthorId)
+                                            .addOnSuccessListener(aVoid -> {
+                                                android.util.Log.d("CommentRepository", "✅ Comment notice created successfully with default name!");
+                                            })
+                                            .addOnFailureListener(err -> {
+                                                android.util.Log.e("CommentRepository", "❌ Failed to create comment notice with default name", err);
+                                            });
+                                }
+                            });
+                        } else {
+                            android.util.Log.d("CommentRepository", "SKIP: User commenting on their own post");
+                        }
+                    } else {
+                        android.util.Log.e("CommentRepository", "Post not found");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("CommentRepository", "Failed to get post info", e);
                 });
     }
 

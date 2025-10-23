@@ -183,6 +183,12 @@ public class NoticeCenter {
      * Navigate đến màn hình đích từ notice
      */
     public void navigateToTarget(Context context, Notice notice) {
+        android.util.Log.d(TAG, "=== START navigateToTarget ===");
+        android.util.Log.d(TAG, "Notice type: " + notice.getType());
+        android.util.Log.d(TAG, "Notice objectType: " + notice.getObjectType());
+        android.util.Log.d(TAG, "Notice objectId: " + notice.getObjectId());
+        android.util.Log.d(TAG, "Notice groupId: " + notice.getGroupId());
+        
         Intent intent = null;
 
         switch (notice.getType()) {
@@ -214,6 +220,7 @@ public class NoticeCenter {
                 intent = new Intent(context, com.example.nanaclu.ui.post.PostDetailActivity.class);
                 intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_GROUP_ID, notice.getGroupId());
                 intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_POST_ID, notice.getObjectId());
+                android.util.Log.d(TAG, "Opening PostDetailActivity with groupId=" + notice.getGroupId() + ", postId=" + notice.getObjectId());
                 break;
 
             case "friend_request":
