@@ -127,6 +127,7 @@ public class ProfileActivity extends AppCompatActivity {
                 }
             });
         }
+
     }
 
     private void createPrivateChatAndOpen(String currentUid, String otherUid) {

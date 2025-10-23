@@ -128,6 +128,11 @@ public class SearchResultsActivity extends AppCompatActivity {
             }
             
             @Override
+            public void onShare(Post post) {
+                com.example.nanaclu.utils.ShareLinkUtils.copyPostLink(SearchResultsActivity.this, post.postId);
+            }
+            
+            @Override
             public void onDelete(Post post) {
                 // Show delete confirmation dialog
                 new androidx.appcompat.app.AlertDialog.Builder(SearchResultsActivity.this)

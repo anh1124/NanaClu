@@ -202,6 +202,16 @@
                 android:padding="8dp"
                 android:src="@drawable/comment"
                 android:contentDescription="Comment" />
+            <ImageButton
+                android:id="@+id/btnShare"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/btn_circle_blue"
+                android:scaleType="centerInside"
+                android:padding="8dp"
+                android:src="@drawable/ic_share"
+                android:contentDescription="Share" />
         </LinearLayout>
     </LinearLayout>
 

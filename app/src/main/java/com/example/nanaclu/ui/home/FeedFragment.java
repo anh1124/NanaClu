@@ -101,6 +101,9 @@ public class FeedFragment extends BaseFragment {
         adapter = new PostAdapter(postRepository, new PostAdapter.PostActionListener() {
             @Override public void onLike(Post post) {}
             @Override public void onComment(Post post) { showComments(post); }
+            @Override public void onShare(Post post) { 
+                com.example.nanaclu.utils.ShareLinkUtils.copyPostLink(requireContext(), post.postId);
+            }
             @Override public void onDelete(Post post) { deletePost(post); }
             @Override public void onReport(Post post) {
                 if (post.groupId != null) {
