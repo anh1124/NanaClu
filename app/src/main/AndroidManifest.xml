@@ -32,6 +32,11 @@
         </activity>
         <activity android:name=".ui.HomeActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupDetailActivity" android:exported="false" />
+        <activity 
+            android:name=".ui.group.SearchResultsActivity" 
+            android:exported="false"
+            android:label="Kết quả tìm kiếm"
+            android:parentActivityName=".ui.group.GroupDetailActivity" />
         <activity android:name=".ui.group.GroupSettingsActivity" android:exported="false" />
         <activity android:name=".ui.report.GroupReportActivity" android:exported="false" />
         <activity android:name=".ui.group.EditGroupInfoActivity" android:exported="false" />

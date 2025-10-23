@@ -801,4 +801,146 @@ public class PostRepository {
             this.fileSize = fileSize;
         }
     }
+
+    /**
+     * Tìm kiếm posts theo nội dung với pagination
+     * @param groupId ID của group
+     * @param query Từ khóa tìm kiếm
+     * @param pageSize Số posts mỗi page
+     * @param lastVisible Document cuối cùng của page trước
+     * @param callback Callback trả về kết quả
+     */
+    public void searchPostsByContentPaged(String groupId, String query, int pageSize,
+                                         @Nullable com.google.firebase.firestore.DocumentSnapshot lastVisible,
+                                         PagedPostsCallback callback) {
+        if (query == null || query.trim().isEmpty()) {
+            callback.onError(new IllegalArgumentException("Search query cannot be empty"));
+            return;
+        }
+
+        // Load batch lớn để filter ở client-side (vì Firestore không hỗ trợ text search)
+        int batchSize = Math.max(pageSize * 10, 100); // Load ít nhất 100 posts để filter
+        
+        com.google.firebase.firestore.Query base = db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(POSTS_COLLECTION)
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(batchSize);
+
+        com.google.firebase.firestore.Query queryObj = lastVisible != null ? base.startAfter(lastVisible) : base;
+
+        queryObj.get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Post> allPosts = new ArrayList<>();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        Post post = doc.toObject(Post.class);
+                        if (post != null) {
+                            post.groupId = groupId;
+                            allPosts.add(post);
+                        }
+                    }
+
+                    // Filter posts by content (case-insensitive)
+                    String lowerQuery = query.toLowerCase().trim();
+                    List<Post> filteredPosts = new ArrayList<>();
+                    for (Post post : allPosts) {
+                        if (post.content != null && post.content.toLowerCase().contains(lowerQuery)) {
+                            filteredPosts.add(post);
+                            if (filteredPosts.size() >= pageSize) {
+                                break; // Đủ số posts cần thiết
+                            }
+                        }
+                    }
+
+                    // Tìm lastVisible cho pagination tiếp theo
+                    com.google.firebase.firestore.DocumentSnapshot newLastVisible = null;
+                    if (!querySnapshot.isEmpty() && filteredPosts.size() == pageSize) {
+                        // Nếu có đủ kết quả, dùng document cuối cùng của batch
+                        newLastVisible = querySnapshot.getDocuments().get(querySnapshot.size() - 1);
+                    }
+
+                    callback.onSuccess(filteredPosts, newLastVisible);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    /**
+     * Tìm kiếm posts theo tác giả với pagination
+     * @param groupId ID của group
+     * @param authorName Tên tác giả
+     * @param pageSize Số posts mỗi page
+     * @param lastVisible Document cuối cùng của page trước
+     * @param callback Callback trả về kết quả
+     */
+    public void searchPostsByAuthorPaged(String groupId, String authorName, int pageSize,
+                                        @Nullable com.google.firebase.firestore.DocumentSnapshot lastVisible,
+                                        PagedPostsCallback callback) {
+        if (authorName == null || authorName.trim().isEmpty()) {
+            callback.onError(new IllegalArgumentException("Author name cannot be empty"));
+            return;
+        }
+
+        // Bước 1: Tìm users có displayName chứa authorName
+        String lowerAuthorName = authorName.toLowerCase().trim();
+        db.collection("users")
+                .get()
+                .addOnSuccessListener(userSnapshot -> {
+                    List<String> matchingUserIds = new ArrayList<>();
+                    for (com.google.firebase.firestore.DocumentSnapshot userDoc : userSnapshot.getDocuments()) {
+                        String displayName = userDoc.getString("displayName");
+                        if (displayName != null && displayName.toLowerCase().contains(lowerAuthorName)) {
+                            matchingUserIds.add(userDoc.getId());
+                        }
+                    }
+
+                    if (matchingUserIds.isEmpty()) {
+                        // Không tìm thấy user nào
+                        callback.onSuccess(new ArrayList<>(), null);
+                        return;
+                    }
+
+                    // Bước 2: Tìm posts của các users này
+                    int batchSize = Math.max(pageSize * 10, 100);
+                    com.google.firebase.firestore.Query base = db.collection(GROUPS_COLLECTION)
+                            .document(groupId)
+                            .collection(POSTS_COLLECTION)
+                            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                            .limit(batchSize);
+
+                    com.google.firebase.firestore.Query queryObj = lastVisible != null ? base.startAfter(lastVisible) : base;
+
+                    queryObj.get()
+                            .addOnSuccessListener(postSnapshot -> {
+                                List<Post> allPosts = new ArrayList<>();
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : postSnapshot.getDocuments()) {
+                                    Post post = doc.toObject(Post.class);
+                                    if (post != null) {
+                                        post.groupId = groupId;
+                                        allPosts.add(post);
+                                    }
+                                }
+
+                                // Filter posts by authorId
+                                List<Post> filteredPosts = new ArrayList<>();
+                                for (Post post : allPosts) {
+                                    if (post.authorId != null && matchingUserIds.contains(post.authorId)) {
+                                        filteredPosts.add(post);
+                                        if (filteredPosts.size() >= pageSize) {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                // Tìm lastVisible cho pagination tiếp theo
+                                com.google.firebase.firestore.DocumentSnapshot newLastVisible = null;
+                                if (!postSnapshot.isEmpty() && filteredPosts.size() == pageSize) {
+                                    newLastVisible = postSnapshot.getDocuments().get(postSnapshot.size() - 1);
+                                }
+
+                                callback.onSuccess(filteredPosts, newLastVisible);
+                            })
+                            .addOnFailureListener(callback::onError);
+                })
+                .addOnFailureListener(callback::onError);
+    }
 }
