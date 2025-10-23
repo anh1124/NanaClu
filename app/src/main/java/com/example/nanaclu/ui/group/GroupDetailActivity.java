@@ -70,9 +70,9 @@ public class GroupDetailActivity extends AppCompatActivity {
         backupGroupId = groupId; // Store backup
         System.out.println("GroupDetailActivity: Received groupId = " + groupId);
         android.util.Log.d("GroupDetailActivity", "onCreate: groupId=" + groupId + " (from intent)");
-        Toast.makeText(this, "onCreate: groupId = " + groupId, Toast.LENGTH_SHORT).show();
+        //Toast.makeText(this, "onCreate: groupId = " + groupId, Toast.LENGTH_SHORT).show();
         if (groupId == null) {
-            Toast.makeText(this, "Group ID is required", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Group ID is null?", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
