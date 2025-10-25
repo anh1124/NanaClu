@@ -30,7 +30,7 @@
             android:layout_width="0dp"
             android:layout_height="180dp"
             android:scaleType="centerCrop"
-            android:src="@mipmap/ic_launcher"
+            android:src="@drawable/ic_image_placeholder"
             app:layout_constraintTop_toBottomOf="@id/toolbar"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
@@ -43,7 +43,7 @@
             android:background="@drawable/bg_avatar_circle"
             android:scaleType="centerCrop"
             android:layout_marginTop="12dp"
-            android:src="@mipmap/ic_launcher_round"
+            android:src="@drawable/ic_image_placeholder"
 
             android:contentDescription="Avatar nhóm"
             app:layout_constraintTop_toBottomOf="@id/imgCover"
@@ -145,10 +145,10 @@
                     android:layout_height="48dp"
                     android:background="@drawable/bg_avatar_circle"
                     android:scaleType="centerCrop"
-                    android:src="@mipmap/ic_launcher_round"
+                    android:src="@drawable/ic_image_placeholder"
 
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"/>
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilPost"

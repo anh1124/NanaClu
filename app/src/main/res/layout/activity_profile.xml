@@ -35,7 +35,7 @@
             android:layout_width="120dp"
             android:layout_height="120dp"
             android:layout_marginTop="32dp"
-            android:src="@mipmap/ic_launcher_round"
+            android:src="@drawable/ic_image_placeholder"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />

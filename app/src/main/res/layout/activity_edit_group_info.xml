@@ -30,7 +30,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="160dp"
                 android:scaleType="centerCrop"
-                android:src="@mipmap/ic_launcher"
+                android:src="@drawable/ic_image_placeholder"
                 android:background="#EEEEEE"
                 android:layout_marginBottom="8dp" />
 
@@ -53,7 +53,7 @@
                     android:id="@+id/imgAvatarPreview"
                     android:layout_width="72dp"
                     android:layout_height="72dp"
-                    android:src="@mipmap/ic_launcher_round"
+                    android:src="@drawable/ic_image_placeholder"
                     android:scaleType="centerCrop"
                     android:background="@drawable/bg_avatar_circle" />
 

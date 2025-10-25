@@ -9,7 +9,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurface"
+        android:background="@color/chart_bar_secondary"
         app:title="Thông báo nhóm"
         app:titleTextColor="@android:color/white" />
 

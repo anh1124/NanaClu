@@ -46,7 +46,6 @@ public class GroupsFragment extends BaseFragment {
 		MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
 		toolbar.setBackgroundColor(ThemeUtils.getThemeColor(requireContext()));
 		toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
-		toolbar.setTitle("NANACLUB");
 		toolbar.setOnMenuItemClickListener(item -> {
 			int id = item.getItemId();
 			if (id == R.id.action_add_group) {

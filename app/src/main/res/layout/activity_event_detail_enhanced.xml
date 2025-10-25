@@ -93,7 +93,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/ic_time"
-                            android:tint="?attr/colorPrimary" />
+                            app:tint="?attr/colorPrimary" />
 
                         <TextView
                             android:id="@+id/tvEventDateTime"
@@ -116,7 +116,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/ic_location"
-                            android:tint="?attr/colorPrimary" />
+                            app:tint="?attr/colorPrimary" />
 
                         <TextView
                             android:id="@+id/tvEventLocation"

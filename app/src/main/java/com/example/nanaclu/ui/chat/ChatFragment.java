@@ -7,7 +7,7 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
+import com.google.android.material.textfield.TextInputEditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -59,21 +59,16 @@ public class ChatFragment extends BaseFragment {
         toolbar.setTitle(s);
         toolbar.setTitleTextColor(android.graphics.Color.WHITE);
 
-		toolbar.inflateMenu(R.menu.menu_chat);
-		// Add a left-side plus icon to start a new chat with friends
-		try {
-			toolbar.setNavigationIcon(R.drawable.ic_add_24);
-			toolbar.setNavigationOnClickListener(v -> openFriendPicker());
-		} catch (Exception ignored) {}
-        // Replace menu item with custom action view to control icon size
-        android.view.MenuItem item = toolbar.getMenu().findItem(R.id.action_new_chat);
-        android.view.LayoutInflater.from(getContext());
-        android.view.View action = android.view.LayoutInflater.from(getContext()).inflate(R.layout.menu_action_new_chat, toolbar, false);
-        item.setActionView(action);
-		android.view.View btn = action.findViewById(R.id.btnNewChat);
-		btn.setOnClickListener(v -> openFriendPicker());
+		// Set menu item click listener for new chat
+		toolbar.setOnMenuItemClickListener(item -> {
+			if (item.getItemId() == R.id.action_new_chat) {
+				openFriendPicker();
+				return true;
+			}
+			return false;
+		});
 
-        EditText edtSearch = root.findViewById(R.id.edtSearch);
+        TextInputEditText edtSearch = root.findViewById(R.id.edtSearch);
         rv = root.findViewById(R.id.rvChatThreads);
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new ChatThreadAdapter(new ArrayList<>(), this::showThreadActions);

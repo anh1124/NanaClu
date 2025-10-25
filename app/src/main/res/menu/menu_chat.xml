@@ -3,8 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/action_new_chat"
-        android:title="New"
-        android:icon="@drawable/newchat"
+        android:title="New Chat"
+        android:icon="@drawable/ic_add_24"
         app:showAsAction="always"/>
 </menu>
 

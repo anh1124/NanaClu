@@ -39,7 +39,7 @@ public class LoginActivity extends AppCompatActivity {
         CheckBox cbRemember = findViewById(R.id.cbRemember);
         TextView tvStatus = findViewById(R.id.tvStatus);
         Button btnLogin = findViewById(R.id.btnLogin);
-        com.google.android.gms.common.SignInButton btnGoogle = findViewById(R.id.btnGoogle);
+        com.google.android.material.button.MaterialButton btnGoogle = findViewById(R.id.btnGoogle);
         TextView tvGoRegister = findViewById(R.id.tvGoRegister);
 
         btnLogin.setOnClickListener(v -> {
