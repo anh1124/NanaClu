@@ -24,7 +24,7 @@ private void verifyPin() {
 ```
 
 **Security Features**:
-- PIN attempt limiting (5 max attempts)
+- PIN attempt limiting (3 max attempts)
 - Automatic logout on security violations
 - Session invalidation on PIN failures
 - Secure PIN storage using SharedPreferences
@@ -37,12 +37,42 @@ match /users/{userId} {
   allow read, write: if request.auth != null && request.auth.uid == userId;
 }
 
-// Group-based access control
+// Group-based access control via membership subcollection
 match /groups/{groupId} {
-  allow read: if request.auth != null && 
-    request.auth.uid in resource.data.memberIds;
-  allow write: if request.auth != null && 
-    get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'];
+  // Read basic group metadata if public; otherwise require membership
+  allow read: if request.auth != null && (
+    resource.data.isPrivate == false ||
+    exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid))
+  );
+
+  // Only owner/admin can modify group metadata
+  allow update, delete: if request.auth != null &&
+    get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin'];
+  allow create: if request.auth != null;
+
+  match /members/{memberId} {
+    allow read: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    allow write: if request.auth != null &&
+      get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin'];
+  }
+
+  match /posts/{postId} {
+    allow read, create: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    allow update, delete: if request.auth != null && (
+      request.auth.uid == resource.data.authorId ||
+      get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin']
+    );
+  }
+
+  match /events/{eventId} {
+    allow read: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    allow create, update, delete: if request.auth != null &&
+      get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin'];
+
+    match /rsvps/{userId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+  }
 }
 ```
 
@@ -154,11 +184,12 @@ if (lastItem != null) {
 ### 2.3 Network Optimization
 **Firestore Offline Persistence**:
 ```java
-// Enable offline persistence
-FirebaseFirestore.getInstance().enableNetwork();
+// Firestore Android enables persistence by default; explicitly set if needed
+FirebaseFirestore db = FirebaseFirestore.getInstance();
 FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
     .setPersistenceEnabled(true)
     .build();
+db.setFirestoreSettings(settings);
 ```
 
 **Image Compression**:
@@ -242,7 +273,7 @@ userPrefs.edit()
 **Network Request Optimization**:
 - Batch multiple operations
 - Reduce polling frequency
-- Use push notifications instead of polling
+- Ưu tiên thông báo trong app; (tương lai) dùng FCM thay cho polling
 
 ### 4.2 Wake Lock Management
 **Minimal Wake Lock Usage**:

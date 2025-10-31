@@ -16,6 +16,7 @@
 | Chat        | Chat conversations                  | chats                                          | chatId, type, memberIds, lastMessage |
 | ChatMember  | Chat membership                     | chats/{chatId}/members                         | userId, role, lastRead               |
 | Message     | Chat messages                       | chats/{chatId}/messages                        | messageId, content, senderId, type   |
+| FileAttachment | Files sent in chat                | chats/{chatId}/messages (fileUrls in message)  | fileUrls, fileName, size, mimeType   |
 
 ## 2. Chi tiết từng Model
 
@@ -321,8 +322,9 @@ public class Message {
     public String senderId;
     public String senderName;     // Denormalized
     public String content;
-    public String type;           // "text" | "image"
+    public String type;           // "text" | "image" | "file"
     public List<String> imageUrls;
+    public List<String> fileUrls;
     public long createdAt;
     public long editedAt;
     public boolean isDeleted;
@@ -343,9 +345,32 @@ public class Message {
 ```
 **Purpose**: Lưu trữ tin nhắn chat  
 **Properties**:
-- `type`: Phân biệt text message và image message
+- `type`: Phân biệt text/image/file message
 - `imageUrls`: List URL ảnh đính kèm
+- `fileUrls`: List URL tệp đính kèm
 - `editedAt`: Support edit message feature
+
+### 2.12 FileAttachment Model
+```java
+public class FileAttachment {
+    public String fileName;
+    public String mimeType;
+    public long size;
+    public String url; // Firebase Storage download URL
+
+    public FileAttachment() {}
+
+    public FileAttachment(String fileName, String mimeType, long size, String url) {
+        this.fileName = fileName;
+        this.mimeType = mimeType;
+        this.size = size;
+        this.url = url;
+    }
+}
+```
+**Purpose**: Mô tả metadata của tệp đính kèm trong tin nhắn  
+**Properties**:
+- `fileName`, `mimeType`, `size`, `url`
 
 ## 3. Sơ đồ quan hệ Models
 

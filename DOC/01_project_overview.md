@@ -34,18 +34,18 @@
 
 ### Chat
 - Chat riêng (global `chats/{chatId}`) và chat nhóm (`groups/{groupId}/chats/{chatId}`)
-- Tin nhắn tại `.../messages/{messageId}`; realtime bằng `addSnapshotListener`
-- Bộ sưu tập ảnh/file: `PhotoGalleryActivity`, `FileGalleryActivity`
-- Logic ẩn hội thoại một phía dùng trường membership (`hidden`) đã có; lộ trình cải tiến: thêm `clearedAt` để ẩn lịch sử cũ và tự unhide khi có tin nhắn mới
+- Tin nhắn tại `.../messages/{messageId}`; hỗ trợ loại: `text | image | file`; realtime bằng `addSnapshotListener`
+- Bộ sưu tập ảnh & tệp: `PhotoGalleryActivity`, `FileGalleryActivity`
+- Ẩn hội thoại một phía qua thuộc tính membership (`hidden`) — lộ trình: `clearedAt` để ẩn lịch sử cũ và tự hiện lại khi có tin mới
 
 ### Sự kiện (Events)
-- Tạo sự kiện trong nhóm, RSVP (`attendees`) và lịch tháng; đếm realtime theo trạng thái
+- Tạo sự kiện trong nhóm, RSVP (attending/maybe/not_attending) và lịch tháng; đếm realtime theo trạng thái
 
 ### Báo cáo & Quản trị
 - Báo cáo nội dung, dashboard quản trị, export JSON (AdminRepository)
 
 ### Bảo mật người dùng
-- Mã PIN mở khóa ứng dụng (`PinEntryActivity`), chặn người dùng, quản trị theo vai trò
+- Mã PIN mở khóa ứng dụng (app‑lock) tùy chọn (`PinEntryActivity`), chặn người dùng, quản trị theo vai trò
 
 ## Kiến trúc & cấu trúc mã
 ### MVVM
@@ -76,7 +76,7 @@ app/src/main/java/com/example/nanaclu/
 
 ## Dữ liệu & lược đồ (Firestore)
 - Người dùng: `users/{userId}` (+ `images` subcollection)
-- Nhóm: `groups/{groupId}` với `members`, `posts` (con `comments`, `likes`), `events` (con `attendees`), `chats` (con `members`)
+- Nhóm: `groups/{groupId}` với `members`, `posts` (con `comments`, `likes`), `events` (con `participants`/`rsvps` tùy cách đặt tên), `chats` (con `members`)
 - Chat riêng: `chats/{chatId}` + `members`, `messages`
 - Báo cáo: `reports/{reportId}`
 Thiết kế tối ưu realtime: subcollections, đếm cache, soft‑delete, timestamp nhất quán.
@@ -97,10 +97,9 @@ Thiết kế tối ưu realtime: subcollections, đếm cache, soft‑delete, ti
 3) Xóa một phía: đặt `hidden=true` (lộ trình: thêm `clearedAt` để ẩn lịch sử cũ và tự hiện lại khi có tin mới)
 
 ## Thông báo trong ứng dụng (in‑app)
-- Định hướng triển khai: subcollection per‑user `users/{uid}/notices/{noticeId}`; đồng bộ realtime, hiển thị chỉ trong app (không dùng FCM)
+- Hiện tại: thông báo trong app qua Firestore (Notice/Badge); CHƯA dùng FCM push
 - Nguồn sự kiện: duyệt bài, tin nhắn mới (khi người nhận không ở phòng), comment/like bài viết, sự kiện nhóm
 - Thành phần (đề xuất): `NoticeRepository`, `NoticeCenter` (listener + banner + badge), `NotificationsActivity`, `NoticeAdapter`
-- Menu `action_notice` trên toolbar sẽ mở danh sách thông báo và hiển thị badge chưa đọc
 
 ## Media & hiệu năng
 - Ảnh: Glide + nén client; Storage URLs; caching

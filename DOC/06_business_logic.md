@@ -65,7 +65,7 @@
 - Firestore snapshot listeners cho cập nhật real-time
 - Chat riêng tư với pair keys duy nhất (userId1_userId2)
 - Chat nhóm liên kết với thành viên nhóm
-- Hỗ trợ tin nhắn ảnh với Firebase Storage
+- Hỗ trợ tin nhắn text/ảnh/file; ảnh và tệp lưu Firebase Storage
 - Hỗ trợ đính kèm file (PDF, DOC, images, audio, video)
 **Quy tắc xác thực**:
 - Nội dung tin nhắn: tối đa 500 ký tự cho text
@@ -86,7 +86,7 @@
 - Tạo sự kiện với xác thực ngày/giờ
 - Hệ thống RSVP với theo dõi tham dự
 - Cập nhật trạng thái sự kiện tự động dựa trên thời gian
-- Hệ thống nhắc nhở trước sự kiện (30min, 1h, 1day)
+- Nhắc nhở sự kiện: in-app/local notifications; (tùy chọn tương lai) FCM
 **Quy tắc xác thực**:
 - Tiêu đề sự kiện: 1-100 ký tự
 - Thời gian bắt đầu phải trong tương lai
@@ -151,9 +151,9 @@ File Selection → Type Validation → Upload → URL Generation → Message Cre
 **Cách triển khai**:
 1. Người dùng chọn file từ thiết bị
 2. Kiểm tra loại file và kích thước (tối đa 50MB)
-3. Upload file lên Firebase Storage
-4. Tạo FileAttachment object với metadata
-5. Lưu vào Message document với fileAttachments array
+3. Upload file lên Firebase Storage theo path: `/files/chat_files/{chatId}/{timestamp}_{filename}`
+4. Lấy download URL và (tuỳ chọn) tạo `FileAttachment` metadata trên client
+5. Lưu vào Message document với `fileUrls` (và/hoặc mảng metadata tuỳ nhu cầu UI)
 
 ## 3. Xác thực & Quy tắc nghiệp vụ
 
@@ -302,11 +302,13 @@ File Selection → Type Validation → Upload → URL Generation → Message Cre
 - Dọn dẹp dữ liệu cache cũ
 
 ### 5.3 Xử lý thông báo
-**Push Notifications**:
-- FCM cho thông báo hệ thống
-- Local notifications cho nhắc nhở
-- Nhóm và quản lý thông báo
-- Deep linking từ thông báo
+**In‑App Notifications (hiện tại)**:
+- Badge/list trong app dựa trên Firestore listeners
+- Local notifications cho nhắc nhở sự kiện
+
+**Push Notifications (tương lai)**:
+- Tích hợp FCM khi sẵn sàng
+- Nhóm/throttling và deep linking từ push
 
 **Thông báo trong app**:
 - Cập nhật trạng thái real-time

@@ -14,6 +14,7 @@ Mô tả chi tiết:
 - Quản trị (Admin/Owner) có thể duyệt bài, quản lý thành viên, chặn/kick, xem thống kê, nhật ký hoạt động.
 - Thông báo hiện tại là in‑app (badge/list). FCM CHƯA tích hợp; có thể bổ sung trong tương lai.
 - Firebase (Auth, Firestore, Storage) cung cấp nền tảng xác thực, dữ liệu realtime, lưu trữ tệp.
+- Bảo mật ứng dụng bằng mã PIN (app‑lock) là tùy chọn: người dùng có thể bật để khóa/mở khóa ứng dụng sau khi đăng nhập.
 
 ```
       +-------------------+                 +----------------------+
@@ -117,9 +118,9 @@ User -> Chọn ảnh/tệp
 Mô tả ngắn: Các lớp dữ liệu và repository chủ đạo.
 
 Mô tả chi tiết:
-- Model: User, Group, Member, Post, Comment, Like, Chat, Message, Event, Notice.
+- Model: User, Group, Member, Post, Comment, Like, Chat, Message, Event, Notice, FileAttachment.
 - Repository: AuthRepository, UserRepository, GroupRepository, PostRepository, CommentRepository, ChatRepository, MessageRepository, EventRepository, NoticeRepository.
-- Quan hệ: User‑Group (Member), Group‑Post, Post‑Comment/Like, Group‑Chat‑Message, Group‑Event‑RSVP, Notice liên kết thực thể.
+- Quan hệ: User‑Group (Member), Group‑Post, Post‑Comment/Like, Group‑Chat‑Message, Group‑Event‑RSVP, Message‑FileAttachment (0..n), Notice liên kết thực thể.
 
 ```
 +--------+     +---------+     +-------+
@@ -132,9 +133,9 @@ Mô tả chi tiết:
     |          +---------+    +--------+   +-- Comment
     |               |
     v               v
-+---------+     +--------+
-|  Notice |     | Message|
-+---------+     +--------+
++---------+     +--------+        +------------------+
+|  Notice |     | Message|------->| FileAttachment  |
++---------+     +--------+ 0..n   +------------------+
 
 +--------+     +-----------+
 | Event  |<--->|   RSVP    |

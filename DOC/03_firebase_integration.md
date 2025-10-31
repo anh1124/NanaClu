@@ -8,7 +8,7 @@
 
 ### 2.1 Firestore Collections
 ```
-/users/{userId}
+/ users/{userId }
 ├── userId: string
 ├── createdAt: timestamp
 ├── email: string
@@ -22,7 +22,7 @@
     ├── createdAt: timestamp
     └── storageUrl: string
 
-/groups/{groupId}
+/ groups/{groupId }
 ├── groupId: string
 ├── name: string
 ├── description: string
@@ -65,12 +65,13 @@
     ├── location: string
     ├── createdBy: string
     ├── status: string ("scheduled" | "canceled" | "ended")
-    └── /participants/{userId}
+    └── /rsvps/{userId}
         ├── userId: string
-        ├── status: string ("going" | "maybe" | "not_going")
-        └── joinedAt: timestamp
+        ├── attendanceStatus: string ("attending" | "maybe" | "not_attending")
+        ├── createdAt: timestamp
+        └── updatedAt: timestamp
 
-/chats/{chatId}
+/ chats/{chatId }
 ├── chatId: string
 ├── type: string ("private" | "group")
 ├── memberIds: array<string>
@@ -78,27 +79,26 @@
 ├── lastMessage: string
 ├── lastMessageAt: timestamp
 ├── lastMessageBy: string
-├── createdAt: timestamp
 ├── /members/{userId} (subcollection)
 │   ├── userId: string
 │   ├── role: string ("admin" | "member")
 │   ├── lastRead: timestamp
 │   └── joinedAt: timestamp
 └── /messages/{messageId} (subcollection)
-    ├── messageId: string
-    ├── senderId: string
-    ├── senderName: string
-    ├── content: string
-    ├── type: string ("text" | "image")
-    ├── imageUrls: array<string>
-    ├── createdAt: timestamp
-    ├── editedAt: timestamp
-    └── isDeleted: boolean
-```
+    │    ├── messageId: string
+    │    ├── senderId: string
+    │    ├── senderName: string
+    │    ├── content: string
+    │    ├── type: string ("text" | "image" | "file")
+    │    ├── imageUrls: array<string>
+    │    ├── fileUrls: array<string>
+    │    ├── createdAt: timestamp
+    │    ├── editedAt: timestamp
+    │    └── isDeleted: boolean
 
 ### 2.2 Firebase Storage Structure
 ```
-/images/
+/ images /
 ├── /posts/
 │   └── post_{timestamp}_{hash}.jpg
 ├── /group_images/
@@ -111,6 +111,11 @@
 └── /chat_images/
     └── /{chatId}/
         └── {timestamp}_{hash}.jpg
+
+/ files /
+└── /chat_files/
+    └── /{chatId}/
+        └── {timestamp}_{filename}
 ```
 
 ## 3. Authentication Flow
@@ -327,21 +332,54 @@ match /users/{userId} {
 
 ### 6.2 Group Collection Rules
 ```javascript
-// Group access based on membership
+// Group access based on membership (checked via subcollection)
 match /groups/{groupId} {
-  allow read: if request.auth != null && 
-    request.auth.uid in resource.data.memberIds;
-  allow write: if request.auth != null && 
-    get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'];
-    
+  // Anyone authenticated can read basic group metadata if public; otherwise require membership
+  allow read: if request.auth != null && (
+    resource.data.isPrivate == false ||
+    exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid))
+  );
+
+  // Only owner/admin can update group metadata
+  allow update, delete: if request.auth != null &&
+    get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin'];
+  allow create: if request.auth != null; // creating a group is allowed for signed-in users
+  
+  match /members/{memberId} {
+    allow read: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    allow write: if request.auth != null &&
+      get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin'];
+  }
+  
   match /posts/{postId} {
-    allow read: if request.auth != null && 
-      request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
-    allow create: if request.auth != null && 
-      request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
-    allow update, delete: if request.auth != null && 
-      (request.auth.uid == resource.data.authorId || 
-       get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner', 'admin']);
+    allow read: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    allow create: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    allow update, delete: if request.auth != null && (
+      request.auth.uid == resource.data.authorId ||
+      get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin']
+    );
+    
+    match /comments/{commentId} {
+      allow read, create: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == resource.data.authorId ||
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin']
+      );
+    }
+    
+    match /likes/{userId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+  }
+  
+  match /events/{eventId} {
+    allow read: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    allow create, update, delete: if request.auth != null &&
+      get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['owner','admin'];
+    
+    match /rsvps/{userId} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
   }
 }
 ```
@@ -350,17 +388,28 @@ match /groups/{groupId} {
 
 ### 7.1 Connection State Monitoring
 ```java
-// ChatRoomViewModel.java - Handle offline state
+// ChatRoomViewModel.java - Recommended offline handling (Firestore Android has
+// persistence enabled by default; toggle network only when needed)
 public class ChatRoomViewModel extends ViewModel {
-    private void setupOfflineHandling() {
-        // Enable offline persistence
-        FirebaseFirestore.getInstance().enableNetwork();
-        
-        // Monitor connection state
-        db.disableNetwork().addOnCompleteListener(task -> {
-            // Handle offline mode
-            _connectionState.postValue("offline");
-        });
+    private final MutableLiveData<String> _connectionState = new MutableLiveData<>("online");
+
+    private void setupOfflineHandling(FirebaseFirestore db) {
+        // Optionally force enable persistence (usually on by default on Android)
+        FirebaseFirestoreSettings settings = new FirebaseFirestoreSettings.Builder()
+                .setPersistenceEnabled(true)
+                .build();
+        db.setFirestoreSettings(settings);
+
+        // Listen to real-time updates; if listener errors with UNAVAILABLE, treat as offline
+        ListenerRegistration reg = db.collection("__health__")
+                .limit(1)
+                .addSnapshotListener((snap, e) -> {
+                    if (e != null && e.getCause() instanceof java.net.UnknownHostException) {
+                        _connectionState.postValue("offline");
+                    } else {
+                        _connectionState.postValue("online");
+                    }
+                });
     }
 }
 ```
