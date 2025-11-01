@@ -8,6 +8,7 @@
 - **Min SDK**: 31 (Android 12)
 - **Ngôn ngữ**: Java 11
 - **Kiến trúc**: MVVM (Model — Repository — ViewModel — View)
+- **Launcher icon**: `@mipmap/ic_logo_app` (adaptive & legacy)
 
 ### Mục tiêu ứng dụng
 Ứng dụng mạng xã hội định hướng nhóm/cộng đồng: người dùng tham gia nhóm, đăng bài, bình luận/like, nhắn tin riêng hoặc nhóm, tạo sự kiện và quản trị nội dung.
@@ -68,6 +69,10 @@ app/src/main/java/com/example/nanaclu/
 │   ├── chat/ (ChatFragment, ChatRoomActivity, *GalleryActivity)
 │   ├── event/ (Event* screens)
 │   ├── profile/ (ProfileActivity, ProfileFragment)
+│   ├── friends/ (FriendsActivity, BlockedUsersActivity, ...)
+│   ├── notifications/ (NotificationsActivity)
+│   ├── search/ (SearchUsersActivity)
+│   ├── video/ (VideoPlayerActivity)
 │   └── admin/, report/, security/ (PIN)
 ├── viewmodel/ (ChatListViewModel, ChatRoomViewModel, ...)
 ├── utils/ (ThemeUtils, Cache/cleanup helpers)
@@ -99,7 +104,8 @@ Thiết kế tối ưu realtime: subcollections, đếm cache, soft‑delete, ti
 ## Thông báo trong ứng dụng (in‑app)
 - Hiện tại: thông báo trong app qua Firestore (Notice/Badge); CHƯA dùng FCM push
 - Nguồn sự kiện: duyệt bài, tin nhắn mới (khi người nhận không ở phòng), comment/like bài viết, sự kiện nhóm
-- Thành phần (đề xuất): `NoticeRepository`, `NoticeCenter` (listener + banner + badge), `NotificationsActivity`, `NoticeAdapter`
+- Thành phần: `NoticeCenter` (singleton lắng nghe và cung cấp unreadCount), `NotificationsActivity`, `NoticeAdapter`
+- Tích hợp UI: badge icon trên Toolbar trong `FeedFragment` đổi giữa `ic_notifications_active_24` và `ic_notifications_none_24` theo `unreadCount` (observe bằng `getViewLifecycleOwner()`)
 
 ## Media & hiệu năng
 - Ảnh: Glide + nén client; Storage URLs; caching

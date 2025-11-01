@@ -235,6 +235,7 @@ Mô tả chi tiết:
 - Sự kiện (message mới, mention, phê duyệt, mời nhóm) tạo notice trong Firestore.
 - Serverless/Cloud Function (tuỳ chọn) hoặc client trigger có thể được thêm sau khi tích hợp FCM.
 - Hiện tại: thông báo trong ứng dụng dựa trên dữ liệu từ Firestore (Notice/Badge).
+- UI badge: `FeedFragment` đổi icon toolbar giữa `ic_notifications_active_24` và `ic_notifications_none_24` theo `unreadCount` từ `NoticeCenter` (observer gắn với `getViewLifecycleOwner()`).
 
 ```
 Event -> Notice doc -> App lắng nghe -> Hiển thị in‑app (badge/list)

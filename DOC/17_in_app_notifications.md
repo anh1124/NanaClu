@@ -5,16 +5,18 @@
 - Hiển thị badge trên toolbar và danh sách thông báo; đồng bộ realtime.
 
 ### 2. Kiến trúc tổng quan (MVVM)
-- View (UI): `NoticeCenter` (banner + badge), `NotificationsActivity`/`Fragment` để liệt kê thông báo.
-- ViewModel: `NoticeViewModel` cung cấp danh sách thông báo chưa đọc/đã đọc, xử lý đánh dấu đã đọc.
+- View (UI): `NotificationsActivity`/`Fragment` để liệt kê thông báo; badge icon trên Toolbar (ví dụ trong `FeedFragment`).
+- Service/Utils: `NoticeCenter` (singleton) lắng nghe Firestore và cung cấp `LiveData<Integer> unreadCount` cho badge; có thể mở rộng banner.
+- ViewModel: `NoticeViewModel` (tuỳ chọn) cung cấp danh sách thông báo, xử lý đánh dấu đã đọc.
 - Repository: `NoticeRepository` subscribe Firestore, ghi/đọc notice và trạng thái.
 - Data: Model `Notice` mô tả loại sự kiện, tham chiếu đến thực thể (post/comment/message/event).
 
 Sơ đồ luồng MVVM:
 ```
-UI (Badge/List) -> NoticeViewModel -> NoticeRepository -> Firestore (users/{uid}/notices)
-                                     ^
-                          snapshot listener (realtime)
+UI (Badge ở FeedFragment) <- LiveData từ NoticeCenter <- NoticeRepository <- Firestore
+UI (List) -> NoticeViewModel -> NoticeRepository -> Firestore (users/{uid}/notices)
+                                ^
+                     snapshot listener (realtime)
 ```
 
 ### 3. Lược đồ dữ liệu (Firestore)
@@ -51,7 +53,8 @@ Lưu ý: Ở bản hiện tại, client tạo notice khi thực hiện hành đ�
 ```
 App start -> NoticeRepository.listenUnreadCount()
  -> Firestore: query users/{uid}/notices where readAt == null (hoặc lắng nghe toàn bộ và đếm client)
- -> onSnapshot -> ViewModel.update(unreadCount) -> UI hiển thị badge
+ -> onSnapshot -> NoticeCenter.post(unreadCount) -> UI (FeedFragment)
+    observe(getViewLifecycleOwner()) -> setIcon(notification_active|none)
 ```
 
 Phương án tiết kiệm chi phí: lắng nghe `orderBy createdAt desc limit N` rồi đếm readAt==null trong N bản ghi gần nhất; hoặc lưu một document aggregate `/users/{uid}/notice_counters` và cập nhật bằng Cloud Functions trong tương lai.
