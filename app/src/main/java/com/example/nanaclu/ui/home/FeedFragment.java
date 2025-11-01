@@ -425,7 +425,7 @@ public class FeedFragment extends BaseFragment {
         }
         
         // Observe unread count and update icon
-        noticeCenter.getUnreadCount().observe(this, unreadCount -> {
+        noticeCenter.getUnreadCount().observe(getViewLifecycleOwner(), unreadCount -> {
             if (unreadCount != null && unreadCount > 0) {
                 // Có thông báo chưa đọc - dùng icon notification1
                 toolbar.getMenu().findItem(R.id.action_notice).setIcon(R.drawable.ic_notifications_active_24);

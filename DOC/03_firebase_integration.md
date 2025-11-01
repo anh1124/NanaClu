@@ -457,3 +457,27 @@ public Task<Void> logout() {
 
 
 
+## Phụ lục: Tổng kết Security Rules, Denormalization, Indexing
+
+### A. Security Rules (tóm tắt)
+- Users: chỉ cho phép người dùng đọc/ghi tài liệu của chính họ `users/{userId}`.
+- Groups: quyền đọc phụ thuộc membership (nếu `isPrivate == false` thì cho phép đọc metadata; ngược lại cần membership).
+- Members: chỉ owner/admin được ghi; thành viên được đọc khi là member của group.
+- Posts/Comments/Likes: chỉ member group được đọc/ghi; update/delete bởi tác giả hoặc owner/admin.
+- Events/RSVPs: chỉ member đọc; tạo/cập nhật/xóa bởi owner/admin; `events/{eventId}/rsvps/{userId}` cho trạng thái tham dự.
+
+### B. Denormalization (khuyến nghị)
+- `groups.memberCount` để hiển thị nhanh số thành viên.
+- `posts.likeCount`, `posts.commentCount` để giảm chi phí tổng hợp.
+- `chats.lastMessage`, `chats.lastMessageAt`, `chats.lastMessageBy` để render danh sách chat hiệu quả.
+- Các trường hiển thị nhanh: `authorName`, `creatorName`, `senderName` trong Post/Comment/Event/Message.
+
+Lưu ý: Đồng bộ các bộ đếm/field denormalized bằng transaction hoặc batched writes khi có thay đổi.
+
+### C. Indexing (gợi ý cấu hình)
+- Chats: composite index cho `whereArrayContains(memberIds, userId)` + `orderBy(lastMessageAt DESC)`.
+- Posts Feed: index `groups/{groupId}/posts` theo `createdAt DESC` (và theo authorId nếu lọc theo tác giả).
+- Events: index theo `startTime`/`status` để lọc sự kiện sắp tới.
+- Comments: index theo `createdAt ASC` để phân trang.
+
+Tham khảo console Firebase để tạo composite indexes khi gặp lỗi yêu cầu index.
