@@ -168,7 +168,7 @@ public class AuthViewModel extends ViewModel {
                                     lowerMessage.contains("incorrect")) {
                                     errorMessage = "Mật khẩu hiện tại không đúng";
                                 } else if (lowerMessage.contains("weak password")) {
-                                    errorMessage = "Mật khẩu mới quá yếu (tối thiểu 6 ký tự)";
+                                    errorMessage = "Mật khẩu mới quá yếu (tối thiểu 8 ký tự, gồm chữ hoa/thường, số và ký tự đặc biệt)";
                                 } else if (lowerMessage.contains("requires recent authentication")) {
                                     errorMessage = "Vui lòng đăng nhập lại để đổi mật khẩu";
                                 } else if (lowerMessage.contains("too many requests")) {

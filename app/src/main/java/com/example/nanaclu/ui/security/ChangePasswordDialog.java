@@ -18,6 +18,7 @@ import com.example.nanaclu.R;
 import com.example.nanaclu.viewmodel.AuthViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import java.util.regex.Pattern;
 
 public class ChangePasswordDialog extends Dialog {
     
@@ -146,9 +147,21 @@ public class ChangePasswordDialog extends Dialog {
             edtNewPassword.requestFocus();
             return false;
         }
-        
-        if (newPassword.length() < 6) {
-            showError("Mật khẩu mới phải có ít nhất 6 ký tự");
+        if (newPassword.length() < 8) {
+            showError("Mật khẩu mới phải có ít nhất 8 ký tự");
+            edtNewPassword.requestFocus();
+            return false;
+        }
+
+        if (newPassword.length() > 128) {
+            showError("Mật khẩu không được vượt quá 128 ký tự");
+            edtNewPassword.requestFocus();
+            return false;
+        }
+
+        Pattern pwPattern = Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,128}$");
+        if (!pwPattern.matcher(newPassword).matches()) {
+            showError("Mật khẩu phải chứa chữ thường, chữ hoa, số và ký tự đặc biệt");
             edtNewPassword.requestFocus();
             return false;
         }
@@ -169,6 +182,23 @@ public class ChangePasswordDialog extends Dialog {
         // Check if new password is different from current
         if (currentPassword.equals(newPassword)) {
             showError("Mật khẩu mới phải khác mật khẩu hiện tại");
+            edtNewPassword.requestFocus();
+            return false;
+        }
+
+        // Disallow personal info in password (email local part or displayName)
+        android.content.SharedPreferences up = getContext().getSharedPreferences("user_profile", android.content.Context.MODE_PRIVATE);
+        String email = up.getString("email", "");
+        String displayName = up.getString("displayName", "");
+        String local = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+        String npLower = newPassword.toLowerCase();
+        if (!TextUtils.isEmpty(local) && npLower.contains(local.toLowerCase())) {
+            showError("Mật khẩu không được chứa phần tên email");
+            edtNewPassword.requestFocus();
+            return false;
+        }
+        if (!TextUtils.isEmpty(displayName) && npLower.contains(displayName.toLowerCase())) {
+            showError("Mật khẩu không được chứa tên hiển thị");
             edtNewPassword.requestFocus();
             return false;
         }

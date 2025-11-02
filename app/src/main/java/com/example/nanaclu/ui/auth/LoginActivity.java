@@ -20,6 +20,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
+import java.util.regex.Pattern;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -59,8 +60,15 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
             
-            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                edtEmail.setError("Email không hợp lệ");
+            if (email.length() < 6 || email.length() > 254) {
+                edtEmail.setError("Độ dài email không hợp lệ (6-254 ký tự)");
+                edtEmail.requestFocus();
+                return;
+            }
+
+            Pattern strictEmail = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+            if (!strictEmail.matcher(email).matches()) {
+                edtEmail.setError("Email chứa ký tự không hợp lệ");
                 edtEmail.requestFocus();
                 return;
             }
@@ -165,5 +173,6 @@ public class LoginActivity extends AppCompatActivity {
     }
 
 }
+
 
 
