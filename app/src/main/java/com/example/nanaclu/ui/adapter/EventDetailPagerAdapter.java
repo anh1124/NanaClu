@@ -8,6 +8,15 @@ import com.example.nanaclu.data.model.EventRSVP;
 import com.example.nanaclu.ui.event.EventDiscussionFragment;
 import com.example.nanaclu.ui.event.RSVPListFragment;
 
+/**
+ * Adapter cho ViewPager2 hiển thị các tab chi tiết sự kiện
+ * 
+ * Chức năng chính:
+ * - Quản lý các tab thông tin sự kiện: tham dự, bình luận, chi tiết
+ * - Hiển thị danh sách người tham dự theo trạng thái (đồng ý, có thể, từ chối)
+ * - Tích hợp với các Fragment để hiển thị nội dung tương ứng
+ * - Hỗ trợ cuộn mượt giữa các tab
+ */
 public class EventDetailPagerAdapter extends FragmentStateAdapter {
     
     private String groupId;

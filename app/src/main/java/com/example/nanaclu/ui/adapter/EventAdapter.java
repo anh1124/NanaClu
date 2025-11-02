@@ -16,6 +16,15 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Adapter cho RecyclerView hiển thị danh sách sự kiện
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách sự kiện với thông tin cơ bản
+ * - Hỗ trợ phân loại sự kiện theo trạng thái (sắp diễn ra, đang diễn ra, đã kết thúc)
+ * - Tích hợp với Firebase để cập nhật dữ liệu thời gian thực
+ * - Hỗ trợ tìm kiếm và lọc sự kiện
+ */
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
     
     private List<Event> events;

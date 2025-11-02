@@ -15,6 +15,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Adapter cho RecyclerView hiển thị lịch tháng
+ * 
+ * Chức năng chính:
+ * - Hiển thị các ngày trong tháng dưới dạng lưới
+ * - Đánh dấu các ngày có sự kiện
+ * - Hỗ trợ chọn ngày và xem sự kiện
+ * - Tự động cập nhật khi thay đổi tháng/năm
+ */
 public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.CalendarViewHolder> {
     
     private List<CalendarDay> calendarDays;

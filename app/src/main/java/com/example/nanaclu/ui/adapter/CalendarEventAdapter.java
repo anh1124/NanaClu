@@ -15,6 +15,15 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Adapter cho RecyclerView hiển thị danh sách sự kiện trong lịch
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách sự kiện theo ngày đã chọn
+ * - Hiển thị thông tin chi tiết sự kiện: thời gian, tiêu đề, địa điểm
+ * - Hỗ trợ click vào sự kiện để xem chi tiết
+ * - Tự động cập nhật khi có sự kiện mới hoặc thay đổi
+ */
 public class CalendarEventAdapter extends RecyclerView.Adapter<CalendarEventAdapter.EventViewHolder> {
     
     private List<Event> events;

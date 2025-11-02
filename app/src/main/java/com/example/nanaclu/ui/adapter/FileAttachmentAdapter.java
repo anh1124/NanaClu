@@ -19,6 +19,15 @@ import com.example.nanaclu.data.model.FileAttachment;
 import java.io.File;
 import java.util.List;
 
+/**
+ * Adapter cho RecyclerView hiển thị danh sách file đính kèm
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách file với icon và thông tin chi tiết
+ * - Hỗ trợ tải xuống và mở file
+ * - Quản lý trạng thái tải xuống (đang tải, đã tải xong, lỗi)
+ * - Hỗ trợ xóa file đã tải xuống
+ */
 public class FileAttachmentAdapter extends RecyclerView.Adapter<FileAttachmentAdapter.ViewHolder> {
 
     public interface OnFileActionListener {

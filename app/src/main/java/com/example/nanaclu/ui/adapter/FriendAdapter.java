@@ -17,7 +17,13 @@ import com.google.android.material.button.MaterialButton;
 import java.util.List;
 
 /**
- * Adapter cho RecyclerView hiển thị friend requests với action buttons
+ * Adapter cho RecyclerView hiển thị danh sách bạn bè và yêu cầu kết bạn
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách yêu cầu kết bạn đến/đi
+ * - Hỗ trợ các thao tác: chấp nhận, từ chối, hủy yêu cầu
+ * - Hiển thị ảnh đại diện và thông tin người dùng
+ * - Phân biệt giữa yêu cầu đến và yêu cầu đi
  */
 public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendRequestViewHolder> {
 

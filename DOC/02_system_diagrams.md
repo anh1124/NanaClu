@@ -332,3 +332,463 @@ Mô tả chi tiết:
 Text -> (Tokenizer/Embedding) -> Score -> store to Firestore (post.score)
      -> Rank feed/search -> UI badge/warning
 ```
+
+
+### 17) Realtime Chat & Công nghệ hỗ trợ (code trích thực tế)
+
+- **[Tóm tắt]**
+  - **Realtime**: Lắng nghe thay đổi tin nhắn bằng Firestore `addSnapshotListener` trong `MessageRepository`, gắn vào `ChatRoomViewModel`, đẩy ra `LiveData<List<Message>>` để UI cập nhật ngay.
+  - **RecyclerView**: `ChatRoomActivity` cấu hình `LinearLayoutManager(stackFromEnd=true)` và `MessageAdapter` hiển thị gửi/nhận/đính kèm tệp.
+  - **Glide**: Tải ảnh tin nhắn và avatar người gửi.
+  - **AndroidX Components**: `ViewModel`, `LiveData`, `ViewModelProvider`, `RecyclerView`, `SwipeRefreshLayout`, `AlertDialog`.
+
+- **[Realtime Firestore listener]** Đính listener theo kiểu chat và sắp xếp theo `createdAt ASC`:
+
+  [File: e:/AndroidStudioProjects/NanaClu/app/src/main/java/com/example/nanaclu/data/repository/MessageRepository.java]
+  ```java
+  public com.google.firebase.firestore.ListenerRegistration listenMessages(
+          String chatId,
+          String chatType,
+          String groupId,
+          com.google.firebase.firestore.EventListener<com.google.firebase.firestore.QuerySnapshot> listener
+  ) {
+      android.util.Log.d("MessageRepoRT", "attach: chatId=" + chatId + ", chatType=" + chatType + ", groupId=" + groupId);
+      if (chatId == null) return null;
+      Query q;
+      if ("group".equals(chatType) && groupId != null) {
+          q = db.collection("groups")
+                  .document(groupId)
+                  .collection("chats")
+                  .document(chatId)
+                  .collection(MESSAGES)
+                  .orderBy("createdAt", Query.Direction.ASCENDING);
+      } else {
+          q = db.collection(CHATS)
+                  .document(chatId)
+                  .collection(MESSAGES)
+                  .orderBy("createdAt", Query.Direction.ASCENDING);
+      }
+      return q.addSnapshotListener((snap, err) -> {
+          if (err != null) {
+              android.util.Log.e("MessageRepoRT", "onEvent error: " + err.getMessage(), err);
+          } else if (snap != null) {
+              android.util.Log.d("MessageRepoRT", "onEvent: count=" + snap.size());
+          }
+          if (listener != null) listener.onEvent(snap, err);
+      });
+  }
+  ```
+
+- **[ViewModel tích hợp realtime + LiveData]** Gắn/dỡ listener và cập nhật danh sách tin nhắn:
+
+  [File: e:/AndroidStudioProjects/NanaClu/app/src/main/java/com/example/nanaclu/viewmodel/ChatRoomViewModel.java]
+  ```java
+  // Realtime registration
+  private com.google.firebase.firestore.ListenerRegistration messagesReg;
+
+  public void init(String chatId, String chatType, String groupId) {
+      this.chatId = chatId;
+      this.chatType = chatType;
+      this.groupId = groupId;
+      this.anchorTs = null;
+      // detach previous listener if any
+      if (messagesReg != null) {
+          android.util.Log.d("ChatRoomVM", "Detaching previous messages listener");
+          messagesReg.remove();
+          messagesReg = null;
+      }
+      _messages.postValue(new java.util.ArrayList<>());
+      // Fetch clearedAt, then attach realtime listener
+      String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+              ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+      com.google.android.gms.tasks.Task<Long> getCleared = (currentUid == null)
+              ? com.google.android.gms.tasks.Tasks.forResult(0L)
+              : chatRepo.getClearedAt(chatId, currentUid);
+      getCleared.addOnSuccessListener(val -> {
+          clearedAtBaseline = (val != null) ? val : 0L;
+          messagesReg = msgRepo.listenMessages(chatId, chatType, groupId, (snap, err) -> {
+              if (err != null) { _error.postValue(err.getMessage()); return; }
+              java.util.List<Message> list = new java.util.ArrayList<>();
+              if (snap != null) {
+                  for (com.google.firebase.firestore.DocumentSnapshot ds : snap.getDocuments()) {
+                      Message m = ds.toObject(Message.class);
+                      if (m != null) {
+                          if (clearedAtBaseline != null && clearedAtBaseline > 0L && m.createdAt <= clearedAtBaseline) continue;
+                          list.add(m);
+                      }
+                  }
+              }
+              java.util.Collections.sort(list, (m1, m2) -> Long.compare(m1.createdAt, m2.createdAt));
+              _messages.postValue(list);
+              if (!list.isEmpty()) anchorTs = list.get(list.size() - 1).createdAt;
+          });
+      });
+  }
+
+  @Override
+  protected void onCleared() {
+      super.onCleared();
+      if (messagesReg != null) {
+          android.util.Log.d("ChatRoomVM", "onCleared: removing messages listener");
+          messagesReg.remove();
+          messagesReg = null;
+      }
+  }
+  ```
+
+- **[UI quan sát LiveData + RecyclerView cập nhật tức thời]** `Activity` quan sát và đẩy dữ liệu vào adapter:
+
+  [File: e:/AndroidStudioProjects/NanaClu/app/src/main/java/com/example/nanaclu/ui/chat/ChatRoomActivity.java]
+  ```java
+  private void setupViewModel() {
+      viewModel = new ViewModelProvider(this).get(ChatRoomViewModel.class);
+
+      viewModel.messages.observe(this, messages -> {
+          if (messages == null) return;
+          int newCount = messages.size();
+          adapter.setMessages(messages);
+
+          if (isAtBottom || lastRenderedCount == 0) {
+              rvMessages.scrollToPosition(Math.max(0, newCount - 1));
+              pendingNewCount = 0;
+          } else if (newCount > lastRenderedCount) {
+              pendingNewCount += (newCount - lastRenderedCount);
+          }
+          lastRenderedCount = newCount;
+          updateScrollDownButton();
+      });
+
+      viewModel.sending.observe(this, sending -> {
+          btnSend.setEnabled(!sending);
+          btnAttach.setEnabled(!sending);
+      });
+
+      viewModel.loading.observe(this, loading -> {
+          if (swipeRefresh != null) swipeRefresh.setRefreshing(Boolean.TRUE.equals(loading));
+      });
+
+      viewModel.error.observe(this, error -> {
+          if (error != null) {
+              Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
+          }
+          swipeRefresh.setRefreshing(false);
+      });
+
+      // Initialize chat room
+      viewModel.init(chatId, chatType, groupId);
+      viewModel.markRead();
+  }
+  ```
+
+- **[RecyclerView cấu hình]** LayoutManager đẩy tin mới xuống cuối, kéo để tải cũ hơn:
+
+  [File: e:/AndroidStudioProjects/NanaClu/app/src/main/java/com/example/nanaclu/ui/chat/ChatRoomActivity.java]
+  ```java
+  private void setupRecyclerView() {
+      LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+      layoutManager.setStackFromEnd(true); // latest at bottom
+      rvMessages.setLayoutManager(layoutManager);
+
+      adapter = new MessageAdapter(new ArrayList<>(), new MessageAdapter.OnMessageClickListener() { /* ... */ });
+      rvMessages.setAdapter(adapter);
+
+      // Pull-to-refresh: load older messages
+      swipeRefresh.setOnRefreshListener(() -> viewModel.loadOlderMessages());
+  }
+  ```
+
+- **[Glide]** Tải ảnh tin nhắn và avatar người gửi:
+
+  [File: e:/AndroidStudioProjects/NanaClu/app/src/main/java/com/example/nanaclu/ui/chat/MessageAdapter.java]
+  ```java
+  // Ảnh tin nhắn
+  Glide.with(itemView.getContext())
+      .load(message.content)
+      .placeholder(R.drawable.ic_image_placeholder)
+      .error(R.drawable.ic_image_error)
+      .into(ivImage);
+
+  // Avatar người gửi (trái)
+  Glide.with(itemView.getContext())
+      .load(url)
+      .placeholder(R.mipmap.ic_launcher_round)
+      .error(R.mipmap.ic_launcher_round)
+      .circleCrop()
+      .into(ivAvatarLeft);
+  ```
+
+- **[AndroidX Components]** Sử dụng `ViewModel`, `LiveData`, `RecyclerView` trong UI-VM:
+
+  [File: e:/AndroidStudioProjects/NanaClu/app/src/main/java/com/example/nanaclu/viewmodel/ChatRoomViewModel.java]
+  ```java
+  private final MutableLiveData<java.util.List<Message>> _messages = new MutableLiveData<>(new java.util.ArrayList<>());
+  public LiveData<java.util.List<Message>> messages = _messages;
+  ```
+
+  [File: e:/AndroidStudioProjects/NanaClu/app/src/main/java/com/example/nanaclu/ui/chat/ChatRoomActivity.java]
+  ```java
+  viewModel = new ViewModelProvider(this).get(ChatRoomViewModel.class);
+  viewModel.messages.observe(this, messages -> { /* cập nhật adapter */ });
+  rvMessages.setLayoutManager(new LinearLayoutManager(this));
+  rvMessages.setAdapter(adapter);
+  ```
+
+### 18) UI Flow Diagram (UML bằng code Markdown)
+
+Mô tả: Luồng điều hướng chính trong app từ màn xác thực đến các màn tính năng.
+
+```
+ [Splash]
+     |
+     v
+ [Login/SignUp] --> [App-Lock (PIN)] --(unlock)--> [Home Tabs]
+                                        |                 |
+                                        |                 +--> [Feed]
+                                        |                 |
+                                        |                 +--> [Groups] --> [Group Details] --> [Create Post]
+                                        |                 |
+                                        |                 +--> [Chat List] --> [Chat Room]
+                                        |                 |
+                                        |                 +--> [Events] --> [Event Detail] --> [RSVP]
+                                        |                 |
+                                        |                 +--> [Profile]
+                                        |
+                                  (lock) v
+                                     [App-Lock]
+```
+
+Mô tả chi tiết: Người dùng qua Splash -> Login. Nếu bật khóa ứng dụng (PIN), vào App-Lock trước khi truy cập các tab chính (Feed, Groups, Chat, Events, Profile). Từ Groups có thể vào Group Details và tạo bài viết; từ Chat List vào Chat Room.
+
+### 19) Wireframes cho các màn chính (UML bằng code Markdown)
+
+Mô tả: Khung bố cục cơ bản (ASCII) cho các màn hình chủ chốt.
+
+```
+1) Feed
++--------------------------------------------------+
+| Toolbar: Search | Bell (Notice Badge)           |
++--------------------------------------------------+
+| Post Card: Author | Time | Group                 |
+|  Text/Images...                                 |
+|  Actions: Like Comment Share                    |
++--------------------------------------------------+
+| ...                                              |
++--------------------------------------------------+
+
+2) Chat Room
++--------------------------------------------------+
+| Toolbar: Back | Chat Title                       |
++--------------------------------------------------+
+| Messages (RecyclerView, stackFromEnd=true)       |
+|  [You] text/image/file bubbles                   |
+|  [Other] text/image/file + avatar/name           |
++--------------------------------------------------+
+| Attach | TextBox............. | Send             |
++--------------------------------------------------+
+
+3) Group Details
++--------------------------------------------------+
+| Toolbar: Back | Group Name                       |
++--------------------------------------------------+
+| Cover | About | Members | Posts                  |
+| [Create Post]                                    |
+| Post List ...                                    |
++--------------------------------------------------+
+```
+
+Mô tả chi tiết: Feed hiển thị danh sách bài; Chat Room có thanh nhập và danh sách tin nhắn; Group Details cung cấp thông tin nhóm và danh sách bài cùng nút tạo bài.
+
+### 20) Class Diagram cho Models (Mermaid)
+
+Mô tả: Quan hệ giữa các model dữ liệu chính trong ứng dụng.
+
+```mermaid
+classDiagram
+  class User {
+    String userId
+    String displayName
+    String photoUrl
+  }
+  class Group {
+    String groupId
+    String name
+    String description
+  }
+  class Member {
+    String groupId
+    String userId
+    String role
+  }
+  class Chat {
+    String chatId
+    String groupId
+    String type
+  }
+  class Message {
+    String messageId
+    String authorId
+    String authorName
+    String type
+    String content
+    long createdAt
+    Long editedAt
+    Long deletedAt
+  }
+  class FileAttachment {
+    String fileName
+    long fileSize
+    String mimeType
+    String downloadUrl
+  }
+  class Post {
+    String postId
+    String groupId
+    String authorId
+    String content
+  }
+  class Comment {
+    String commentId
+    String postId
+    String authorId
+    String content
+  }
+  class Like {
+    String likeId
+    String postId
+    String userId
+  }
+  class Notice {
+    String noticeId
+    String type
+    String refId
+  }
+  class Event {
+    String eventId
+    String groupId
+    String title
+    long startAt
+  }
+  class RSVP {
+    String eventId
+    String userId
+    String status
+  }
+
+  User "1" -- "*" Member
+  Group "1" -- "*" Member
+  Group "1" -- "*" Post
+  Post  "1" -- "*" Comment
+  Post  "1" -- "*" Like
+  Group "1" -- "1" Chat
+  Chat  "1" -- "*" Message
+  Message "1" -- "*" FileAttachment
+  Group "1" -- "*" Event
+  Event "1" -- "*" RSVP
+```
+
+Mô tả chi tiết: User tham gia Group qua Member; Group có Chat và Post; Chat có nhiều Message, mỗi Message có thể có nhiều FileAttachment; Group có Event và RSVP.
+
+### 21) Lược đồ Firestore Diagram (UML bằng code Markdown)
+
+Mô tả: Cấu trúc collection/subcollection chính trong Firestore.
+
+```
+users (collection)
+  └── {userId}
+      └── profile fields...
+
+groups (collection)
+  └── {groupId}
+      ├── members (subcollection)
+      │    └── {userId}
+      ├── posts (subcollection)
+      │    └── {postId}
+      │         ├── comments (subcollection)
+      │         │    └── {commentId}
+      │         └── likes (subcollection)
+      │              └── {likeId}
+      ├── chats (subcollection)
+      │    └── {chatId}
+      │         └── messages (subcollection)
+      │              └── {messageId}
+      └── events (subcollection)
+           └── {eventId}
+               └── rsvps (subcollection)
+                    └── {userId}
+
+chats (collection) // cho chat riêng tư
+  └── {chatId}
+       └── messages (subcollection)
+            └── {messageId}
+
+notices (collection)
+  └── {noticeId}
+```
+
+Mô tả chi tiết: Mỗi group chứa members, posts (kèm comments/likes), chats->messages, events->rsvps; chat riêng tư nằm ở `chats/{chatId}/messages`; notices là collection chung.
+
+### 22) Kiến trúc MVVM Diagram (UML bằng code Markdown)
+
+Mô tả: Tổ chức lớp theo MVVM với nguồn dữ liệu Firebase.
+
+```
+ [UI: Activity/Fragment]
+          |
+          | observe LiveData
+          v
+     [ViewModel]
+          |
+          | calls
+          v
+     [Repository]
+     /     |      \
+ [Auth] [Firestore] [Storage]
+
+Luồng dữ liệu:
+Firebase -> Repository -> ViewModel (MutableLiveData) -> UI (observe & render)
+UI (actions) -> ViewModel -> Repository -> Firebase
+```
+
+Mô tả chi tiết: UI chỉ quan sát dữ liệu và chuyển hành động; ViewModel điều phối, giữ trạng thái; Repository tương tác Firebase (Auth/Firestore/Storage).
+
+### 23) Luồng dữ liệu Diagram (UML bằng code Markdown)
+
+Mô tả: Hai ví dụ luồng dữ liệu chính: gửi tin nhắn và upload media.
+
+```
+A) Gửi tin nhắn (text)
+User -> ChatRoomActivity -> ChatRoomViewModel -> MessageRepository -> Firestore(messages)
+                                             <- addSnapshotListener (realtime) <-
+UI cập nhật RecyclerView ngay khi có snapshot mới.
+
+B) Upload media (ảnh/tệp)
+User -> chọn file -> FileRepository.upload -> Firebase Storage (putFile)
+      -> lấy downloadUrl -> MessageRepository.sendMessage (type=image|file)
+      -> Firestore(messages) -> listener -> UI hiển thị qua Glide/FileAttachmentAdapter
+```
+
+Mô tả chi tiết: Tin nhắn text đi thẳng Firestore và quay về qua listener realtime; media upload qua Storage, sau đó ghi message với URL tải về, UI nhận snapshot và render.
+
+### 24) Use Case Diagram (UML bằng code Markdown)
+
+Mô tả: Các tác nhân và ca sử dụng chính.
+
+```
+Actors:
+  [User]        [Admin/Owner]
+
+Use Cases:
+  (Đăng ký/Đăng nhập)
+  (Quản lý hồ sơ)
+  (Tham gia/Quản lý nhóm)
+  (Tạo bài/Bình luận/Thả tim/Báo cáo)
+  (Chat riêng tư/nhóm, gửi ảnh/tệp)
+  (Sự kiện/RSVP)
+  (Nhận thông báo in-app)
+
+Mappings:
+  User  --> tất cả use case người dùng cuối
+  Admin --> duyệt bài, quản lý thành viên/nhóm, xem log/thống kê
+```
+
+Mô tả chi tiết: Người dùng thực hiện tác vụ mạng xã hội cơ bản; Admin/Owner có thêm các ca sử dụng liên quan kiểm duyệt và quản trị.

@@ -12,6 +12,15 @@ import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.User;
 import java.util.List;
 
+/**
+ * Adapter cho RecyclerView hiển thị danh sách thành viên nhóm
+ * 
+ * Chức năng chính:
+ * - Hiển thị thông tin thành viên với ảnh đại diện và tên
+ * - Hỗ trợ nút hành động tùy chỉnh (thêm bạn, xóa thành viên, v.v.)
+ * - Tích hợp với Glide để tải ảnh đại diện
+ * - Hỗ trợ xử lý sự kiện click vào thành viên
+ */
 public class MemberAdapter extends RecyclerView.Adapter<MemberAdapter.MemberViewHolder> {
     private List<User> members;
 

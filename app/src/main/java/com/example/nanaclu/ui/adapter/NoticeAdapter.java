@@ -24,6 +24,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Adapter cho RecyclerView hiển thị danh sách thông báo
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách thông báo với tiêu đề, nội dung và thời gian
+ * - Hỗ trợ đánh dấu đã đọc/chưa đọc
+ * - Tự động cập nhật khi có thông báo mới
+ * - Tích hợp với Glide để hiển thị ảnh đính kèm (nếu có)
+ */
 public class NoticeAdapter extends ListAdapter<Notice, NoticeAdapter.NoticeViewHolder> {
     private NoticeClickListener clickListener;
     private SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());

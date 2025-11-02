@@ -11,6 +11,15 @@ import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Message;
 import java.util.List;
 
+/**
+ * Adapter cho RecyclerView hiển thị bộ sưu tập ảnh
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách ảnh dưới dạng lưới hoặc ngang
+ * - Hỗ trợ xem ảnh toàn màn hình khi click
+ * - Tối ưu hiển thị ảnh với Glide
+ * - Hỗ trợ cập nhật danh sách ảnh động
+ */
 public class PhotoGalleryAdapter extends RecyclerView.Adapter<PhotoGalleryAdapter.PhotoViewHolder> {
     private List<Message> photoMessages;
     private OnPhotoClickListener listener;

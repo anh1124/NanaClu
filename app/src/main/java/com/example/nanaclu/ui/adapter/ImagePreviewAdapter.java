@@ -16,6 +16,15 @@ import com.example.nanaclu.R;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Adapter cho RecyclerView hiển thị danh sách ảnh xem trước
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách ảnh dưới dạng lưới hoặc ngang
+ * - Hỗ trợ xóa ảnh khỏi danh sách
+ * - Tối ưu hiển thị ảnh với Glide
+ * - Hỗ trợ tương tác xóa ảnh thông qua callback
+ */
 public class ImagePreviewAdapter extends RecyclerView.Adapter<ImagePreviewAdapter.ViewHolder> {
     
     private List<Uri> imageUris = new ArrayList<>();

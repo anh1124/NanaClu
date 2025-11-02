@@ -13,6 +13,15 @@ import com.example.nanaclu.data.model.EventRSVP;
 
 import java.util.List;
 
+/**
+ * Adapter cho RecyclerView hiển thị danh sách người dùng tham gia sự kiện
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách người dùng theo trạng thái tham gia (đồng ý, có thể, từ chối)
+ * - Hiển thị ảnh đại diện và tên người dùng
+ * - Hỗ trợ click vào người dùng để xem thông tin chi tiết
+ * - Tích hợp với Glide để tải ảnh đại diện
+ */
 public class RSVPUserAdapter extends RecyclerView.Adapter<RSVPUserAdapter.RSVPUserViewHolder> {
 
     private List<EventRSVP> rsvps;

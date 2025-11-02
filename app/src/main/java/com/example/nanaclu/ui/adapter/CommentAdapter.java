@@ -18,6 +18,16 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+/**
+ * Adapter cho RecyclerView hiển thị danh sách bình luận
+ * 
+ * Chức năng chính:
+ * - Hiển thị danh sách bình luận với thông tin người đăng và thời gian
+ * - Hỗ trợ tương tác: xóa, chỉnh sửa bình luận
+ * - Tự động cập nhật khi có bình luận mới
+ * - Tích hợp với Firebase để đồng bộ dữ liệu thời gian thực
+ */
 import java.util.List;
 import java.util.Locale;
 
