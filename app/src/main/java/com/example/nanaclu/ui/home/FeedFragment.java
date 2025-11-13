@@ -7,23 +7,25 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import com.example.nanaclu.ui.BaseFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.nanaclu.R;
-import com.example.nanaclu.utils.ThemeUtils;
-import com.example.nanaclu.ui.group.PostAdapter;
-import com.example.nanaclu.data.repository.PostRepository;
-import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.data.model.Post;
+import com.example.nanaclu.data.repository.GroupRepository;
+import com.example.nanaclu.data.repository.PostRepository;
+import com.example.nanaclu.ui.BaseFragment;
+import com.example.nanaclu.ui.group.PostAdapter;
 import com.example.nanaclu.utils.NoticeCenter;
+import com.example.nanaclu.utils.ThemeUtils;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class FeedFragment extends BaseFragment {
     private RecyclerView rvFeed;

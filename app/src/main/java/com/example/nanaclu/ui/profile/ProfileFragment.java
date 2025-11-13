@@ -42,6 +42,90 @@ public class ProfileFragment extends BaseFragment {
         colorPreview.setBackgroundColor(currentColor);
         toolbar.setBackgroundColor(currentColor);
 
+        // Remove any existing navigation icon and its click listener
+        toolbar.setNavigationIcon(null);
+        
+        // Set up click listener on the toolbar title for admin access
+        View toolbarTitle = toolbar.getChildAt(0);
+        if (toolbarTitle instanceof TextView) {
+            ((TextView) toolbarTitle).setOnClickListener(v -> {
+            android.util.Log.d("AdminAccess", "Toolbar navigation clicked");
+            
+            long now = System.currentTimeMillis();
+            if (now - lastAvatarClickTime > CLICK_RESET_TIMEOUT_MS) {
+                android.util.Log.d("AdminAccess", "Resetting click counter");
+                avatarClickCount = 0;
+            }
+            lastAvatarClickTime = now;
+            avatarClickCount++;
+            
+            android.util.Log.d("AdminAccess", "Click count: " + avatarClickCount);
+            
+            if (avatarClickCount == 5) {
+                avatarClickCount = 0; // reset counter
+                android.util.Log.d("AdminAccess", "5 clicks detected, checking admin rights...");
+                
+                // Check admin rights and open admin panel
+                com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                if (user == null) {
+                    android.util.Log.e("AdminAccess", "User is not logged in");
+                    return;
+                }
+                
+                android.util.Log.d("AdminAccess", "User ID: " + user.getUid());
+                
+                // Always check admin status before opening admin panel
+                com.example.nanaclu.data.repository.AdminRepository adminRepo =
+                        new com.example.nanaclu.data.repository.AdminRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+                        
+                adminRepo.checkIsAdmin(user.getUid(), new com.example.nanaclu.data.repository.AdminRepository.AdminCheckCallback() {
+                    @Override
+                    public void onResult(boolean isAdmin) {
+                        android.util.Log.d("AdminAccess", "Admin check result: " + isAdmin);
+                        
+                        if (isAdmin) {
+                            try {
+                                android.util.Log.d("AdminAccess", "Starting AdminDashboardActivity...");
+                                android.content.Intent i = new android.content.Intent(getContext(), com.example.nanaclu.ui.admin.AdminDashboardActivity.class);
+                                startActivity(i);
+                            } catch (Exception e) {
+                                android.util.Log.e("AdminAccess", "Error starting AdminDashboardActivity: " + e.getMessage());
+                                android.widget.Toast.makeText(getContext(), "Lỗi mở trang quản trị: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                            }
+                        } else {
+                            String message = "Bạn không có quyền admin";
+                            android.util.Log.w("AdminAccess", message);
+                            android.widget.Toast.makeText(getContext(), message, android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    
+                    @Override
+                    public void onError(Exception e) {
+                        String errorMsg = "Lỗi kiểm tra quyền admin: " + e.getMessage();
+                        android.util.Log.e("AdminAccess", errorMsg, e);
+                        android.widget.Toast.makeText(getContext(), errorMsg, android.widget.Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+            });
+        }
+        
+        // Set up click listener for the entire toolbar area as a fallback
+        toolbar.setOnClickListener(v -> {
+            // This is just a fallback in case the title click doesn't work
+            if (v instanceof android.view.ViewGroup) {
+                for (int i = 0; i < ((android.view.ViewGroup) v).getChildCount(); i++) {
+                    View child = ((android.view.ViewGroup) v).getChildAt(i);
+                    if (child instanceof TextView && ((TextView) child).getText().equals("Profile")) {
+                        // This will be handled by the title's click listener
+                        return;
+                    }
+                }
+            }
+        });
+        
+        // Removed test button as requested
+
         // Bind auto-login switch
         android.content.SharedPreferences prefs = requireContext().getSharedPreferences("auth", android.content.Context.MODE_PRIVATE);
         boolean auto = prefs.getBoolean("auto_login", true);
@@ -102,44 +186,13 @@ public class ProfileFragment extends BaseFragment {
         friendsRow.setOnClickListener(v -> openFriendsActivity());
         openLinkRow.setOnClickListener(v -> openLinkBottomSheet());
         securityRow.setOnClickListener(v -> openSecurityActivity());
-        // Bắt sự kiện click avatar để mở EditProfileActivity hoặc admin dashboard
+        
+        // Mở EditProfileActivity khi click vào avatar
         imgAvatar.setOnClickListener(v -> {
-            long now = System.currentTimeMillis();
-            if (now - lastAvatarClickTime > CLICK_RESET_TIMEOUT_MS) {
-                avatarClickCount = 0;
-            }
-            lastAvatarClickTime = now;
-            avatarClickCount++;
-            
-            if (avatarClickCount == 5) {
-                avatarClickCount = 0; // reset về 0 để tránh double trigger
-                // Kiểm tra quyền admin từ Firestore
-                com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-                if (user == null) return;
-                com.example.nanaclu.data.repository.AdminRepository adminRepo =
-                        new com.example.nanaclu.data.repository.AdminRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
-                adminRepo.checkIsAdmin(user.getUid(), new com.example.nanaclu.data.repository.AdminRepository.AdminCheckCallback() {
-                    @Override
-                    public void onResult(boolean isAdmin) {
-                        if (isAdmin) {
-                            // Mở dashboard admin
-                            android.content.Intent i = new android.content.Intent(getContext(), com.example.nanaclu.ui.admin.AdminDashboardActivity.class);
-                            startActivity(i);
-                        } else {
-                            android.widget.Toast.makeText(getContext(), "Bạn không có quyền admin", android.widget.Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                    @Override
-                    public void onError(Exception e) {
-                        android.widget.Toast.makeText(getContext(), "Lỗi kiểm tra quyền admin: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
-                    }
-                });
-            } else {
-                // Single click - mở EditProfileActivity
-                android.content.Intent intent = new android.content.Intent(getContext(), com.example.nanaclu.ui.profile.EditProfileActivity.class);
-                startActivityForResult(intent, 1001);
-            }
+            android.content.Intent i = new android.content.Intent(getContext(), com.example.nanaclu.ui.profile.EditProfileActivity.class);
+            startActivityForResult(i, 1001);
         });
+        
         return root;
     }
 
