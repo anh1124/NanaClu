@@ -65,7 +65,7 @@ public class SelectedImageAdapter extends RecyclerView.Adapter<SelectedImageAdap
 
     class ImageViewHolder extends RecyclerView.ViewHolder {
         private ImageView ivImage;
-        private com.google.android.material.button.MaterialButton btnRemove;
+        private ImageView btnRemove;
 
         public ImageViewHolder(@NonNull View itemView) {
             super(itemView);
