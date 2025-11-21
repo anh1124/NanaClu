@@ -85,8 +85,6 @@ public class GroupsFragment extends BaseFragment {
 		// Setup click listener
 
 		groupsAdapter.setOnGroupClickListener(group -> {
-			// Hiển thị id group khi click
-			Toast.makeText(getContext(), "groupId: " + group.groupId, Toast.LENGTH_SHORT).show();
 			Intent intent = new Intent(getContext(), GroupDetailActivity.class);
 			intent.putExtra("group_id", group.groupId);
 			startActivityForResult(intent, 100);
