@@ -120,7 +120,8 @@ public class UserSelectAdapter extends BaseAdapter {
 
         return convertView;
     }
-
+// thông báo trong nhóm khi đăng bài
+    // tài liệu tham khảo i3e số nxb- năm,...
     private void bindUser(ViewHolder h, User user, String uid) {
         String name = user != null && user.displayName != null ? user.displayName : uid;
         if (uid != null && uid.equals(currentUserId)) {

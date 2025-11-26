@@ -28,6 +28,12 @@ import com.google.firebase.firestore.WriteBatch;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 public class PostRepository {
     private FirebaseFirestore db;
@@ -47,6 +53,11 @@ public class PostRepository {
     public interface PostCallback {
         void onSuccess(Post post);
         void onError(Exception e);
+    }
+    
+    // Interface callback cho việc lấy danh sách user
+    private interface OnUsersFetchedListener {
+        void onUsersFetched(List<String> userIds);
     }
 
     public interface PostsCallback {
@@ -114,6 +125,9 @@ public class PostRepository {
                         String snippet = post.content != null && post.content.length() > 60 
                             ? post.content.substring(0, 60) + "..." : post.content;
                         logRepo.logGroupAction(post.groupId, "post_created", "post", post.postId, snippet, null);
+                        
+                        // Gửi thông báo cho các thành viên
+                        notifyGroupMembersAboutNewPost(post);
                     })
                     .addOnFailureListener(e -> {
                         callback.onError(e);
@@ -492,6 +506,168 @@ public class PostRepository {
      * @param postId ID của post
      * @param callback Callback để trả về kết quả
      */
+    /**
+     * Gửi thông báo khi có bài viết mới tới tất cả thành viên nhóm và người rời nhóm trong 7 ngày
+     */
+    private void notifyGroupMembersAboutNewPost(Post post) {
+        // Lấy danh sách người cần thông báo (thành viên hiện tại + đã rời trong 7 ngày)
+        getUsersToNotifyForNewPost(post.groupId, post.authorId, userList -> {
+            // Gửi thông báo cho từng người dùng
+            for (String userId : userList) {
+                createPostNotification(post, userId);
+            }
+        });
+    }
+
+    /**
+     * Lấy danh sách user cần thông báo khi có bài viết mới
+     * - Thành viên hiện tại (trừ tác giả)
+     * - Thành viên đã rời nhóm trong vòng 7 ngày
+     */
+    private void getUsersToNotifyForNewPost(String groupId, String authorId, OnUsersFetchedListener listener) {
+        Set<String> userIds = new HashSet<>();
+        long sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000);
+        
+        // Lấy danh sách thành viên hiện tại
+        db.collection("groups")
+          .document(groupId)
+          .collection("members")
+          .get()
+          .addOnSuccessListener(memberDocs -> {
+              for (QueryDocumentSnapshot doc : memberDocs) {
+                  String memberId = doc.getId();
+                  if (!memberId.equals(authorId)) {
+                      userIds.add(memberId);
+                  }
+              }
+              
+              // Lấy danh sách thành viên đã rời trong 7 ngày
+              db.collection("groups")
+                .document(groupId)
+                .collection("left_members")
+                .whereGreaterThanOrEqualTo("leftAt", new Timestamp(new Date(sevenDaysAgo)))
+                .get()
+                .addOnSuccessListener(leftMemberDocs -> {
+                    for (QueryDocumentSnapshot doc : leftMemberDocs) {
+                        userIds.add(doc.getId());
+                    }
+                    listener.onUsersFetched(new ArrayList<>(userIds));
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("PostRepository", "Lỗi khi lấy danh sách thành viên đã rời", e);
+                    listener.onUsersFetched(new ArrayList<>(userIds)); // Vẫn trả về danh sách đã có nếu lỗi
+                });
+          })
+          .addOnFailureListener(e -> {
+              Log.e("PostRepository", "Lỗi khi lấy danh sách thành viên", e);
+              listener.onUsersFetched(new ArrayList<>());
+          });
+    }
+
+    /**
+     * Tạo thông báo bài viết mới cho 1 người dùng
+     * Kiểm tra trùng lặp bằng notificationId
+     */
+    private void createPostNotification(Post post, String targetUserId) {
+        // Tạo ID thông báo duy nhất cho mỗi cặp (bài viết + người nhận)
+        String notificationId = "post_" + post.postId + "_" + targetUserId;
+        
+        // Kiểm tra xem thông báo đã tồn tại chưa
+        db.collection("notifications")
+          .document(notificationId)
+          .get()
+          .addOnSuccessListener(documentSnapshot -> {
+              if (!documentSnapshot.exists()) {
+                  // Tạo thông báo mới nếu chưa tồn tại
+                  Map<String, Object> notification = new HashMap<>();
+                  notification.put("type", "new_post");
+                  notification.put("postId", post.postId);
+                  notification.put("groupId", post.groupId);
+                  notification.put("authorId", post.authorId);
+                  notification.put("targetUserId", targetUserId);
+                  notification.put("createdAt", FieldValue.serverTimestamp());
+                  notification.put("read", false);
+                  
+                  // Lưu thông báo
+                  db.collection("notifications")
+                    .document(notificationId)
+                    .set(notification)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d("PostRepository", "Đã gửi thông báo cho user: " + targetUserId);
+                        // Gửi push notification
+                        sendPushNotification(post, targetUserId);
+                    });
+              }
+          });
+    }
+
+    /**
+     * Gửi push notification qua FCM
+     */
+    private void sendPushNotification(Post post, String targetUserId) {
+        // TODO: Implement FCM push notification
+        // Lấy FCM token của targetUser và gửi thông báo
+        Log.d("PostRepository", "Gửi push notification cho user: " + targetUserId);
+    }
+
+/**
+ * Thêm user vào danh sách left_members khi rời nhóm
+ * @param groupId ID của nhóm
+ * @param userId ID của user
+ * @param shouldLog Có nên log hành động này không (tránh duplicate log)
+ * @param onSuccess Callback khi thêm thành công
+ */
+public void addUserToLeftMembers(String groupId, String userId, boolean shouldLog, Runnable onSuccess) {
+    Map<String, Object> leftMemberData = new HashMap<>();
+    leftMemberData.put("leftAt", FieldValue.serverTimestamp());
+    
+    db.collection("groups")
+      .document(groupId)
+      .collection("left_members")
+      .document(userId)
+      .set(leftMemberData)
+      .addOnSuccessListener(aVoid -> {
+          Log.d("PostRepository", "Đã thêm vào danh sách left_members");
+          if (shouldLog) {
+              LogRepository logRepo = new LogRepository(db);
+              logRepo.logGroupAction(groupId, GroupLog.TYPE_MEMBER_REMOVED, "user", userId, "Đã rời nhóm", null);
+          }
+          if (onSuccess != null) {
+              onSuccess.run();
+          }
+      })
+      .addOnFailureListener(e -> 
+          Log.e("PostRepository", "Lỗi khi thêm vào left_members", e));
+}
+
+/**
+ * Thêm user vào danh sách left_members (tương thích ngược)
+ */
+public void addUserToLeftMembers(String groupId, String userId) {
+    addUserToLeftMembers(groupId, userId, true, null);
+}
+
+/**
+ * Xóa user khỏi danh sách left_members khi tham gia lại nhóm
+ * @param groupId ID của nhóm
+ * @param userId ID của user
+ */
+public void removeUserFromLeftMembers(String groupId, String userId) {
+    db.collection("groups")
+      .document(groupId)
+      .collection("left_members")
+      .document(userId)
+      .delete()
+      .addOnSuccessListener(aVoid -> {
+          Log.d("PostRepository", "Đã xóa khỏi danh sách left_members");
+          // Log khi user tham gia lại nhóm
+          LogRepository logRepo = new LogRepository(db);
+          logRepo.logGroupAction(groupId, GroupLog.TYPE_MEMBER_JOINED, "user", userId, "Đã tham gia lại nhóm", null);
+      })
+      .addOnFailureListener(e -> 
+          Log.e("PostRepository", "Lỗi khi xóa khỏi left_members", e));
+    }
+
     public void deletePost(String groupId, String postId, PostCallback callback) {
         // Validate input parameters
         if (groupId == null || groupId.trim().isEmpty()) {

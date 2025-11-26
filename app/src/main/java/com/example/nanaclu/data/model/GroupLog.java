@@ -32,6 +32,8 @@ public class GroupLog {
     public static final String TYPE_MEMBER_REMOVED = "member_removed";
     public static final String TYPE_MEMBER_BLOCKED = "member_blocked";
     public static final String TYPE_MEMBER_UNBLOCKED = "member_unblocked";
+    public static final String TYPE_MEMBER_UNBLOCKED = "member_unblocked";
+    public static final String TYPE_MEMBER_JOINED = "member_joined";
     public static final String TYPE_OWNERSHIP_TRANSFERRED = "ownership_transferred";
     public static final String TYPE_ROLE_CHANGED = "role_changed";
     public static final String TYPE_POLICY_CHANGED = "policy_changed";
