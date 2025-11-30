@@ -7,6 +7,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -18,6 +20,7 @@ import com.example.nanaclu.data.model.Comment;
 import com.example.nanaclu.data.repository.CommentRepository;
 import com.example.nanaclu.ui.adapter.CommentAdapter;
 import com.example.nanaclu.ui.profile.ProfileActivity;
+import com.example.nanaclu.utils.KeyboardUtils;
 import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.ArrayList;
@@ -100,6 +103,7 @@ public class EventDiscussionFragment extends Fragment {
         swipeRefresh.setOnRefreshListener(this::loadComments);
     }
     
+
     private void sendComment(String commentText) {
         String currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
@@ -109,13 +113,25 @@ public class EventDiscussionFragment extends Fragment {
             return;
         }
         
+        // Clear the input field first
+        etComment.setText("");
+        
+        // Hide the keyboard
+        if (getView() != null) {
+            KeyboardUtils.hideKeyboard(getContext(), etComment);
+        }
+        
+        // Send the comment
         commentRepository.addComment(groupId, eventId, commentText, null)
                 .addOnSuccessListener(commentId -> {
-                    etComment.setText("");
                     loadComments(); // Reload comments
+                    // Show success message
+                    Toast.makeText(getContext(), "Đã gửi bình luận", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(error -> {
-                    android.widget.Toast.makeText(getContext(), "Lỗi gửi bình luận: " + error.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
+                    // Show error message and restore the comment text
+                    etComment.setText(commentText);
+                    Toast.makeText(getContext(), "Lỗi gửi bình luận: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
     

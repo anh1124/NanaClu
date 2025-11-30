@@ -6,6 +6,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.example.nanaclu.data.repository.NoticeRepository;
+import com.example.nanaclu.viewmodel.NoticeViewModelFactory;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -38,7 +43,15 @@ public class NotificationsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_notifications);
 
         noticeCenter = NoticeCenter.getInstance();
-        viewModel = new ViewModelProvider(this).get(NoticeViewModel.class);
+        
+        // Get current user ID
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null ? 
+            FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+            
+        // Initialize repository and factory
+        NoticeRepository noticeRepository = new NoticeRepository(FirebaseFirestore.getInstance());
+        NoticeViewModelFactory factory = new NoticeViewModelFactory(noticeRepository, currentUid);
+        viewModel = new ViewModelProvider(this, factory).get(NoticeViewModel.class);
 
         initViews();
         setupToolbar();
@@ -168,12 +181,12 @@ public class NotificationsActivity extends AppCompatActivity {
     }
 
     private void observeViewModel() {
-        viewModel.getNotices().observe(this, notices -> {
+        viewModel.notices.observe(this, notices -> {
             adapter.setNotices(notices);
             updateEmptyState(notices);
         });
 
-        viewModel.getIsLoading().observe(this, isLoading -> {
+        viewModel.isLoading.observe(this, isLoading -> {
             if (isLoading) {
                 progressBar.setVisibility(View.VISIBLE);
             } else {
@@ -182,7 +195,7 @@ public class NotificationsActivity extends AppCompatActivity {
             }
         });
 
-        viewModel.getError().observe(this, error -> {
+        viewModel.error.observe(this, error -> {
             if (error != null) {
                 android.widget.Toast.makeText(this, error, android.widget.Toast.LENGTH_SHORT).show();
             }

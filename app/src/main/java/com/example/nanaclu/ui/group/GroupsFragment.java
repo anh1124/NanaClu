@@ -19,92 +19,108 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.example.nanaclu.R;
 import com.example.nanaclu.utils.ThemeUtils;
 import com.example.nanaclu.viewmodel.GroupViewModel;
+import com.example.nanaclu.viewmodel.GroupViewModelFactory;
 import com.example.nanaclu.data.model.Group;
+import com.example.nanaclu.data.repository.GroupRepository;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 
 public class GroupsFragment extends BaseFragment {
-	private GroupViewModel groupViewModel;
-	private GroupsAdapter groupsAdapter;
-	private SwipeRefreshLayout swipeRefreshLayout;
-	private TextInputEditText edtSearch;
-	private java.util.List<Group> allGroups = new java.util.ArrayList<>();
-	private java.util.List<Group> filteredGroups = new java.util.ArrayList<>();
+    private GroupViewModel groupViewModel;
+    private GroupsAdapter groupsAdapter;
+    private SwipeRefreshLayout swipeRefreshLayout;
+    private TextInputEditText edtSearch;
+    private java.util.List<Group> allGroups = new java.util.ArrayList<>();
+    private java.util.List<Group> filteredGroups = new java.util.ArrayList<>();
 
-	@Nullable
-	@Override
-	public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-		return inflater.inflate(R.layout.fragment_groups, container, false);
-	}
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_groups, container, false);
+    }
 
-	@Override
-	public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-		super.onViewCreated(view, savedInstanceState);
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
-		// Setup toolbar with theme color and white text
-		MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
-		toolbar.setBackgroundColor(ThemeUtils.getThemeColor(requireContext()));
-		toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
-		toolbar.setOnMenuItemClickListener(item -> {
-			int id = item.getItemId();
-			if (id == R.id.action_add_group) {
-				showCreateGroupDialog();
-				return true;
-			} else if (id == R.id.action_join_group) {
-				showJoinGroupDialog();
-				return true;
-			}
-			return false;
-		});
+        // Setup toolbar with theme color and white text
+        MaterialToolbar toolbar = view.findViewById(R.id.toolbar);
+        toolbar.setBackgroundColor(ThemeUtils.getThemeColor(requireContext()));
+        toolbar.setTitleTextColor(getResources().getColor(android.R.color.white));
+        toolbar.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.action_add_group) {
+                showCreateGroupDialog();
+                return true;
+            } else if (id == R.id.action_join_group) {
+                showJoinGroupDialog();
+                return true;
+            }
+            return false;
+        });
 
-		// Setup search
-		edtSearch = view.findViewById(R.id.edtSearch);
-		edtSearch.addTextChangedListener(new android.text.TextWatcher() {
-			@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-			@Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-			@Override public void afterTextChanged(android.text.Editable s) {
-				filterGroups(s.toString().trim());
-			}
-		});
+        // Setup search
+        edtSearch = view.findViewById(R.id.edtSearch);
+        edtSearch.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                filterGroups(s.toString().trim());
+            }
+        });
 
-		// Setup SwipeRefreshLayout
-		swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
-		swipeRefreshLayout.setOnRefreshListener(() -> {
-			groupViewModel.loadUserGroups();
-		});
+        // Setup SwipeRefreshLayout
+        swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            groupViewModel.loadUserGroups();
+        });
 
-		// Setup RecyclerView
-		RecyclerView recyclerView = view.findViewById(R.id.rvGroups);
-		recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-		// Add divider between items
-		recyclerView.addItemDecoration(new androidx.recyclerview.widget.DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL));
-		groupsAdapter = new GroupsAdapter();
-		recyclerView.setAdapter(groupsAdapter);
+        // Setup RecyclerView
+        RecyclerView recyclerView = view.findViewById(R.id.rvGroups);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        // Add divider between items
+        recyclerView.addItemDecoration(new androidx.recyclerview.widget.DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL));
+        groupsAdapter = new GroupsAdapter();
+        recyclerView.setAdapter(groupsAdapter);
 
-		// Setup click listener
+        // Setup click listener
 
-		groupsAdapter.setOnGroupClickListener(group -> {
-			Intent intent = new Intent(getContext(), GroupDetailActivity.class);
-			intent.putExtra("group_id", group.groupId);
-			startActivityForResult(intent, 100);
-		});
+        groupsAdapter.setOnGroupClickListener(group -> {
+            Intent intent = new Intent(getContext(), GroupDetailActivity.class);
+            intent.putExtra("group_id", group.groupId);
+            startActivityForResult(intent, 100);
+        });
 
-		// Setup ViewModel
-		groupViewModel = new ViewModelProvider(this).get(GroupViewModel.class);
+        // Setup ViewModel with factory
+        GroupRepository groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
+        GroupViewModelFactory factory = new GroupViewModelFactory(groupRepository);
+        groupViewModel = new ViewModelProvider(this, factory).get(GroupViewModel.class);
+        String currentUid = FirebaseAuth.getInstance().getUid();
+        if (currentUid != null) {
+            groupViewModel.setCurrentUser(currentUid);
+        }
 
-		// Observe data
-		groupViewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
-			// Handle loading state if needed
-		});
+        // Observe data
+        groupViewModel.isLoading.observe(getViewLifecycleOwner(), isLoading -> {
+            // Handle loading state if needed
+        });
 
-		groupViewModel.getError().observe(getViewLifecycleOwner(), error -> {
+        groupViewModel.error.observe(getViewLifecycleOwner(), error -> {
+            if (error != null) {
+                Toast.makeText(getContext(), error, Toast.LENGTH_LONG).show();
+            }
+        });
+		groupViewModel.error.observe(getViewLifecycleOwner(), error -> {
 			if (error != null) {
 				Toast.makeText(getContext(), error, Toast.LENGTH_LONG).show();
 			}
 		});
 
-		groupViewModel.getUserGroups().observe(getViewLifecycleOwner(), groups -> {
+		groupViewModel.userGroups.observe(getViewLifecycleOwner(), groups -> {
 			if (groups != null) {
 				allGroups.clear();
 				allGroups.addAll(groups);

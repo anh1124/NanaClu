@@ -9,13 +9,14 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:menu="@menu/menu_feed"
         app:title="NANACLUB"
         app:titleTextAppearance="@style/ToolbarTitleText"
-        app:titleTextColor="#4FC5D7"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:menu="@menu/menu_feed"/>
+        app:titleTextColor="#4FC5D7" />
 
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout

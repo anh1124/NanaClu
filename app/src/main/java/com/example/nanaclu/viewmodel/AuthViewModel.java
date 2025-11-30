@@ -7,11 +7,14 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 import com.example.nanaclu.data.repository.AuthRepository;
+import com.example.nanaclu.data.repository.UserRepository;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 public class AuthViewModel extends ViewModel {
     private final AuthRepository repository = new AuthRepository();
+    private final UserRepository userRepository = new UserRepository(FirebaseFirestore.getInstance());
 
     private final MutableLiveData<Boolean> _loading = new MutableLiveData<>(false);
     private final MutableLiveData<String> _error = new MutableLiveData<>(null);
@@ -185,6 +188,11 @@ public class AuthViewModel extends ViewModel {
                         _error.setValue(errorMessage);
                     }
                 });
+    }
+
+    public void syncUserPhotoUrl(String uid, String photoUrl) {
+        if (uid == null || photoUrl == null || photoUrl.isEmpty()) return;
+        userRepository.updateUserPhotoUrl(uid, photoUrl);
     }
 }
 

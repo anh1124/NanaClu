@@ -25,6 +25,7 @@ import com.example.nanaclu.data.repository.UserRepository;
 import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.data.repository.NoticeRepository;
 import com.example.nanaclu.data.model.User;
+import com.example.nanaclu.utils.NetworkUtils;
 import com.example.nanaclu.data.model.Group;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -266,6 +267,14 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             btnLike.setOnClickListener(v -> {
                 if (currentUserId == null) return;
                 
+                // Check network connection
+                if (!NetworkUtils.isNetworkAvailable(itemView.getContext())) {
+                    android.widget.Toast.makeText(itemView.getContext(), 
+                        "Không có kết nối Internet", 
+                        android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
                 // Disable button temporarily to prevent double-click
                 btnLike.setEnabled(false);
                 
@@ -278,6 +287,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                             fetchAndUpdateLikeCount(post);
                             btnLike.setEnabled(true);
                         }, e -> {
+                            android.widget.Toast.makeText(itemView.getContext(), 
+                                "Lỗi khi bỏ thích bài viết", 
+                                android.widget.Toast.LENGTH_SHORT).show();
                             btnLike.setEnabled(true);
                         });
                     } else {
@@ -291,15 +303,27 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                             // Create notice for post author
                             createLikeNotice(post);
                         }, e -> {
+                            android.widget.Toast.makeText(itemView.getContext(), 
+                                "Lỗi khi thích bài viết", 
+                                android.widget.Toast.LENGTH_SHORT).show();
                             btnLike.setEnabled(true);
                         });
                     }
                 }, e -> {
+                    android.widget.Toast.makeText(itemView.getContext(), 
+                        "Lỗi kết nối", 
+                        android.widget.Toast.LENGTH_SHORT).show();
                     btnLike.setEnabled(true);
                 });
                 if (actionListener != null) actionListener.onLike(post);
             });
             btnComment.setOnClickListener(v -> {
+                if (!NetworkUtils.isNetworkAvailable(itemView.getContext())) {
+                    android.widget.Toast.makeText(itemView.getContext(), 
+                        "Không có kết nối Internet", 
+                        android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 if (actionListener != null) actionListener.onComment(post);
             });
             btnShare.setOnClickListener(v -> {

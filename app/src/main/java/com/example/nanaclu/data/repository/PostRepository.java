@@ -1,7 +1,11 @@
 package com.example.nanaclu.data.repository;
 
+import android.util.Log;
+
+import com.example.nanaclu.data.model.GroupLog;
 import com.example.nanaclu.data.model.Post;
 import com.example.nanaclu.data.model.UserImage;
+import com.example.nanaclu.data.repository.NoticeRepository;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
@@ -512,10 +516,24 @@ public class PostRepository {
     private void notifyGroupMembersAboutNewPost(Post post) {
         // Lấy danh sách người cần thông báo (thành viên hiện tại + đã rời trong 7 ngày)
         getUsersToNotifyForNewPost(post.groupId, post.authorId, userList -> {
-            // Gửi thông báo cho từng người dùng
-            for (String userId : userList) {
-                createPostNotification(post, userId);
+            if (userList == null || userList.isEmpty()) {
+                return;
             }
+
+            // Chuẩn bị snippet nội dung bài viết để hiển thị trong thông báo
+            String content = post.content != null ? post.content.trim() : "";
+            String snippet = content.length() > 60 ? content.substring(0, 60) + "..." : content;
+
+            // Tạo Notice cho từng user trong users/{uid}/notices
+            NoticeRepository noticeRepo = new NoticeRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+            noticeRepo.createGroupPostNotice(
+                    post.groupId,
+                    post.postId,
+                    post.authorId,
+                    null,           // actorName sẽ được fill sau nếu cần, hiện tại để null
+                    userList,
+                    snippet
+            );
         });
     }
 

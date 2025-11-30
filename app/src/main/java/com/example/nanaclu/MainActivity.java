@@ -9,8 +9,10 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.nanaclu.viewmodel.AuthViewModel;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import androidx.lifecycle.ViewModelProvider;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -59,9 +61,9 @@ public class MainActivity extends AppCompatActivity {
                 .apply();
 
         // Update user's photoUrl in Firestore if it's not already saved
-        com.example.nanaclu.data.repository.UserRepository userRepo =
-                new com.example.nanaclu.data.repository.UserRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
-        userRepo.updateUserPhotoUrl(user.getUid(), photoUrl);
+        AuthViewModel authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
+        authViewModel.syncUserPhotoUrl(user.getUid(), photoUrl);
+        
         // Auto-login enabled and user exists -> go Home
         startActivity(new Intent(this, com.example.nanaclu.ui.HomeActivity.class));
         finish();

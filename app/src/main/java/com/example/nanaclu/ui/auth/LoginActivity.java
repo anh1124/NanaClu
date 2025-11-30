@@ -120,10 +120,8 @@ public class LoginActivity extends AppCompatActivity {
                         .putString("photoUrl", photoUrl)
                         .apply();
 
-                // Update user's photoUrl in Firestore
-                com.example.nanaclu.data.repository.UserRepository userRepo =
-                        new com.example.nanaclu.data.repository.UserRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
-                userRepo.updateUserPhotoUrl(user.getUid(), photoUrl);
+                // Update user's photoUrl in Firestore through ViewModel
+                viewModel.syncUserPhotoUrl(user.getUid(), photoUrl);
 
                 // Reset PIN when user logs in (different user or re-login)
                 android.content.SharedPreferences securityPrefs = getSharedPreferences("security", MODE_PRIVATE);

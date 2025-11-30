@@ -1,5 +1,7 @@
 package com.example.nanaclu.viewmodel;
 
+import android.util.Log;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -7,32 +9,32 @@ import androidx.lifecycle.ViewModel;
 import com.example.nanaclu.data.model.Notice;
 import com.example.nanaclu.data.repository.NoticeRepository;
 import com.example.nanaclu.utils.NoticeCenter;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class NoticeViewModel extends ViewModel {
-    private NoticeRepository noticeRepository;
-    private NoticeCenter noticeCenter;
-    private MutableLiveData<List<Notice>> notices = new MutableLiveData<>(new ArrayList<>());
-    private MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
-    private MutableLiveData<String> error = new MutableLiveData<>();
-    
-    private String currentUid;
+    private final NoticeRepository noticeRepository;
+    private final NoticeCenter noticeCenter;
+    private final String currentUid;
+
+    private final MutableLiveData<List<Notice>> _notices = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> _error = new MutableLiveData<>();
+
+    public final LiveData<List<Notice>> notices = _notices;
+    public final LiveData<Boolean> isLoading = _isLoading;
+    public final LiveData<String> error = _error;
+
     private DocumentSnapshot lastDocument;
     private boolean hasMoreData = true;
 
-    public NoticeViewModel() {
-        noticeRepository = new NoticeRepository(FirebaseFirestore.getInstance());
-        noticeCenter = NoticeCenter.getInstance();
-        
-        FirebaseAuth auth = FirebaseAuth.getInstance();
-        if (auth.getCurrentUser() != null) {
-            currentUid = auth.getCurrentUser().getUid();
-        }
+    // Constructor injection - BẮT BUỘC
+    public NoticeViewModel(NoticeRepository noticeRepository, String currentUid) {
+        this.noticeRepository = noticeRepository;
+        this.noticeCenter = NoticeCenter.getInstance();
+        this.currentUid = currentUid;
     }
 
     /**
@@ -40,21 +42,18 @@ public class NoticeViewModel extends ViewModel {
      */
     public void startListening() {
         if (currentUid == null) return;
-
+        
         noticeRepository.listenLatest(currentUid, 10, (snapshots, e) -> {
             if (e != null) {
-                error.setValue("Lỗi tải thông báo: " + e.getMessage());
+                _error.postValue("Lỗi tải thông báo: " + e.getMessage());
                 return;
             }
-
             if (snapshots != null) {
-                List<Notice> noticeList = new ArrayList<>();
+                List<Notice> list = new ArrayList<>();
                 for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                    noticeList.add(Notice.from(doc));
+                    list.add(Notice.from(doc));
                 }
-                notices.setValue(noticeList);
-                
-                // Cập nhật lastDocument cho pagination
+                _notices.postValue(list);
                 if (!snapshots.getDocuments().isEmpty()) {
                     lastDocument = snapshots.getDocuments().get(snapshots.getDocuments().size() - 1);
                 }
@@ -66,7 +65,7 @@ public class NoticeViewModel extends ViewModel {
      * Dừng lắng nghe thông báo
      */
     public void stopListening() {
-        // NoticeCenter sẽ tự quản lý listener
+        // NoticeCenter will manage its own listeners
     }
 
     /**
@@ -74,20 +73,19 @@ public class NoticeViewModel extends ViewModel {
      */
     public void refresh() {
         if (currentUid == null) return;
-        
-        isLoading.setValue(true);
+        _isLoading.postValue(true);
         hasMoreData = true;
         lastDocument = null;
-        
+
         noticeRepository.paginate(currentUid, 10, null)
-                .addOnSuccessListener(noticeList -> {
-                    notices.setValue(noticeList);
-                    isLoading.setValue(false);
-                    error.setValue(null);
+                .addOnSuccessListener(list -> {
+                    _notices.postValue(list);
+                    _isLoading.postValue(false);
+                    _error.postValue(null);
                 })
                 .addOnFailureListener(e -> {
-                    error.setValue("Lỗi tải thông báo: " + e.getMessage());
-                    isLoading.setValue(false);
+                    _error.postValue("Lỗi tải thông báo: " + e.getMessage());
+                    _isLoading.postValue(false);
                 });
     }
 
@@ -95,31 +93,20 @@ public class NoticeViewModel extends ViewModel {
      * Load thêm thông báo (pagination)
      */
     public void loadMore() {
-        if (currentUid == null || !hasMoreData || isLoading.getValue() == Boolean.TRUE) {
-            return;
-        }
+        if (currentUid == null || !hasMoreData || Boolean.TRUE.equals(_isLoading.getValue())) return;
+        _isLoading.postValue(true);
 
-        isLoading.setValue(true);
-        
         noticeRepository.paginate(currentUid, 10, lastDocument)
                 .addOnSuccessListener(newNotices -> {
-                    List<Notice> currentNotices = notices.getValue();
-                    if (currentNotices == null) {
-                        currentNotices = new ArrayList<>();
-                    }
-                    
-                    currentNotices.addAll(newNotices);
-                    notices.setValue(currentNotices);
-                    
-                    if (newNotices.size() < 10) {
-                        hasMoreData = false;
-                    }
-                    
-                    isLoading.setValue(false);
+                    List<Notice> current = new ArrayList<>(_notices.getValue() != null ? _notices.getValue() : new ArrayList<>());
+                    current.addAll(newNotices);
+                    _notices.postValue(current);
+                    hasMoreData = newNotices.size() >= 10;
+                    _isLoading.postValue(false);
                 })
                 .addOnFailureListener(e -> {
-                    error.setValue("Lỗi tải thêm thông báo: " + e.getMessage());
-                    isLoading.setValue(false);
+                    _error.postValue("Lỗi tải thêm: " + e.getMessage());
+                    _isLoading.postValue(false);
                 });
     }
 
@@ -127,26 +114,25 @@ public class NoticeViewModel extends ViewModel {
      * Đánh dấu thông báo đã xem
      */
     public void markSeen(String noticeId) {
-        if (currentUid == null) return;
+        if (currentUid == null || noticeId == null) return;
         
         noticeRepository.markSeen(currentUid, noticeId)
                 .addOnSuccessListener(aVoid -> {
                     // Cập nhật local data
-                    List<Notice> currentNotices = notices.getValue();
+                    List<Notice> currentNotices = _notices.getValue();
                     if (currentNotices != null) {
                         for (Notice notice : currentNotices) {
-                            if (notice.getId().equals(noticeId)) {
+                            if (noticeId.equals(notice.getId())) {
                                 notice.setSeen(true);
+                                _notices.postValue(new ArrayList<>(currentNotices));
                                 break;
                             }
                         }
-                        // Emit a new list instance to trigger ListAdapter diff
-                        notices.setValue(new ArrayList<>(currentNotices));
                     }
                 })
-                .addOnFailureListener(e -> {
-                    error.setValue("Lỗi đánh dấu đã xem: " + e.getMessage());
-                });
+                .addOnFailureListener(e -> 
+                    _error.postValue("Lỗi đánh dấu đã xem: " + e.getMessage())
+                );
     }
 
     /**
@@ -154,29 +140,29 @@ public class NoticeViewModel extends ViewModel {
      */
     public void markAllSeen() {
         if (currentUid == null) return;
-        // Batch mark all currently loaded unseen items as seen in Firestore
-        List<Notice> currentNotices = notices.getValue();
+        
+        List<Notice> currentNotices = _notices.getValue();
+        if (currentNotices == null || currentNotices.isEmpty()) return;
+
         List<String> idsToMark = new ArrayList<>();
-        if (currentNotices != null) {
-            for (Notice n : currentNotices) {
-                if (!n.isSeen()) idsToMark.add(n.getId());
+        for (Notice notice : currentNotices) {
+            if (!notice.isSeen()) {
+                idsToMark.add(notice.getId());
             }
         }
 
+        if (idsToMark.isEmpty()) return;
+
         noticeRepository.markSeenBatch(currentUid, idsToMark)
                 .addOnSuccessListener(aVoid -> {
-                    // Cập nhật local data
-                    List<Notice> list = notices.getValue();
-                    if (list != null) {
-                        for (Notice notice : list) {
-                            notice.setSeen(true);
-                        }
-                        notices.setValue(new ArrayList<>(list));
+                    for (Notice notice : currentNotices) {
+                        notice.setSeen(true);
                     }
+                    _notices.postValue(new ArrayList<>(currentNotices));
                 })
-                .addOnFailureListener(e -> {
-                    error.setValue("Lỗi đánh dấu tất cả đã xem: " + e.getMessage());
-                });
+                .addOnFailureListener(e -> 
+                    _error.postValue("Lỗi đánh dấu tất cả đã xem: " + e.getMessage())
+                );
     }
 
     /**
@@ -185,34 +171,41 @@ public class NoticeViewModel extends ViewModel {
     public void markAllSeenIndividually() {
         if (currentUid == null) return;
 
-        // Always fetch fresh unseen list from DB to avoid UI-sync mismatch
         noticeRepository.getUnseenNoticeIds(currentUid)
                 .addOnSuccessListener(ids -> {
-                    int unseenCount = ids != null ? ids.size() : 0;
-                    android.util.Log.d("NoticeViewModel", "markAllSeenIndividually (DB) unseenCount=" + unseenCount);
+                    if (ids == null || ids.isEmpty()) return;
+                    
+                    Log.d("NoticeViewModel", "markAllSeenIndividually (DB) unseenCount=" + ids.size());
 
                     // Update UI immediately for those IDs
-                    List<Notice> currentNotices = notices.getValue();
-                    if (currentNotices != null && ids != null) {
-                        for (Notice n : currentNotices) {
-                            if (ids.contains(n.getId())) n.setSeen(true);
+                    List<Notice> currentNotices = _notices.getValue();
+                    if (currentNotices != null) {
+                        boolean updated = false;
+                        for (Notice notice : currentNotices) {
+                            if (ids.contains(notice.getId())) {
+                                notice.setSeen(true);
+                                updated = true;
+                            }
                         }
-                        notices.setValue(new ArrayList<>(currentNotices));
+                        if (updated) {
+                            _notices.postValue(new ArrayList<>(currentNotices));
+                        }
                     }
 
                     // Update DB one-by-one with logs
-                    if (ids != null) {
-                        for (String id : ids) {
-                            final String noticeId = id;
-                            noticeRepository.markSeen(currentUid, noticeId)
-                                    .addOnSuccessListener(aVoid -> android.util.Log.d("NoticeViewModel", "Marked seen in DB: " + noticeId))
-                                    .addOnFailureListener(e -> android.util.Log.e("NoticeViewModel", "Failed to mark seen: " + noticeId, e));
-                        }
+                    for (String id : ids) {
+                        noticeRepository.markSeen(currentUid, id)
+                                .addOnSuccessListener(aVoid -> 
+                                    Log.d("NoticeViewModel", "Marked seen in DB: " + id)
+                                )
+                                .addOnFailureListener(e -> 
+                                    Log.e("NoticeViewModel", "Failed to mark seen: " + id, e)
+                                );
                     }
                 })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("NoticeViewModel", "Failed to fetch unseen IDs", e);
-                });
+                .addOnFailureListener(e -> 
+                    Log.e("NoticeViewModel", "Failed to fetch unseen IDs", e)
+                );
     }
 
     /**
@@ -221,40 +214,35 @@ public class NoticeViewModel extends ViewModel {
     public void deleteAllNotifications() {
         if (currentUid == null) return;
 
-        android.util.Log.d("NoticeViewModel", "Deleting all notifications for user: " + currentUid);
+        Log.d("NoticeViewModel", "Deleting all notifications for user: " + currentUid);
         
         // Clear UI immediately
-        notices.setValue(new ArrayList<>());
+        _notices.postValue(new ArrayList<>());
         
         // Delete all notifications from Firestore
         noticeRepository.deleteAllNotifications(currentUid)
-                .addOnSuccessListener(aVoid -> {
-                    android.util.Log.d("NoticeViewModel", "Successfully deleted all notifications");
-                })
+                .addOnSuccessListener(aVoid -> 
+                    Log.d("NoticeViewModel", "Successfully deleted all notifications")
+                )
                 .addOnFailureListener(e -> {
-                    android.util.Log.e("NoticeViewModel", "Failed to delete all notifications", e);
-                    error.setValue("Lỗi xóa thông báo: " + e.getMessage());
+                    Log.e("NoticeViewModel", "Failed to delete all notifications", e);
+                    _error.postValue("Lỗi xóa thông báo: " + e.getMessage());
                 });
     }
 
-    // Getters
-    public LiveData<List<Notice>> getNotices() {
-        return notices;
-    }
-
-    public LiveData<Boolean> getIsLoading() {
-        return isLoading;
-    }
-
-    public LiveData<String> getError() {
-        return error;
-    }
-
-    public LiveData<Integer> getUnreadCount() {
-        return noticeCenter.getUnreadCount();
-    }
-
+    /**
+     * Kiểm tra xem còn dữ liệu để tải thêm không
+     * @return true nếu còn dữ liệu, false nếu đã tải hết
+     */
     public boolean hasMoreData() {
         return hasMoreData;
+    }
+    
+    /**
+     * Lấy số lượng thông báo chưa đọc
+     * @return LiveData chứa số lượng thông báo chưa đọc
+     */
+    public LiveData<Integer> getUnreadCount() {
+        return noticeCenter.getUnreadCount();
     }
 }

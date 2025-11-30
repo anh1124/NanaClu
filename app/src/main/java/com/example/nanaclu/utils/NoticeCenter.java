@@ -216,6 +216,7 @@ public class NoticeCenter {
             case "like":
             case "comment":
             case "post_approved":
+            case "new_post":
                 // Mở PostDetailActivity để xem post cụ thể
                 intent = new Intent(context, com.example.nanaclu.ui.post.PostDetailActivity.class);
                 intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_GROUP_ID, notice.getGroupId());

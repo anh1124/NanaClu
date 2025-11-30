@@ -24,12 +24,9 @@ import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.Chat;
 import com.example.nanaclu.data.model.User;
 import com.example.nanaclu.data.model.Group;
-import com.example.nanaclu.data.repository.UserRepository;
-import com.example.nanaclu.data.repository.GroupRepository;
 import com.example.nanaclu.viewmodel.ChatListViewModel;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
-import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +37,6 @@ public class ChatFragment extends BaseFragment {
     private ChatThreadAdapter adapter;
     private final List<ChatThread> allThreads = new ArrayList<>();
     private ChatListViewModel viewModel;
-    private UserRepository userRepository;
-    private GroupRepository groupRepository;
 
     @Nullable
     @Override
@@ -73,10 +68,6 @@ public class ChatFragment extends BaseFragment {
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new ChatThreadAdapter(new ArrayList<>(), this::showThreadActions);
         rv.setAdapter(adapter);
-
-        // Initialize repositories
-        userRepository = new UserRepository(FirebaseFirestore.getInstance());
-        groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
 
         setupViewModel();
 
@@ -115,125 +106,42 @@ public class ChatFragment extends BaseFragment {
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(ChatListViewModel.class);
 
-        viewModel.threads.observe(getViewLifecycleOwner(), chats -> {
-            if (chats != null) {
-                allThreads.clear();
-                String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-                        ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-                for (Chat chat : chats) {
-                    android.util.Log.d("ChatFragment", "Chat: " + chat.chatId + ", type: " + chat.type + ", pairKey: " + chat.pairKey);
-                    // Filter out invalid private chat placeholders that would show as "Private Chat"
-                    if ("private".equals(chat.type)) {
-                        if (chat.pairKey == null || currentUserId == null) {
-                            android.util.Log.d("ChatFragment", "Skipping private chat with null pairKey or currentUserId");
-                            continue;
-                        }
-                        String[] userIds = chat.pairKey.split("_");
-                        String otherUserId = null;
-                        for (String userId : userIds) {
-                            if (!userId.equals(currentUserId)) { otherUserId = userId; break; }
-                        }
-                        if (otherUserId == null || otherUserId.isEmpty()) {
-                            android.util.Log.d("ChatFragment", "Skipping private chat with invalid pairKey (no other user)");
-                            continue;
-                        }
-                    }
-
-                    ChatThread thread = new ChatThread();
-                    thread.chatId = chat.chatId;
-                    thread.name = ""; // will set after resolving
-                    thread.lastMessage = chat.lastMessage != null ? chat.lastMessage : "No messages yet";
-                    thread.time = chat.lastMessageAt != null ? chat.lastMessageAt : chat.createdAt;
-                    thread.chat = chat; // Store chat reference
-
-                    // Fallback: nếu chat nhóm chưa có lastMessage (tài liệu cũ), lấy 1 message mới nhất để hiển thị preview
-                    if ("group".equals(chat.type) && (thread.lastMessage == null || "No messages yet".equals(thread.lastMessage))) {
-                        if (chat.groupId != null) {
-                            new com.example.nanaclu.data.repository.MessageRepository(
-                                    com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                    com.google.firebase.storage.FirebaseStorage.getInstance()
-                            ).listMessages(chat.chatId, null, 1, "group", chat.groupId)
-                             .addOnSuccessListener(list -> {
-                                 if (list != null && !list.isEmpty()) {
-                                     com.example.nanaclu.data.model.Message m = list.get(list.size() - 1);
-                                     thread.lastMessage = "image".equals(m.type) ? "📷 Image" : (m.content != null ? m.content : "");
-                                     thread.time = m.createdAt;
-                                     adapter.notifyDataSetChanged();
-                                 }
-                             });
-                        }
-                    }
-
-                    // Load display name asynchronously for all chat types
-                    loadChatDisplayName(chat, thread);
-                }
-                adapter.setItems(new ArrayList<>(allThreads));
+        viewModel.uiThreads.observe(getViewLifecycleOwner(), items -> {
+            if (items == null) return;
+            allThreads.clear();
+            for (com.example.nanaclu.viewmodel.ChatListViewModel.UiThreadItem it : items) {
+                ChatThread t = new ChatThread();
+                t.chatId = it.chatId;
+                t.name = it.name;
+                t.lastMessage = it.lastMessage;
+                t.time = it.time;
+                t.avatarUrl = it.avatarUrl;
+                t.chat = it.chat;
+                allThreads.add(t);
             }
+            adapter.setItems(new ArrayList<>(allThreads));
+        });
+
+        viewModel.hideChatResult.observe(getViewLifecycleOwner(), ok -> {
+            if (ok != null && ok) {
+                Toast.makeText(getContext(), "Đoạn chat đã được ẩn", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        viewModel.startChatEvent.observe(getViewLifecycleOwner(), res -> {
+            if (res == null) return;
+            Intent intent = new Intent(getContext(), ChatRoomActivity.class);
+            intent.putExtra("chatId", res.chatId);
+            intent.putExtra("chatType", res.chatType);
+            intent.putExtra("chatTitle", res.chatTitle);
+            if ("group".equals(res.chatType)) {
+                intent.putExtra("groupId", res.groupId);
+            }
+            startActivity(intent);
         });
 
         // Load chats
         viewModel.refresh();
-    }
-
-    private void loadChatDisplayName(Chat chat, ChatThread thread) {
-        if ("group".equals(chat.type)) {
-            // Load group name and avatar
-            if (chat.groupId != null) {
-                groupRepository.getGroupById(chat.groupId, new GroupRepository.GroupCallback() {
-                    @Override
-                    public void onSuccess(Group group) {
-                        if (group != null) {
-                            thread.name = group.name != null ? group.name : "Group Chat";
-                            thread.avatarUrl = group.avatarImageId; // Use avatar image
-                        } else {
-                            thread.name = "Group Chat";
-                        }
-                        addThreadToListIfNotExists(thread);
-                    }
-
-                    @Override
-                    public void onError(Exception e) {
-                        thread.name = "Group Chat";
-                        addThreadToListIfNotExists(thread);
-                    }
-                });
-            } else {
-                thread.name = "Group Chat";
-                addThreadToListIfNotExists(thread);
-            }
-        } else {
-            // For private chat, find the other user
-            String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-                    ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-
-            if (currentUserId == null || chat.pairKey == null) {
-                return; // skip adding placeholder
-            }
-
-            // Extract other user ID from pairKey
-            String[] userIds = chat.pairKey.split("_");
-            String otherUserId = null;
-            for (String userId : userIds) {
-                if (!userId.equals(currentUserId)) { otherUserId = userId; break; }
-            }
-            if (otherUserId == null || otherUserId.isEmpty()) return;
-
-            userRepository.getUserById(otherUserId, new UserRepository.UserCallback() {
-                @Override
-                public void onSuccess(User user) {
-                    if (user != null) {
-                        thread.name = (user.displayName != null ? user.displayName : "");
-                        thread.avatarUrl = user.photoUrl; // Use user's photo
-                        addThreadToListIfNotExists(thread);
-                    }
-                }
-
-                @Override
-                public void onError(Exception e) {
-                    // Do not add placeholder rows like "Đang trò chuyện"
-                }
-            });
-        }
     }
 
     private void addThreadToListIfNotExists(ChatThread thread) {
@@ -275,21 +183,10 @@ public class ChatFragment extends BaseFragment {
         BottomSheetDialog dialog = new BottomSheetDialog(getContext());
         View v = View.inflate(getContext(), R.layout.bottomsheet_chat_actions, null);
         v.findViewById(R.id.btnDelete).setOnClickListener(x -> {
-            String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-                    ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-            if (uid == null) { dialog.dismiss(); return; }
-            com.example.nanaclu.data.repository.ChatRepository repo = new com.example.nanaclu.data.repository.ChatRepository(FirebaseFirestore.getInstance());
-            repo.hideChatForUser(thread.chatId, uid)
-                    .addOnSuccessListener(aVoid -> {
-                        allThreads.remove(thread);
-                        adapter.setItems(new ArrayList<>(allThreads));
-                        Toast.makeText(getContext(), "Đoạn chat đã được ẩn", Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(getContext(), "Lỗi ẩn đoạn chat: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
-                    });
+            viewModel.hideChat(thread.chatId);
+            allThreads.remove(thread);
+            adapter.setItems(new ArrayList<>(allThreads));
+            dialog.dismiss();
         });
         v.findViewById(R.id.btnMute).setOnClickListener(x -> { dialog.dismiss(); });
         dialog.setContentView(v);
@@ -306,87 +203,26 @@ public class ChatFragment extends BaseFragment {
 
 		rvFriends.setLayoutManager(new LinearLayoutManager(getContext()));
 		com.example.nanaclu.ui.adapter.UserSearchAdapter adapter = new com.example.nanaclu.ui.adapter.UserSearchAdapter(new java.util.ArrayList<>(), userId -> {
-			// Create or open private chat, then navigate
-			String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-					? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-			if (currentUid == null || userId == null || currentUid.equals(userId)) return;
-			com.example.nanaclu.data.repository.ChatRepository chatRepo = new com.example.nanaclu.data.repository.ChatRepository(FirebaseFirestore.getInstance());
-			new com.example.nanaclu.data.repository.UserRepository(FirebaseFirestore.getInstance()).getUserById(userId, new com.example.nanaclu.data.repository.UserRepository.UserCallback() {
-				@Override public void onSuccess(User user) {
-					chatRepo.getOrCreatePrivateChat(currentUid, userId)
-							.addOnSuccessListener(chatId -> {
-								// Unhide for opener so it appears in ChatFragment list
-								java.util.List<String> self = new java.util.ArrayList<>(); self.add(currentUid);
-								chatRepo.unarchiveForUsers(chatId, self);
-								Intent intent = new Intent(getContext(), ChatRoomActivity.class);
-								intent.putExtra("chatId", chatId);
-								intent.putExtra("chatType", "private");
-								intent.putExtra("chatTitle", user != null && user.displayName != null ? user.displayName : "Private Chat");
-								startActivity(intent);
-								dialog.dismiss();
-							})
-							.addOnFailureListener(e -> android.widget.Toast.makeText(getContext(), "Lỗi mở chat: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show());
-				}
-				@Override public void onError(Exception e) {
-					android.widget.Toast.makeText(getContext(), "Lỗi tải thông tin bạn bè", android.widget.Toast.LENGTH_SHORT).show();
-				}
-			});
+			viewModel.startPrivateChat(userId);
+			dialog.dismiss();
 		});
 		rvFriends.setAdapter(adapter);
 
 		progressBar.setVisibility(View.VISIBLE);
 		tvEmpty.setVisibility(View.GONE);
 
-		String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
-				? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-		if (currentUserId == null) {
+		viewModel.friendUsers.observe(getViewLifecycleOwner(), users -> {
 			progressBar.setVisibility(View.GONE);
-			tvEmpty.setText("Chưa đăng nhập");
-			tvEmpty.setVisibility(View.VISIBLE);
-			dialog.setContentView(v);
-			dialog.show();
-			return;
-		}
+			if (users == null || users.isEmpty()) {
+				tvEmpty.setText("Bạn chưa có bạn bè nào");
+				tvEmpty.setVisibility(View.VISIBLE);
+			} else {
+				adapter.setUsers(users);
+				tvEmpty.setVisibility(View.GONE);
+			}
+		});
 
-		com.example.nanaclu.data.repository.FriendshipRepository friendshipRepository = new com.example.nanaclu.data.repository.FriendshipRepository(FirebaseFirestore.getInstance());
-		com.example.nanaclu.data.repository.UserRepository userRepository = new com.example.nanaclu.data.repository.UserRepository(FirebaseFirestore.getInstance());
-
-		friendshipRepository.listFriends(currentUserId, 100)
-				.addOnSuccessListener(friendIds -> {
-					progressBar.setVisibility(View.GONE);
-					if (friendIds == null || friendIds.isEmpty()) {
-						tvEmpty.setText("Bạn chưa có bạn bè nào");
-						tvEmpty.setVisibility(View.VISIBLE);
-						return;
-					}
-					java.util.List<User> users = new java.util.ArrayList<>();
-					final int total = friendIds.size();
-					final int[] loaded = {0};
-					for (String fid : friendIds) {
-						userRepository.getUserById(fid, new com.example.nanaclu.data.repository.UserRepository.UserCallback() {
-							@Override public void onSuccess(User u) {
-								if (u != null) users.add(u);
-								loaded[0]++;
-								if (loaded[0] == total) {
-									adapter.setUsers(users);
-									tvEmpty.setVisibility(users.isEmpty() ? View.VISIBLE : View.GONE);
-								}
-							}
-							@Override public void onError(Exception e) {
-								loaded[0]++;
-								if (loaded[0] == total) {
-									adapter.setUsers(users);
-									tvEmpty.setVisibility(users.isEmpty() ? View.VISIBLE : View.GONE);
-								}
-							}
-						});
-					}
-				})
-				.addOnFailureListener(e -> {
-					progressBar.setVisibility(View.GONE);
-					tvEmpty.setText("Lỗi tải danh sách bạn bè");
-					tvEmpty.setVisibility(View.VISIBLE);
-				});
+		viewModel.loadFriends();
 
 		dialog.setContentView(v);
 		dialog.show();

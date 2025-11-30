@@ -18,6 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.nanaclu.R;
+import com.example.nanaclu.utils.NetworkUtils;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -123,7 +124,25 @@ public class VideoPlayerActivity extends AppCompatActivity {
             @Override
             public void onPlayerError(PlaybackException error) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(VideoPlayerActivity.this, "Error playing video: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                String errorMessage = "Lỗi khi phát video: ";
+                
+                if (!NetworkUtils.isNetworkAvailable(VideoPlayerActivity.this)) {
+                    errorMessage = "Không có kết nối mạng. Vui lòng kiểm tra lại kết nối Internet của bạn.";
+                } else if (error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                          error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT) {
+                    errorMessage = "Lỗi kết nối mạng. Vui lòng kiểm tra lại kết nối Internet.";
+                } else if (error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND) {
+                    errorMessage = "Không tìm thấy video. Có thể video đã bị xóa hoặc không tồn tại.";
+                } else {
+                    errorMessage += error.getLocalizedMessage();
+                }
+                
+                new android.app.AlertDialog.Builder(VideoPlayerActivity.this)
+                    .setTitle("Lỗi phát video")
+                    .setMessage(errorMessage)
+                    .setPositiveButton("Đóng", (dialog, which) -> finish())
+                    .setCancelable(false)
+                    .show();
             }
         });
         

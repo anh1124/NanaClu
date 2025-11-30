@@ -106,6 +106,63 @@ public class NoticeRepository {
     }
 
     /**
+     * Tạo thông báo khi có bài viết mới trong group cho danh sách memberIds
+     * Lưu vào users/{uid}/notices để hiển thị trong NotificationsActivity
+     */
+    public Task<Void> createGroupPostNotice(String groupId,
+                                            String postId,
+                                            String actorId,
+                                            String actorName,
+                                            List<String> memberIds,
+                                            String postSnippet) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return Tasks.forResult(null);
+        }
+
+        WriteBatch batch = db.batch();
+        String title = "Bài viết mới trong nhóm";
+        String baseMessage;
+        if (actorName != null && !actorName.trim().isEmpty()) {
+            baseMessage = actorName + " đã đăng một bài viết mới";
+        } else {
+            baseMessage = "Có bài viết mới trong nhóm";
+        }
+
+        if (postSnippet != null && !postSnippet.trim().isEmpty()) {
+            baseMessage = baseMessage + ": \"" + postSnippet + "\"";
+        }
+
+        for (String memberId : memberIds) {
+            if (actorId != null && actorId.equals(memberId)) {
+                continue; // Không tạo thông báo cho chính mình
+            }
+
+            String noticeId = UUID.randomUUID().toString();
+            Notice notice = new Notice(
+                    noticeId,
+                    "new_post",
+                    actorId,
+                    actorName,
+                    "post",
+                    postId,
+                    groupId,
+                    title,
+                    baseMessage,
+                    memberId
+            );
+
+            DocumentReference noticeRef = db.collection("users")
+                    .document(memberId)
+                    .collection("notices")
+                    .document(noticeId);
+
+            batch.set(noticeRef, notice.toMap());
+        }
+
+        return batch.commit();
+    }
+
+    /**
      * Đếm số thông báo chưa xem
      */
     public Task<Integer> getUnreadCount(String uid) {

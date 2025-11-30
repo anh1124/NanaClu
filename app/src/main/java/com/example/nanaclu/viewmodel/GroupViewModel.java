@@ -6,28 +6,39 @@ import androidx.lifecycle.ViewModel;
 
 import com.example.nanaclu.data.model.Group;
 import com.example.nanaclu.data.repository.GroupRepository;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.auth.FirebaseAuth;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 public class GroupViewModel extends ViewModel {
-    private GroupRepository groupRepository;
-    private MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
-    private MutableLiveData<String> error = new MutableLiveData<>();
-    private MutableLiveData<List<Group>> userGroups = new MutableLiveData<>();
+    private final GroupRepository groupRepository;
+    private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> _error = new MutableLiveData<>();
+    private final MutableLiveData<List<Group>> _userGroups = new MutableLiveData<>();
+    private String currentUserId;
 
-    public GroupViewModel() {
-        groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
+    // Expose LiveData for the view to observe
+    public final LiveData<Boolean> isLoading = _isLoading;
+    public final LiveData<String> error = _error;
+    public final LiveData<List<Group>> userGroups = _userGroups;
+
+    public GroupViewModel(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
+
+    public void setCurrentUser(String userId) {
+        this.currentUserId = userId;
+        loadUserGroups();
     }
 
     public void createGroup(String name, boolean isPublic) {
-        isLoading.setValue(true);
-        error.setValue(null);
+        if (currentUserId == null) {
+            _error.setValue("User not authenticated");
+            return;
+        }
 
-        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        System.out.println("GroupViewModel: Creating group with name: " + name + " for user: " + userId);
+        _isLoading.setValue(true);
+        _error.setValue(null);
 
         Group group = new Group();
         group.groupId = java.util.UUID.randomUUID().toString();
@@ -36,78 +47,55 @@ public class GroupViewModel extends ViewModel {
         group.createdAt = System.currentTimeMillis();
         group.memberCount = 1;
         group.postCount = 0;
-        group.createdBy = userId;
+        group.createdBy = currentUserId;
         group.description = "";
         group.avatarImageId = null;
         group.coverImageId = null;
 
-        // Generate short unique code (6 chars) before creating
         groupRepository.generateUniqueCode(6)
                 .addOnSuccessListener(code -> {
                     group.code = code;
-                    System.out.println("GroupViewModel: Generated code for group: " + code);
                     groupRepository.createGroup(group)
                             .addOnSuccessListener(aVoid -> {
-                                isLoading.setValue(false);
-                                System.out.println("GroupViewModel: Group created successfully, reloading groups");
+                                _isLoading.setValue(false);
                                 loadUserGroups();
                             })
                             .addOnFailureListener(e -> {
-                                isLoading.setValue(false);
-                                error.setValue("Failed to create group: " + e.getMessage());
-                                System.out.println("GroupViewModel: Failed to create group: " + e.getMessage());
+                                _isLoading.setValue(false);
+                                _error.setValue("Failed to create group: " + e.getMessage());
                             });
                 })
                 .addOnFailureListener(e -> {
-                    isLoading.setValue(false);
-                    error.setValue("Failed to generate code: " + e.getMessage());
+                    _isLoading.setValue(false);
+                    _error.setValue("Failed to generate code: " + e.getMessage());
                 });
     }
 
     public void loadUserGroups() {
-        isLoading.setValue(true);
-        error.setValue(null);
-        
-        System.out.println("GroupViewModel: Starting to load user groups");
-        System.out.println("GroupViewModel: Current user ID: " + FirebaseAuth.getInstance().getCurrentUser().getUid());
+        if (currentUserId == null) {
+            _error.setValue("User not authenticated");
+            return;
+        }
+
+        _isLoading.setValue(true);
+        _error.setValue(null);
 
         groupRepository.loadUserGroups()
                 .addOnSuccessListener(groups -> {
-                    isLoading.setValue(false);
-                    System.out.println("GroupViewModel: Repository returned " + (groups != null ? groups.size() : "null") + " groups");
-                    
+                    _isLoading.setValue(false);
                     if (groups != null) {
-                        userGroups.setValue(groups);
-                        System.out.println("GroupViewModel: Successfully set " + groups.size() + " groups to LiveData");
-                        
-                        // Debug: print each group
-                        for (Group group : groups) {
-                            System.out.println("GroupViewModel: Group in list - name: " + group.name + ", ID: " + group.groupId + ", createdBy: " + group.createdBy);
-                        }
+                        _userGroups.setValue(groups);
                     } else {
-                        userGroups.setValue(new ArrayList<>());
-                        System.out.println("GroupViewModel: Repository returned null, setting empty list");
+                        _userGroups.setValue(new ArrayList<>());
                     }
                 })
                 .addOnFailureListener(e -> {
-                    isLoading.setValue(false);
-                    error.setValue("Failed to load groups: " + e.getMessage());
-                    System.out.println("GroupViewModel: Error loading groups: " + e.getMessage());
-                    e.printStackTrace();
+                    _isLoading.setValue(false);
+                    _error.setValue("Failed to load groups: " + e.getMessage());
                 });
     }
 
-    public LiveData<Boolean> getIsLoading() {
-        return isLoading;
-    }
-
-    public LiveData<String> getError() {
-        return error;
-    }
-
-    public LiveData<List<Group>> getUserGroups() {
-        return userGroups;
-    }
+    // No need for getters as we're exposing LiveData fields directly
 }
 
 

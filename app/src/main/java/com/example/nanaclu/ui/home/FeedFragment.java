@@ -18,6 +18,8 @@ import com.example.nanaclu.data.repository.PostRepository;
 import com.example.nanaclu.ui.BaseFragment;
 import com.example.nanaclu.ui.group.PostAdapter;
 import com.example.nanaclu.utils.NoticeCenter;
+import com.example.nanaclu.utils.ShareLinkUtils;
+import com.example.nanaclu.utils.NetworkUtils;
 import com.example.nanaclu.utils.ThemeUtils;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -340,7 +342,12 @@ public class FeedFragment extends BaseFragment {
                     }
                     if (next.isEmpty()) {
                         reachedEnd = true;
-                        android.widget.Toast.makeText(requireContext(), "Bạn đã xem hết bài viết", android.widget.Toast.LENGTH_SHORT).show();
+                        // Kiểm tra kết nối mạng trước khi hiển thị thông báo
+                        if (!NetworkUtils.isNetworkAvailable(requireContext())) {
+                            android.widget.Toast.makeText(requireContext(), "Không có kết nối Internet ", android.widget.Toast.LENGTH_SHORT).show();
+                        } else {
+                            android.widget.Toast.makeText(requireContext(), "Bạn đã xem hết bài viết", android.widget.Toast.LENGTH_SHORT).show();
+                        }
                     } else {
                         adapter.addItems(next);
                         for (Post p : next) loadedPostIds.add(p.postId);

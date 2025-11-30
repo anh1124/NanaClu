@@ -13,9 +13,9 @@
             android:id="@+id/collapsingToolbar"
             android:layout_width="match_parent"
             android:layout_height="300dp"
-            app:contentScrim="?attr/colorPrimary"
+            app:contentScrim="@android:color/transparent"
             app:layout_scrollFlags="scroll|exitUntilCollapsed"
-            app:title=" ">
+            app:titleEnabled="false">
 
             <ImageView
                 android:id="@+id/ivEventImage"

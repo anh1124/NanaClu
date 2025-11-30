@@ -1,6 +1,7 @@
 package com.example.nanaclu.ui.group.logs;
 
-import android.Manifest;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -17,8 +18,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -31,6 +32,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -40,7 +43,6 @@ import java.util.Map;
 
 public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapter.OnLogClickListener {
 
-    private static final int PERMISSION_REQUEST_WRITE_STORAGE = 100;
     private static final int PAGE_SIZE = 20;
 
     private String groupId;
@@ -381,28 +383,9 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
     }
 
     private void exportToJson() {
-        // Check storage permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    PERMISSION_REQUEST_WRITE_STORAGE);
-            return;
-        }
-
+        // On modern Android, writing to app-specific external storage does not
+        // require WRITE_EXTERNAL_STORAGE permission, so we can export directly.
         performExport();
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_WRITE_STORAGE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                performExport();
-            } else {
-                Toast.makeText(this, "Cần quyền ghi file để xuất dữ liệu", Toast.LENGTH_SHORT).show();
-            }
-        }
     }
 
     private void performExport() {
@@ -429,23 +412,34 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
             String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
             String filename = "group_" + groupId + "_logs_" + timestamp + ".json";
 
-            // Save to Downloads folder
-            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File file = new File(downloadsDir, filename);
+            // Insert into public Downloads via MediaStore (no WRITE_EXTERNAL_STORAGE required)
+            ContentResolver resolver = getContentResolver();
+            ContentValues values = new ContentValues();
+            values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, filename);
+            values.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json");
+            // Save under Downloads/NanaClu
+            values.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS + "/NanaClu");
 
-            FileWriter writer = new FileWriter(file);
-            writer.write(jsonString);
-            writer.close();
+            Uri collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+            Uri fileUri = resolver.insert(collection, values);
+            if (fileUri == null) {
+                Toast.makeText(this, "Không thể tạo file trong thư mục Downloads", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-            // Share the file
-            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-            shareIntent.setType("application/json");
-            Uri fileUri = Uri.fromFile(file);
-            shareIntent.putExtra(Intent.EXTRA_STREAM, fileUri);
-            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Nhật ký hoạt động nhóm");
-            shareIntent.putExtra(Intent.EXTRA_TEXT, "Nhật ký hoạt động nhóm được xuất từ NanaClu");
+            try (OutputStream out = resolver.openOutputStream(fileUri);
+                 OutputStreamWriter writer = new OutputStreamWriter(out)) {
+                writer.write(jsonString);
+                writer.flush();
+            }
 
-            startActivity(Intent.createChooser(shareIntent, "Chia sẻ nhật ký hoạt động"));
+            // Open the file ("Mở bằng" dialog)
+            Intent openIntent = new Intent(Intent.ACTION_VIEW);
+            openIntent.setDataAndType(fileUri, "application/json");
+            openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            startActivity(Intent.createChooser(openIntent, "Mở nhật ký hoạt động"));
 
             Toast.makeText(this, "Đã lưu file: " + filename, Toast.LENGTH_SHORT).show();
 
