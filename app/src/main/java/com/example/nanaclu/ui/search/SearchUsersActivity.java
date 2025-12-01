@@ -203,8 +203,9 @@ public class SearchUsersActivity extends AppCompatActivity {
                     showProgress(false);
                     swipeRefresh.setRefreshing(false);
                     
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("SearchUsersActivity", e);
                     android.util.Log.e("SearchUsersActivity", "Search failed", e);
-                    Toast.makeText(this, "Lỗi tìm kiếm: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                   
                 });
     }
 

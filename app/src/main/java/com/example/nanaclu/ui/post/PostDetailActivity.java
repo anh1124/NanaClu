@@ -35,6 +35,8 @@ import com.example.nanaclu.data.repository.NoticeRepository;
 import com.example.nanaclu.data.repository.UserRepository;
 import com.example.nanaclu.data.model.User;
 import com.google.firebase.auth.FirebaseAuth;
+
+import com.example.nanaclu.utils.NoNetworkException;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -728,7 +730,13 @@ public class PostDetailActivity extends AppCompatActivity {
                     Toast.makeText(this, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Lỗi xóa bình luận: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostDetailActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi xóa bình luận: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -817,6 +825,13 @@ public class PostDetailActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     android.util.Log.e("PostDetailActivity", "❌ Failed to add comment via CommentRepository", e);
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostDetailActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi thêm bình luận: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 

@@ -436,7 +436,13 @@ public class CreatePostActivity extends AppCompatActivity {
                 public void onError(Exception e) {
                     runOnUiThread(() -> {
                         showLoading(false);
-                        Toast.makeText(CreatePostActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", e);
+                        String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                        if (errorMessage != null) {
+                            Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(CreatePostActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
                     });
                 }
             });
@@ -471,7 +477,13 @@ public class CreatePostActivity extends AppCompatActivity {
                 public void onError(Exception e) {
                     runOnUiThread(() -> {
                         showLoading(false);
-                        Toast.makeText(CreatePostActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", e);
+                        String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                        if (errorMessage != null) {
+                            Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(CreatePostActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
                     });
                 }
             });
@@ -500,7 +512,13 @@ public class CreatePostActivity extends AppCompatActivity {
                     public void onError(Exception e) {
                         runOnUiThread(() -> {
                             showLoading(false);
-                            Toast.makeText(CreatePostActivity.this, "Lỗi tạo bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", e);
+                            String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                            if (errorMessage != null) {
+                                Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(CreatePostActivity.this, "Lỗi tạo bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
                         });
                     }
                 });
@@ -508,7 +526,13 @@ public class CreatePostActivity extends AppCompatActivity {
             e -> {
                 runOnUiThread(() -> {
                     showLoading(false);
-                    Toast.makeText(CreatePostActivity.this, "Lỗi upload ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(CreatePostActivity.this, "Lỗi upload ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
             }
         );
@@ -564,7 +588,13 @@ public class CreatePostActivity extends AppCompatActivity {
                             public void onError(Exception e) {
                                 runOnUiThread(() -> {
                                     showLoading(false);
-                                    Toast.makeText(CreatePostActivity.this, "Lỗi tạo bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", e);
+                                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                                    if (errorMessage != null) {
+                                        Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                                    } else {
+                                        Toast.makeText(CreatePostActivity.this, "Lỗi tạo bài đăng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    }
                                 });
                             }
                         });
@@ -572,14 +602,26 @@ public class CreatePostActivity extends AppCompatActivity {
                     error -> {
                         runOnUiThread(() -> {
                             showLoading(false);
-                            Toast.makeText(CreatePostActivity.this, "Lỗi upload video: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", error);
+                            String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(error);
+                            if (errorMessage != null) {
+                                Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(CreatePostActivity.this, "Lỗi upload video: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
                         });
                     });
             },
             error -> {
                 runOnUiThread(() -> {
                     showLoading(false);
-                    Toast.makeText(CreatePostActivity.this, "Lỗi upload thumbnail: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", error);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(error);
+                    if (errorMessage != null) {
+                        Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(CreatePostActivity.this, "Lỗi upload thumbnail: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
             });
     }

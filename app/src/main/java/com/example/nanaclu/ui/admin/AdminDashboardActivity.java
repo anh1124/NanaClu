@@ -74,7 +74,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 
                 @Override
                 public void onError(Exception e) {
-                    Toast.makeText(AdminDashboardActivity.this, "Lỗi xuất dữ liệu: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminDashboardActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(AdminDashboardActivity.this, errorMessage, Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(AdminDashboardActivity.this, "Lỗi xuất dữ liệu: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
                     btnSaveJson.setEnabled(true);
                 }
             });
@@ -194,7 +200,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
                 android.net.Uri uri = FileProvider.getUriForFile(
                     this,
-                    getApplicationContext().getPackageName() + ".provider",
+                    getApplicationContext().getPackageName() + ".fileprovider",
                     jsonFile
                 );
                 intent.setDataAndType(uri, "*/*");

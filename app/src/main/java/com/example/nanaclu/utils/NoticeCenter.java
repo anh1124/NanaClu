@@ -66,6 +66,7 @@ public class NoticeCenter {
             @Override
             public void onEvent(QuerySnapshot snapshots, com.google.firebase.firestore.FirebaseFirestoreException e) {
                 if (e != null) {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeCenter", e);
                     Log.e(TAG, "Error listening to notices", e);
                     return;
                 }
@@ -118,7 +119,10 @@ public class NoticeCenter {
                         Log.d(TAG, "Marked all notices as seen");
                         unreadCount.setValue(0);
                     })
-                    .addOnFailureListener(e -> Log.e(TAG, "Failed to mark all notices as seen", e));
+                    .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeCenter", e);
+                    Log.e(TAG, "Failed to mark all notices as seen", e);
+                });
         }
     }
 
@@ -244,7 +248,10 @@ public class NoticeCenter {
         if (currentUid != null) {
             noticeRepository.markSeen(currentUid, noticeId)
                     .addOnSuccessListener(aVoid -> Log.d(TAG, "Marked notice as seen: " + noticeId))
-                    .addOnFailureListener(e -> Log.e(TAG, "Failed to mark notice as seen", e));
+                    .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeCenter", e);
+                    Log.e(TAG, "Failed to mark notice as seen", e);
+                });
         }
     }
 }

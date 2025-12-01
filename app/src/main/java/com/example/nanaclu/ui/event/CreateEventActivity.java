@@ -287,7 +287,7 @@ public class CreateEventActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess(java.util.List<String> memberIds) {
                         android.util.Log.d("CreateEventActivity", "Got group members: " + memberIds.size() + " members");
-                        
+
                         // Create notices for all members
                         NoticeRepository noticeRepo = new NoticeRepository(FirebaseFirestore.getInstance());
                         noticeRepo.createGroupEventNotice(groupId, eventId, currentUid, actorName, memberIds, eventTitle)
@@ -311,14 +311,14 @@ public class CreateEventActivity extends AppCompatActivity {
                 android.util.Log.e("CreateEventActivity", "Failed to get current user", e);
                 // Fallback with default name
                 String actorName = "Người dùng";
-                
+
                 // Get group members with fallback name
                 GroupRepository groupRepo = new GroupRepository(FirebaseFirestore.getInstance());
                 groupRepo.getGroupMembers(groupId, new GroupRepository.GroupMembersCallback() {
                     @Override
                     public void onSuccess(java.util.List<String> memberIds) {
                         android.util.Log.d("CreateEventActivity", "Got group members (fallback): " + memberIds.size() + " members");
-                        
+
                         NoticeRepository noticeRepo = new NoticeRepository(FirebaseFirestore.getInstance());
                         noticeRepo.createGroupEventNotice(groupId, eventId, currentUid, actorName, memberIds, eventTitle)
                                 .addOnSuccessListener(aVoid -> {

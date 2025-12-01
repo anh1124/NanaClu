@@ -45,6 +45,7 @@ public class NoticeViewModel extends ViewModel {
         
         noticeRepository.listenLatest(currentUid, 10, (snapshots, e) -> {
             if (e != null) {
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
                 _error.postValue("Lỗi tải thông báo: " + e.getMessage());
                 return;
             }
@@ -84,6 +85,7 @@ public class NoticeViewModel extends ViewModel {
                     _error.postValue(null);
                 })
                 .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
                     _error.postValue("Lỗi tải thông báo: " + e.getMessage());
                     _isLoading.postValue(false);
                 });
@@ -105,6 +107,7 @@ public class NoticeViewModel extends ViewModel {
                     _isLoading.postValue(false);
                 })
                 .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
                     _error.postValue("Lỗi tải thêm: " + e.getMessage());
                     _isLoading.postValue(false);
                 });
@@ -130,9 +133,10 @@ public class NoticeViewModel extends ViewModel {
                         }
                     }
                 })
-                .addOnFailureListener(e -> 
-                    _error.postValue("Lỗi đánh dấu đã xem: " + e.getMessage())
-                );
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
+                    _error.postValue("Lỗi đánh dấu đã xem: " + e.getMessage());
+                });
     }
 
     /**
@@ -160,9 +164,10 @@ public class NoticeViewModel extends ViewModel {
                     }
                     _notices.postValue(new ArrayList<>(currentNotices));
                 })
-                .addOnFailureListener(e -> 
-                    _error.postValue("Lỗi đánh dấu tất cả đã xem: " + e.getMessage())
-                );
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
+                    _error.postValue("Lỗi đánh dấu tất cả đã xem: " + e.getMessage());
+                });
     }
 
     /**
@@ -198,14 +203,16 @@ public class NoticeViewModel extends ViewModel {
                                 .addOnSuccessListener(aVoid -> 
                                     Log.d("NoticeViewModel", "Marked seen in DB: " + id)
                                 )
-                                .addOnFailureListener(e -> 
-                                    Log.e("NoticeViewModel", "Failed to mark seen: " + id, e)
-                                );
+                                .addOnFailureListener(e -> {
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
+                            Log.e("NoticeViewModel", "Failed to mark seen: " + id, e);
+                        });
                     }
                 })
-                .addOnFailureListener(e -> 
-                    Log.e("NoticeViewModel", "Failed to fetch unseen IDs", e)
-                );
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
+                    Log.e("NoticeViewModel", "Failed to fetch unseen IDs", e);
+                });
     }
 
     /**
@@ -225,6 +232,7 @@ public class NoticeViewModel extends ViewModel {
                     Log.d("NoticeViewModel", "Successfully deleted all notifications")
                 )
                 .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeViewModel", e);
                     Log.e("NoticeViewModel", "Failed to delete all notifications", e);
                     _error.postValue("Lỗi xóa thông báo: " + e.getMessage());
                 });

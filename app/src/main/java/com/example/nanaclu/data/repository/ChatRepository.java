@@ -45,7 +45,11 @@ public class ChatRepository {
                 .limit(1)
                 .get()
                 .continueWithTask(task -> {
-                    if (!task.isSuccessful()) return Tasks.forException(task.getException());
+                    if (!task.isSuccessful()) {
+                        Exception e = task.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatRepository", e);
+                        return Tasks.forException(e);
+                    }
                     if (task.getResult() != null && !task.getResult().isEmpty()) {
                         return Tasks.forResult(task.getResult().getDocuments().get(0).getId());
                     }
@@ -92,7 +96,11 @@ public class ChatRepository {
                 .limit(1)
                 .get()
                 .continueWithTask(task -> {
-                    if (!task.isSuccessful()) return Tasks.forException(task.getException());
+                    if (!task.isSuccessful()) {
+                        Exception e = task.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatRepository", e);
+                        return Tasks.forException(e);
+                    }
                     if (task.getResult() != null && !task.getResult().isEmpty()) {
                         // Chat exists, but ensure current user is a member
                         String existingChatId = task.getResult().getDocuments().get(0).getId();
@@ -171,7 +179,11 @@ public class ChatRepository {
                 .whereEqualTo("userId", uid)
                 .get()
                 .continueWithTask(t -> {
-                    if (!t.isSuccessful() || t.getResult() == null) return Tasks.forResult(new ArrayList<Chat>());
+                    if (!t.isSuccessful()) {
+                        Exception e = t.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatRepository", e);
+                        return Tasks.forResult(new ArrayList<Chat>());
+                    }
                     List<Task<DocumentSnapshot>> jobs = new ArrayList<>();
                     for (DocumentSnapshot memberDoc : t.getResult().getDocuments()) {
                         Boolean hidden = memberDoc.getBoolean("hidden");
@@ -517,6 +529,7 @@ public class ChatRepository {
                 .get()
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatRepository", task.getException());
                         return new ArrayList<String>();
                     }
                     
@@ -535,6 +548,10 @@ public class ChatRepository {
                 .get()
                 .continueWithTask(task -> {
                     if (!task.isSuccessful() || task.getResult().isEmpty()) {
+                        Exception e = task.getException();
+                        if (e != null) {
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatRepository", e);
+                        }
                         return Tasks.forException(new Exception("Chat not found"));
                     }
                     
@@ -542,7 +559,9 @@ public class ChatRepository {
                     return chatDoc.getReference().collection(MEMBERS).get()
                             .continueWith(memberTask -> {
                                 if (!memberTask.isSuccessful()) {
-                                    throw memberTask.getException();
+                                    Exception e = memberTask.getException();
+                                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatRepository", e);
+                                    throw e;
                                 }
                                 
                                 List<String> groupMemberIds = new ArrayList<>();

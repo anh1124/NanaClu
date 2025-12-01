@@ -77,7 +77,9 @@ public class CommentRepository {
                         
                         return com.google.android.gms.tasks.Tasks.forResult(commentId);
                     } else {
-                        return com.google.android.gms.tasks.Tasks.forException(task.getException());
+                        Exception e = task.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CommentRepository", e);
+                        return com.google.android.gms.tasks.Tasks.forException(e);
                     }
                 });
     }
@@ -96,6 +98,7 @@ public class CommentRepository {
                 .orderBy("createdAt", Query.Direction.ASCENDING)
                 .addSnapshotListener((snapshot, error) -> {
                     if (error != null) {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CommentRepository", error);
                         callback.onError(error);
                         return;
                     }

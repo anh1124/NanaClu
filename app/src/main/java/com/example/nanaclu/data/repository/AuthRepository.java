@@ -45,7 +45,11 @@ public class AuthRepository {
     public Task<AuthResult> registerWithEmail(String email, String password, String displayName) {
         return auth.createUserWithEmailAndPassword(email, password)
                 .continueWithTask(task -> {
-                    if (!task.isSuccessful()) throw task.getException();
+                    if (!task.isSuccessful()) {
+                        Exception e = task.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AuthRepository", e);
+                        throw e;
+                    }
                     FirebaseUser fUser = auth.getCurrentUser();
                     if (fUser == null) throw new IllegalStateException("User null after register");
                     Map<String, Object> userDoc = new HashMap<>();
@@ -66,7 +70,11 @@ public class AuthRepository {
     public Task<AuthResult> loginWithEmail(String email, String password) {
         return auth.signInWithEmailAndPassword(email, password)
                 .continueWithTask(task -> {
-                    if (!task.isSuccessful()) throw task.getException();
+                    if (!task.isSuccessful()) {
+                        Exception e = task.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AuthRepository", e);
+                        throw e;
+                    }
                     FirebaseUser fUser = auth.getCurrentUser();
                     if (fUser == null) throw new IllegalStateException("User null after login");
                     long now = System.currentTimeMillis();
@@ -107,7 +115,11 @@ public class AuthRepository {
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
         return auth.signInWithCredential(credential)
                 .continueWithTask(task -> {
-                    if (!task.isSuccessful()) throw task.getException();
+                    if (!task.isSuccessful()) {
+                        Exception e = task.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AuthRepository", e);
+                        throw e;
+                    }
                     FirebaseUser fUser = auth.getCurrentUser();
                     if (fUser == null) throw new IllegalStateException("User null after google login");
                     long now = System.currentTimeMillis();
@@ -151,7 +163,9 @@ public class AuthRepository {
         return user.reauthenticate(credential)
                 .continueWithTask(task -> {
                     if (!task.isSuccessful()) {
-                        throw task.getException();
+                        Exception e = task.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AuthRepository", e);
+                        throw e;
                     }
                     // Update password
                     return user.updatePassword(newPassword);

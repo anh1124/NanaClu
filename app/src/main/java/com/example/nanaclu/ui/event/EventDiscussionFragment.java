@@ -23,6 +23,8 @@ import com.example.nanaclu.ui.profile.ProfileActivity;
 import com.example.nanaclu.utils.KeyboardUtils;
 import com.google.firebase.auth.FirebaseAuth;
 
+import com.example.nanaclu.utils.NoNetworkException;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -131,7 +133,11 @@ public class EventDiscussionFragment extends Fragment {
                 .addOnFailureListener(error -> {
                     // Show error message and restore the comment text
                     etComment.setText(commentText);
-                    Toast.makeText(getContext(), "Lỗi gửi bình luận: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    if (error instanceof NoNetworkException) {
+                        Toast.makeText(getContext(), getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getContext(), "Lỗi gửi bình luận: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
     
@@ -157,6 +163,13 @@ public class EventDiscussionFragment extends Fragment {
                 android.util.Log.e("EventDiscussionFragment", "Error loading comments", e);
                 if (swipeRefresh != null) {
                     swipeRefresh.setRefreshing(false);
+                }
+                if (getContext() != null) {
+                    if (e instanceof NoNetworkException) {
+                        Toast.makeText(getContext(), getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getContext(), "Lỗi tải bình luận: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
             }
         });

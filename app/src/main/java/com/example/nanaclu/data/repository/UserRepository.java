@@ -28,7 +28,10 @@ public class UserRepository {
                         callback.onError(new Exception("User not found"));
                     }
                 })
-                .addOnFailureListener(callback::onError);
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("UserRepository", e);
+                    callback.onError(e);
+                });
     }
 
     public void updateUserPhotoUrl(String userId, String photoUrl) {
@@ -40,6 +43,7 @@ public class UserRepository {
                         android.util.Log.d("UserRepository", "Updated photoUrl for user: " + userId);
                     })
                     .addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("UserRepository", e);
                         android.util.Log.e("UserRepository", "Failed to update photoUrl for user: " + userId, e);
                     });
         }
@@ -59,6 +63,7 @@ public class UserRepository {
                     callback.onSuccess();
                 })
                 .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("UserRepository", e);
                     android.util.Log.e("UserRepository", "Failed to update displayName for user: " + userId, e);
                     callback.onError(e);
                 });
@@ -84,6 +89,7 @@ public class UserRepository {
                     callback.onSuccess();
                 })
                 .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("UserRepository", e);
                     android.util.Log.e("UserRepository", "Failed to update profile for user: " + userId, e);
                     callback.onError(e);
                 });

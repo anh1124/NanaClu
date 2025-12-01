@@ -23,6 +23,8 @@ import com.example.nanaclu.data.repository.UserRepository;
 import com.example.nanaclu.ui.adapter.CommentAdapter;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import com.example.nanaclu.utils.NoNetworkException;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -169,7 +171,11 @@ public class CommentsBottomSheet {
                 // Kiểm tra context trước khi hiển thị Toast
                 Context ctx = getContextFromObject(context);
                 if (ctx != null) {
-                    Toast.makeText(ctx, "Lỗi load comments: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    if (e instanceof NoNetworkException) {
+                        Toast.makeText(ctx, ctx.getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(ctx, "Lỗi load comments: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
             }
         });
@@ -197,7 +203,11 @@ public class CommentsBottomSheet {
                         .addOnFailureListener(e -> {
                             Context ctx = getContextFromObject(context);
                             if (ctx != null) {
-                                Toast.makeText(ctx, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                if (e instanceof NoNetworkException) {
+                                    Toast.makeText(ctx, ctx.getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
+                                } else {
+                                    Toast.makeText(ctx, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                }
                             }
                             // Khôi phục text nếu gửi thất bại
                             edtComment.setText(text);

@@ -42,7 +42,10 @@ public class AdminRepository {
                         callback.onResult(false);
                     }
                 })
-                .addOnFailureListener(callback::onError);
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
+                    callback.onError(e);
+                });
     }
 
     /**
@@ -87,9 +90,15 @@ public class AdminRepository {
                                     });
                                 }
                             })
-                            .addOnFailureListener(callback::onError);
+                            .addOnFailureListener(e -> {
+                                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
+                                callback.onError(e);
+                            });
                 })
-                .addOnFailureListener(callback::onError);
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
+                    callback.onError(e);
+                });
     }
 
     /**
@@ -161,6 +170,7 @@ public class AdminRepository {
                                                                         }
                                                                     })
                                                                     .addOnFailureListener(e -> {
+                                                                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
                                                                         // vẫn thêm chat nhưng không có messages
                                                                         try { groupChatsArray.put(chatJson); } catch (Exception ignored) {}
                                                                         if (completedGroupChats.incrementAndGet() == totalGroupChats) {
@@ -171,22 +181,26 @@ public class AdminRepository {
                                                         }
                                                     })
                                                     .addOnFailureListener(e -> {
+                                                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
                                                         try { groupJson.put("chats", new JSONArray()); } catch (Exception ignored) {}
                                                         onComplete.run();
                                                     });
                                             });
                                         })
                                         .addOnFailureListener(e -> {
+                                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
                                             try { groupJson.put("members", new JSONArray()); } catch (Exception ignored) {}
                                             onComplete.run();
                                         });
                             })
                             .addOnFailureListener(e -> {
+                                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
                                 try { groupJson.put("events", new JSONArray()); } catch (Exception ignored) {}
                                 onComplete.run();
                             });
                 })
                 .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
                     try { groupJson.put("posts", new JSONArray()); } catch (Exception ignored) {}
                     onComplete.run();
                 });
@@ -209,6 +223,7 @@ public class AdminRepository {
                 onComplete.run();
             })
             .addOnFailureListener(e -> {
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
                 // Nếu lỗi, vẫn thêm array rỗng và tiếp tục
                 try { 
                     groupJson.put("reports", new JSONArray()); 
@@ -253,6 +268,7 @@ public class AdminRepository {
                                     }
                                 })
                                 .addOnFailureListener(e -> {
+                                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
                                     // nếu lỗi, vẫn tiếp tục
                                     chatsArray.put(chatJson);
                                     if (completedChats.incrementAndGet() == totalChats) {
@@ -262,7 +278,10 @@ public class AdminRepository {
                                 });
                     }
                 })
-                .addOnFailureListener(callback::onError);
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("AdminRepository", e);
+                    callback.onError(e);
+                });
     }
 
     /**

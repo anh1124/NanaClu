@@ -134,6 +134,7 @@ public class PostRepository {
                         notifyGroupMembersAboutNewPost(post);
                     })
                     .addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
                         callback.onError(e);
                     });
 
@@ -177,7 +178,10 @@ public class PostRepository {
                                 ? post.content.substring(0, 60) + "..." : post.content;
                         logRepo.logGroupAction(post.groupId, "pending_post_created", "post", post.postId, snippet, null);
                     })
-                    .addOnFailureListener(callback::onError);
+                    .addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                        callback.onError(e);
+                    });
         } catch (Exception e) {
             callback.onError(e);
         }
@@ -201,7 +205,10 @@ public class PostRepository {
                     }
                     callback.onSuccess(posts);
                 })
-                .addOnFailureListener(callback::onError);
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                    callback.onError(e);
+                });
     }
 
     /** Approve a pending post: move to posts and remove from pending */
@@ -237,8 +244,14 @@ public class PostRepository {
                         LogRepository logRepo = new LogRepository(db);
                         logRepo.logGroupAction(groupId, "post_approved", "post", postId, null, null);
                     })
-                    .addOnFailureListener(callback::onError);
-        }).addOnFailureListener(callback::onError);
+                    .addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                        callback.onError(e);
+                    });
+        }).addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+            callback.onError(e);
+        });
     }
 
     /** Reject a pending post: delete from pending */
@@ -260,8 +273,14 @@ public class PostRepository {
                         LogRepository logRepo = new LogRepository(db);
                         logRepo.logGroupAction(groupId, "post_rejected", "post", postId, null, null);
                     })
-                    .addOnFailureListener(callback::onError);
-        }).addOnFailureListener(callback::onError);
+                    .addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                        callback.onError(e);
+                    });
+        }).addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+            callback.onError(e);
+        });
     }
 
     /**
@@ -288,6 +307,7 @@ public class PostRepository {
                     callback.onSuccess(posts);
                 })
                 .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
                     callback.onError(e);
                 });
     }
@@ -320,7 +340,10 @@ public class PostRepository {
                             querySnapshot.isEmpty() ? null : querySnapshot.getDocuments().get(querySnapshot.size() - 1);
                     callback.onSuccess(posts, newLast);
                 })
-                .addOnFailureListener(callback::onError);
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                    callback.onError(e);
+                });
     }
 
     // Overload: dùng 2 lambda (onSuccess, onFailure) như cách gọi trong Activity
@@ -372,8 +395,14 @@ public class PostRepository {
             // Upload thành công, lấy download URL
             imageRef.getDownloadUrl().addOnSuccessListener(uri -> {
                 onSuccess.onSuccess(uri.toString());
-            }).addOnFailureListener(onFailure);
-        }).addOnFailureListener(onFailure);
+            }).addOnFailureListener(e -> {
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                onFailure.onFailure(e);
+            });
+        }).addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+            onFailure.onFailure(e);
+        });
     }
 
     /**
@@ -431,13 +460,17 @@ public class PostRepository {
             Task<String> uploadTask = imageRef.putBytes(imageData)
                     .continueWithTask(task -> {
                         if (!task.isSuccessful()) {
-                            throw task.getException();
+                            Exception e = task.getException();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                            throw e;
                         }
                         return imageRef.getDownloadUrl();
                     })
                     .continueWith(task -> {
                         if (!task.isSuccessful()) {
-                            throw task.getException();
+                            Exception e = task.getException();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                            throw e;
                         }
                         return task.getResult().toString();
                     });
@@ -451,7 +484,10 @@ public class PostRepository {
                 urlList.add((String) url);
             }
             onSuccess.onSuccess(urlList);
-        }).addOnFailureListener(onFailure);
+        }).addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+            onFailure.onFailure(e);
+        });
     }
 
     /**
@@ -472,7 +508,10 @@ public class PostRepository {
                         onSuccess.onSuccess(null);
                     }
                 })
-                .addOnFailureListener(onFailure);
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                    onFailure.onFailure(e);
+                });
     }
     /**
      * Test Firestore rules với data đơn giản
@@ -500,6 +539,7 @@ public class PostRepository {
                 })
                 .addOnFailureListener(e -> {
                     System.out.println("PostRepository: Test FAILED - " + e.getMessage());
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
                     callback.onError(e);
                 });
     }

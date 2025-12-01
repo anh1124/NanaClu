@@ -74,7 +74,11 @@ public class MessageRepository {
         data.put("content", text);
         data.put("createdAt", FieldValue.serverTimestamp());
         return msgRef.set(data).continueWithTask(t -> {
-            if (!t.isSuccessful()) throw t.getException();
+            if (!t.isSuccessful()) {
+                Exception e = t.getException();
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                throw e;
+            }
             // Chain: update last meta -> unarchive recipients -> return id
             long now = System.currentTimeMillis();
             return chatRepository.updateLastMessageMeta(chatId, text, authorId, now)
@@ -100,11 +104,19 @@ public class MessageRepository {
 
         return ref.putFile(imageUri)
                 .continueWithTask(ut -> {
-                    if (!ut.isSuccessful()) return Tasks.forException(ut.getException());
+                    if (!ut.isSuccessful()) {
+                        Exception e = ut.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                        return Tasks.forException(e);
+                    }
                     return ref.getDownloadUrl();
                 })
                 .continueWithTask(t -> {
-                    if (!t.isSuccessful()) return Tasks.forException(t.getException());
+                    if (!t.isSuccessful()) {
+                        Exception e = t.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                        return Tasks.forException(e);
+                    }
                     String url = t.getResult() != null ? t.getResult().toString() : null;
                     if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
 
@@ -119,7 +131,11 @@ public class MessageRepository {
                     data.put("content", url);
                     data.put("createdAt", FieldValue.serverTimestamp());
                     return msgRef.set(data).continueWithTask(done -> {
-                        if (!done.isSuccessful()) throw done.getException();
+                        if (!done.isSuccessful()) {
+                            Exception e = done.getException();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                            throw e;
+                        }
                         long now = System.currentTimeMillis();
                         return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
                                 .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
@@ -140,11 +156,19 @@ public class MessageRepository {
 
         return ref.putFile(imageUri)
                 .continueWithTask(ut -> {
-                    if (!ut.isSuccessful()) return Tasks.forException(ut.getException());
+                    if (!ut.isSuccessful()) {
+                        Exception e = ut.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                        return Tasks.forException(e);
+                    }
                     return ref.getDownloadUrl();
                 })
                 .continueWithTask(t -> {
-                    if (!t.isSuccessful()) return Tasks.forException(t.getException());
+                    if (!t.isSuccessful()) {
+                        Exception e = t.getException();
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                        return Tasks.forException(e);
+                    }
                     String url = t.getResult() != null ? t.getResult().toString() : null;
                     if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
 
@@ -171,7 +195,11 @@ public class MessageRepository {
                     data.put("content", url);
                     data.put("createdAt", FieldValue.serverTimestamp());
                     return msgRef.set(data).continueWithTask(done -> {
-                        if (!done.isSuccessful()) throw done.getException();
+                        if (!done.isSuccessful()) {
+                            Exception e = done.getException();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                            throw e;
+                        }
                         long now = System.currentTimeMillis();
                         return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
                                 .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
@@ -208,6 +236,7 @@ public class MessageRepository {
                 }
             } else {
                 android.util.Log.e("MessageRepository", "listMessages failed: " + (t.getException() != null ? t.getException().getMessage() : "unknown"));
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", t.getException());
             }
             android.util.Log.d("MessageRepository", "listMessages: returning " + list.size() + " messages");
             return list;
@@ -252,6 +281,7 @@ public class MessageRepository {
                 }
             } else {
                 android.util.Log.e("MessageRepository", "listMessages failed: " + (t.getException() != null ? t.getException().getMessage() : "unknown"));
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", t.getException());
             }
             android.util.Log.d("MessageRepository", "listMessages: returning " + list.size() + " messages");
             return list;
@@ -288,6 +318,7 @@ public class MessageRepository {
         return q.addSnapshotListener((snap, err) -> {
             if (err != null) {
                 android.util.Log.e("MessageRepoRT", "onEvent error: " + err.getMessage(), err);
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", err);
             } else if (snap != null) {
                 android.util.Log.d("MessageRepoRT", "onEvent: count=" + snap.size());
             }

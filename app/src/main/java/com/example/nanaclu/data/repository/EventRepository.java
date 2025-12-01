@@ -81,7 +81,9 @@ public class EventRepository {
                 logRepo.logGroupAction(event.groupId, "event_created", "event", event.eventId, event.title, null);
                 return event.eventId;
             } else {
-                throw task.getException();
+                Exception e = task.getException();
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("EventRepository", e);
+                throw e;
             }
         });
     }
@@ -137,6 +139,7 @@ public class EventRepository {
                         return Tasks.whenAll(loadTasks).continueWith(allTasks -> events);
                     } else {
                         android.util.Log.e("EventRepository", "Query failed", task.getException());
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("EventRepository", task.getException());
                         return Tasks.forResult(events);
                     }
                 });

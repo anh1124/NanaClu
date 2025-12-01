@@ -151,7 +151,13 @@ public class ProfileActivity extends AppCompatActivity {
                 startActivity(intent);
             })
             .addOnFailureListener(e -> {
-                Toast.makeText(this, "Failed to create chat: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                if (errorMessage != null) {
+                    Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "Failed to create chat: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
             });
     }
 
@@ -249,8 +255,13 @@ public class ProfileActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("ProfileActivity", "Failed to send friend request", e);
-                    Toast.makeText(this, "Lỗi gửi lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi gửi lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -267,8 +278,13 @@ public class ProfileActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("ProfileActivity", "Failed to cancel friend request", e);
-                    Toast.makeText(this, "Lỗi hủy lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi hủy lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -299,8 +315,13 @@ public class ProfileActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("ProfileActivity", "Failed to accept friend request", e);
-                    Toast.makeText(this, "Lỗi chấp nhận lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi chấp nhận lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -317,8 +338,13 @@ public class ProfileActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("ProfileActivity", "Failed to decline friend request", e);
-                    Toast.makeText(this, "Lỗi từ chối lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi từ chối lời mời: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -361,8 +387,13 @@ public class ProfileActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("ProfileActivity", "Failed to unfriend", e);
-                    Toast.makeText(this, "Lỗi hủy kết bạn: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi hủy kết bạn: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -392,8 +423,13 @@ public class ProfileActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("ProfileActivity", "Failed to block user", e);
-                    Toast.makeText(this, "Lỗi chặn người dùng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi chặn người dùng: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -410,8 +446,13 @@ public class ProfileActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("ProfileActivity", "Failed to unblock user", e);
-                    Toast.makeText(this, "Lỗi bỏ chặn: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ProfileActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Lỗi bỏ chặn: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 }
