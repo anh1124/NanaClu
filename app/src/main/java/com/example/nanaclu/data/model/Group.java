@@ -19,6 +19,9 @@ public class Group {
     // New: if true, posts must be approved by owner/admin before visible
     public boolean requirePostApproval = false;
 
+    // New: if true, members can create events; if false, only owner/admin can create events
+    public boolean allowMemberCreateEvents = true;
+
     public int memberCount;
     public int postCount;
 

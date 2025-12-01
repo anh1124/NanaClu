@@ -82,6 +82,9 @@ public class CreateEventActivity extends AppCompatActivity {
 
         eventRepository = new EventRepository(FirebaseFirestore.getInstance());
 
+        // Check if user has permission to create events
+        checkEventCreationPermission();
+
         // Set default end time to 2 hours after start time
         endDateTime.setTime(startDateTime.getTime());
         endDateTime.add(Calendar.HOUR_OF_DAY, 2);
@@ -263,14 +266,53 @@ public class CreateEventActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void createEventNotice(String eventId, String eventTitle) {
-        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-        if (currentUid == null) {
-            android.util.Log.w("CreateEventActivity", "Current user is null, cannot create event notice");
+    private void checkEventCreationPermission() {
+        GroupRepository groupRepo = new GroupRepository(FirebaseFirestore.getInstance());
+        String currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null ? 
+            FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        
+        if (currentUserId == null) {
+            Toast.makeText(this, "Lỗi: Không tìm thấy thông tin người dùng", Toast.LENGTH_SHORT).show();
+            finish();
             return;
         }
 
+        groupRepo.getGroupById(groupId, new GroupRepository.GroupCallback() {
+            @Override
+            public void onSuccess(com.example.nanaclu.data.model.Group group) {
+                // Check if user is owner/admin or if members can create events
+                if (group.createdBy != null && group.createdBy.equals(currentUserId)) {
+                    // User is owner - can always create events
+                    return;
+                }
+                
+                // Check if members are allowed to create events
+                if (!group.allowMemberCreateEvents) {
+                    Toast.makeText(CreateEventActivity.this, 
+                        "Bạn không có quyền tạo sự kiện trong nhóm này. Chỉ admin và owner mới có thể tạo sự kiện.", 
+                        Toast.LENGTH_LONG).show();
+                    finish();
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreateEventActivity", e);
+                String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                if (errorMessage != null) {
+                    Toast.makeText(CreateEventActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(CreateEventActivity.this, "Lỗi khi kiểm tra quyền: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+                finish();
+            }
+        });
+    }
+
+    private void createEventNotice(String eventId, String eventTitle) {
+        String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null ? 
+            FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        
         android.util.Log.d("CreateEventActivity", "Creating event notice for eventId: " + eventId + ", groupId: " + groupId);
 
         // Get current user name

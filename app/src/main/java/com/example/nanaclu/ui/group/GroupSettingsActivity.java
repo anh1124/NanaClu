@@ -34,6 +34,8 @@ public class GroupSettingsActivity extends AppCompatActivity {
     private TextView tvPrivacyStatus;
     private com.google.android.material.switchmaterial.SwitchMaterial switchPostApproval;
     private TextView tvPostApprovalStatus;
+    private com.google.android.material.switchmaterial.SwitchMaterial switchEventCreation;
+    private TextView tvEventCreationStatus;
     private View cardPendingPosts;
     private TextView tvGroupCode;
     private com.google.android.material.button.MaterialButton btnRegenerateCode;
@@ -113,6 +115,13 @@ public class GroupSettingsActivity extends AppCompatActivity {
             switchPostApproval.setOnCheckedChangeListener(this::onPostApprovalSwitchChanged);
         }
 
+        // Setup event creation controls
+        switchEventCreation = findViewById(R.id.switchEventCreation);
+        tvEventCreationStatus = findViewById(R.id.tvEventCreationStatus);
+        if (switchEventCreation != null) {
+            switchEventCreation.setOnCheckedChangeListener(this::onEventCreationSwitchChanged);
+        }
+
         // Setup group code UI
         tvGroupCode = findViewById(R.id.tvGroupCode);
         btnRegenerateCode = findViewById(R.id.btnRegenerateCode);
@@ -170,6 +179,15 @@ public class GroupSettingsActivity extends AppCompatActivity {
                 cardPendingPosts.setVisibility(currentGroup.requirePostApproval ? View.VISIBLE : View.GONE);
             }
 
+            // Update event creation UI
+            if (switchEventCreation != null) {
+                switchEventCreation.setOnCheckedChangeListener(null);
+                boolean eventCreationAllowed = currentGroup.allowMemberCreateEvents;
+                switchEventCreation.setChecked(eventCreationAllowed);
+                switchEventCreation.setOnCheckedChangeListener(this::onEventCreationSwitchChanged);
+                updateEventCreationStatusText();
+            }
+
             // Update group code UI
             if (tvGroupCode != null) {
                 tvGroupCode.setText(currentGroup.code != null ? currentGroup.code : "N/A");
@@ -192,6 +210,13 @@ public class GroupSettingsActivity extends AppCompatActivity {
         if (currentGroup != null && tvPostApprovalStatus != null) {
             String status = currentGroup.requirePostApproval ? "Bật" : "Tắt";
             tvPostApprovalStatus.setText(status);
+        }
+    }
+
+    private void updateEventCreationStatusText() {
+        if (currentGroup != null && tvEventCreationStatus != null) {
+            String status = currentGroup.allowMemberCreateEvents ? "Có thể" : "Không thể";
+            tvEventCreationStatus.setText("Cho phép thành viên tạo sự kiện: " + status);
         }
     }
 
@@ -289,6 +314,51 @@ public class GroupSettingsActivity extends AppCompatActivity {
                         switchPostApproval.setOnCheckedChangeListener(null);
                         switchPostApproval.setChecked(!isChecked);
                         switchPostApproval.setOnCheckedChangeListener(GroupSettingsActivity.this::onPostApprovalSwitchChanged);
+                    }
+                })
+                .show();
+    }
+
+    private void onEventCreationSwitchChanged(CompoundButton buttonView, boolean isChecked) {
+        if (currentGroup == null) return;
+
+        String currentStatus = currentGroup.allowMemberCreateEvents ? "Có thể" : "Không thể";
+        String newStatus = isChecked ? "Có thể" : "Không thể";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Xác nhận thay đổi")
+                .setMessage("Thay đổi quyền tạo sự kiện từ '" + currentStatus + "' sang '" + newStatus + "'?")
+                .setPositiveButton("Xác nhận", (dialog, which) -> {
+                    groupRepository.updateEventCreationSetting(groupId, isChecked, new GroupRepository.UpdateCallback() {
+                        @Override
+                        public void onSuccess() {
+                            currentGroup.allowMemberCreateEvents = isChecked;
+                            updateEventCreationStatusText();
+                            Toast.makeText(GroupSettingsActivity.this, "Đã cập nhật quyền tạo sự kiện", Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("GroupSettingsActivity", e);
+                            String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                            if (errorMessage != null) {
+                                Toast.makeText(GroupSettingsActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(GroupSettingsActivity.this, "Lỗi khi cập nhật: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
+                            if (switchEventCreation != null) {
+                                switchEventCreation.setOnCheckedChangeListener(null);
+                                switchEventCreation.setChecked(!isChecked);
+                                switchEventCreation.setOnCheckedChangeListener(GroupSettingsActivity.this::onEventCreationSwitchChanged);
+                            }
+                        }
+                    });
+                })
+                .setNegativeButton("Hủy", (dialog, which) -> {
+                    if (switchEventCreation != null) {
+                        switchEventCreation.setOnCheckedChangeListener(null);
+                        switchEventCreation.setChecked(!isChecked);
+                        switchEventCreation.setOnCheckedChangeListener(GroupSettingsActivity.this::onEventCreationSwitchChanged);
                     }
                 })
                 .show();

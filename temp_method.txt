@@ -1,0 +1,17 @@
+// Method to add to GroupRepository.java
+
+/** Update event creation setting for a group */
+public void updateEventCreationSetting(String groupId, boolean allowMemberCreateEvents, UpdateCallback callback) {
+    db.collection(GROUPS_COLLECTION)
+            .document(groupId)
+            .update("allowMemberCreateEvents", allowMemberCreateEvents)
+            .addOnSuccessListener(aVoid -> {
+                // Log setting change
+                LogRepository logRepo = new LogRepository(db);
+                java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+                metadata.put("allowMemberCreateEvents", allowMemberCreateEvents);
+                logRepo.logGroupAction(groupId, "event_creation_setting_changed", "settings", groupId, null, metadata);
+                callback.onSuccess();
+            })
+            .addOnFailureListener(callback::onError);
+}
