@@ -182,25 +182,30 @@ public class ChatRepository {
                     if (!t.isSuccessful()) {
                         Exception e = t.getException();
                         com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatRepository", e);
-                        return Tasks.forResult(new ArrayList<Chat>());
+                        return Tasks.forResult(new ArrayList<>());
                     }
                     List<Task<DocumentSnapshot>> jobs = new ArrayList<>();
                     for (DocumentSnapshot memberDoc : t.getResult().getDocuments()) {
                         Boolean hidden = memberDoc.getBoolean("hidden");
                         if (hidden != null && hidden) continue; // skip chats hidden by this user
                         DocumentReference chatRef = memberDoc.getReference().getParent().getParent();
-                        if (chatRef != null) jobs.add(chatRef.get());
+                        if (chatRef != null) {
+                            jobs.add(chatRef.get(com.google.firebase.firestore.Source.SERVER));
+                        }
                     }
+                    
                     return Tasks.whenAllSuccess(jobs).continueWith(tt -> {
                         // De-duplicate by chatId and prefer group-path docs, then docs with type set
                         Map<String, Chat> bestById = new HashMap<>();
                         Map<String, Integer> scoreById = new HashMap<>();
                         String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
                                 ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                        
                         for (Object o : tt.getResult()) {
                             DocumentSnapshot ds = (DocumentSnapshot) o;
                             Chat c = ds.toObject(Chat.class);
                             if (c == null) continue;
+                            
                             // Skip invalid private chats (missing pairKey/other user)
                             if ("private".equals(c.type)) {
                                 if (c.pairKey == null || currentUid == null) continue;
@@ -272,20 +277,45 @@ public class ChatRepository {
         // Update in root chats collection (for private chats)
         Task<Void> rootUpdate = db.collection(CHATS).document(chatId).update(data);
 
-        // Also try to update in any group chat doc found via collectionGroup("chats")
+        // For group chats, we need to update the specific group chat document
+        // First try to find if this chatId exists in any group
         Task<Void> groupUpdate = db.collectionGroup("chats")
                 .whereEqualTo("chatId", chatId)
                 .limit(1)
                 .get()
                 .continueWithTask(t -> {
                     if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) {
-                        return Tasks.forResult(null);
+                        return Tasks.<Void>forResult(null);
                     }
                     com.google.firebase.firestore.DocumentSnapshot doc = t.getResult().getDocuments().get(0);
                     return doc.getReference().update(data);
                 });
 
-        return Tasks.whenAll(rootUpdate, groupUpdate).continueWithTask(t -> Tasks.forResult(null));
+        // Also try direct path update for groups/{groupId}/chats/{chatId}
+        Task<Void> directGroupUpdate = db.collectionGroup("chats")
+                .whereEqualTo("chatId", chatId)
+                .limit(1)
+                .get()
+                .continueWithTask(t -> {
+                    if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) {
+                        return Tasks.<Void>forResult(null);
+                    }
+                    // Try to find the parent group document path
+                    com.google.firebase.firestore.DocumentSnapshot doc = t.getResult().getDocuments().get(0);
+                    com.google.firebase.firestore.DocumentReference chatRef = doc.getReference();
+                    
+                    // Check if this is a group chat (parent is groups/{groupId})
+                    if (chatRef.getParent() != null && chatRef.getParent().getParent() != null) {
+                        com.google.firebase.firestore.DocumentReference possibleGroupRef = chatRef.getParent().getParent();
+                        if ("groups".equals(possibleGroupRef.getParent().getId())) {
+                            // This is indeed a group chat path, update it
+                            return chatRef.update(data);
+                        }
+                    }
+                    return Tasks.<Void>forResult(null);
+                });
+
+        return Tasks.whenAll(rootUpdate, groupUpdate, directGroupUpdate).continueWithTask(t -> Tasks.forResult(null));
     }
 
     public Task<Void> updateLastRead(String chatId, String userId, long ts) {

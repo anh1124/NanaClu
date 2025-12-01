@@ -66,10 +66,14 @@ public class ChatListViewModel extends ViewModel {
     public void refresh() {
         String uid = currentUid();
         if (uid == null) return;
-        chatRepo.listUserChats(uid, 50, null).addOnSuccessListener(chats -> {
-            lastItem = chats.isEmpty() ? null : chats.get(chats.size() - 1);
-            buildUiItems(chats);
-        });
+        chatRepo.listUserChats(uid, 50, null)
+            .addOnSuccessListener(chats -> {
+                lastItem = chats.isEmpty() ? null : chats.get(chats.size() - 1);
+                buildUiItems(chats);
+            })
+            .addOnFailureListener(e -> {
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("ChatListViewModel", e);
+            });
     }
 
     public void paginate() {
@@ -156,7 +160,14 @@ public class ChatListViewModel extends ViewModel {
         for (Chat chat : chats) {
             UiThreadItem item = new UiThreadItem();
             item.chatId = chat.chatId;
-            item.lastMessage = chat.lastMessage != null ? chat.lastMessage : "No messages yet";
+            
+            // Hide last message for group chats to avoid display issues
+            if ("group".equals(chat.type)) {
+                item.lastMessage = "";  // Don't show last message for groups
+            } else {
+                item.lastMessage = chat.lastMessage != null ? chat.lastMessage : "No messages yet";
+            }
+            
             item.time = chat.lastMessageAt != null ? chat.lastMessageAt : chat.createdAt;
             item.chat = chat;
 
@@ -171,28 +182,48 @@ public class ChatListViewModel extends ViewModel {
                                 item.name = name != null ? name : "Group Chat";
                                 item.avatarUrl = avatar;
                                 out.add(item);
-                                if (resolved.incrementAndGet() == total) _uiThreads.postValue(out);
+                                if (resolved.incrementAndGet() == total) {
+                                    // Sort by time (descending) before posting
+                                    out.sort((a, b) -> Long.compare(b.time, a.time));
+                                    _uiThreads.postValue(out);
+                                }
                             })
                             .addOnFailureListener(e -> {
                                 item.name = "Group Chat";
                                 out.add(item);
-                                if (resolved.incrementAndGet() == total) _uiThreads.postValue(out);
+                                if (resolved.incrementAndGet() == total) {
+                                    // Sort by time (descending) before posting
+                                    out.sort((a, b) -> Long.compare(b.time, a.time));
+                                    _uiThreads.postValue(out);
+                                }
                             });
                 } else {
                     item.name = "Group Chat";
                     out.add(item);
-                    if (resolved.incrementAndGet() == total) _uiThreads.postValue(out);
+                    if (resolved.incrementAndGet() == total) {
+                        // Sort by time (descending) before posting
+                        out.sort((a, b) -> Long.compare(b.time, a.time));
+                        _uiThreads.postValue(out);
+                    }
                 }
             } else {
                 if (uid == null || chat.pairKey == null) {
-                    if (resolved.incrementAndGet() == total) _uiThreads.postValue(out);
+                    if (resolved.incrementAndGet() == total) {
+                        // Sort by time (descending) before posting
+                        out.sort((a, b) -> Long.compare(b.time, a.time));
+                        _uiThreads.postValue(out);
+                    }
                     continue;
                 }
                 String[] ids = chat.pairKey.split("_");
                 String other = null;
                 for (String id : ids) { if (!id.equals(uid)) { other = id; break; } }
                 if (other == null) {
-                    if (resolved.incrementAndGet() == total) _uiThreads.postValue(out);
+                    if (resolved.incrementAndGet() == total) {
+                        // Sort by time (descending) before posting
+                        out.sort((a, b) -> Long.compare(b.time, a.time));
+                        _uiThreads.postValue(out);
+                    }
                     continue;
                 }
                 final UiThreadItem ref = item;
@@ -203,10 +234,18 @@ public class ChatListViewModel extends ViewModel {
                             ref.avatarUrl = user.photoUrl;
                             out.add(ref);
                         }
-                        if (resolved.incrementAndGet() == total) _uiThreads.postValue(out);
+                        if (resolved.incrementAndGet() == total) {
+                            // Sort by time (descending) before posting
+                            out.sort((a, b) -> Long.compare(b.time, a.time));
+                            _uiThreads.postValue(out);
+                        }
                     }
                     @Override public void onError(Exception e) {
-                        if (resolved.incrementAndGet() == total) _uiThreads.postValue(out);
+                        if (resolved.incrementAndGet() == total) {
+                            // Sort by time (descending) before posting
+                            out.sort((a, b) -> Long.compare(b.time, a.time));
+                            _uiThreads.postValue(out);
+                        }
                     }
                 });
             }

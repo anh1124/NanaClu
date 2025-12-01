@@ -27,6 +27,8 @@ import com.example.nanaclu.data.model.Group;
 import com.example.nanaclu.viewmodel.ChatListViewModel;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.textfield.TextInputEditText;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,7 @@ public class ChatFragment extends BaseFragment {
     private ChatThreadAdapter adapter;
     private final List<ChatThread> allThreads = new ArrayList<>();
     private ChatListViewModel viewModel;
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     @Nullable
     @Override
@@ -65,9 +68,27 @@ public class ChatFragment extends BaseFragment {
 
         TextInputEditText edtSearch = root.findViewById(R.id.edtSearch);
         rv = root.findViewById(R.id.rvChatThreads);
+        swipeRefreshLayout = root.findViewById(R.id.swipeRefreshLayout);
+        
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new ChatThreadAdapter(new ArrayList<>(), this::showThreadActions);
         rv.setAdapter(adapter);
+
+        // Setup SwipeRefreshLayout
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            android.util.Log.d("ChatFragment", "Pull to refresh triggered");
+            if (viewModel != null) {
+                viewModel.refresh();
+            }
+        });
+        
+        // Set refresh colors
+        swipeRefreshLayout.setColorSchemeColors(
+            getResources().getColor(android.R.color.holo_blue_bright),
+            getResources().getColor(android.R.color.holo_green_light),
+            getResources().getColor(android.R.color.holo_orange_light),
+            getResources().getColor(android.R.color.holo_red_light)
+        );
 
         setupViewModel();
 
@@ -107,6 +128,11 @@ public class ChatFragment extends BaseFragment {
         viewModel = new ViewModelProvider(this).get(ChatListViewModel.class);
 
         viewModel.uiThreads.observe(getViewLifecycleOwner(), items -> {
+            // Stop refresh animation when data is loaded
+            if (swipeRefreshLayout != null) {
+                swipeRefreshLayout.setRefreshing(false);
+            }
+            
             if (items == null) return;
             allThreads.clear();
             for (com.example.nanaclu.viewmodel.ChatListViewModel.UiThreadItem it : items) {
