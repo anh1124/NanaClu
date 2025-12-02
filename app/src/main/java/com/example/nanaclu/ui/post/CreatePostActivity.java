@@ -285,9 +285,6 @@ public class CreatePostActivity extends AppCompatActivity {
 
     private void processVideo(Uri videoUri) {
         selectedVideoUri = videoUri;
-        selectedImagePaths.clear(); // Clear images
-		imageAdapter.setImages(new ArrayList<>());
-        cardAddImage.setEnabled(false); // Disable image picker
         showVideoPreview(videoUri);
     }
 
@@ -414,13 +411,20 @@ public class CreatePostActivity extends AppCompatActivity {
         post.content = content;
         post.imageUrls = new ArrayList<>();
 
-        // Process video first (mutual exclusion with images)
-        if (selectedVideoUri != null) {
+        boolean hasVideo = selectedVideoUri != null;
+        boolean hasImages = !selectedImagePaths.isEmpty();
+
+        if (hasVideo && hasImages) {
+            // Post có cả ảnh và video: upload ảnh trước rồi tiếp tục với upload video
+            createPostWithImagesAndVideo(post);
+        } else if (hasVideo) {
+            // Chỉ có video
             createPostWithVideo(post);
-        } else if (!selectedImagePaths.isEmpty()) {
+        } else if (hasImages) {
+            // Chỉ có ảnh
             processImagesWithStorage(post);
         } else {
-            // No media, create post directly
+            // Không có media, tạo post trực tiếp
             routePostCreation(post, new PostRepository.PostCallback() {
                 @Override
                 public void onSuccess(Post createdPost) {
@@ -447,6 +451,43 @@ public class CreatePostActivity extends AppCompatActivity {
                 }
             });
         }
+    }
+
+    private void createPostWithImagesAndVideo(Post post) {
+        List<byte[]> imageDataList = new ArrayList<>();
+
+        for (String imagePath : selectedImagePaths) {
+            byte[] imageData = convertImageToByteArray(imagePath);
+            if (imageData != null) {
+                imageDataList.add(imageData);
+            }
+        }
+
+        if (imageDataList.isEmpty()) {
+            // Không có ảnh hợp lệ, fallback về luồng chỉ video
+            createPostWithVideo(post);
+            return;
+        }
+
+        postRepository.uploadMultipleImages(imageDataList,
+            urls -> {
+                // Upload ảnh thành công, set URLs vào post rồi tiếp tục upload video
+                post.imageUrls = urls;
+                createPostWithVideo(post);
+            },
+            e -> {
+                runOnUiThread(() -> {
+                    showLoading(false);
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("CreatePostActivity", e);
+                    String errorMessage = com.example.nanaclu.utils.NetworkErrorLogger.getNetworkErrorMessage(e);
+                    if (errorMessage != null) {
+                        Toast.makeText(CreatePostActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(CreatePostActivity.this, "Lỗi upload ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        );
     }
 
     private void processImagesWithStorage(Post post) {

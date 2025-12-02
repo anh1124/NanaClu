@@ -10,7 +10,7 @@
     <!-- Separator line between posts -->
     <View
         android:layout_width="match_parent"
-        android:layout_height="1dp"
+        android:layout_height="3dp"
         android:background="#E0E0E0" />
 
     <LinearLayout

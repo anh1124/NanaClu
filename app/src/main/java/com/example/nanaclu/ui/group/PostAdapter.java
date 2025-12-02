@@ -245,11 +245,22 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 }
             });
 
-            // Setup video or images (mutual exclusion)
+            // Setup video (nếu có)
             if (post.hasVideo && post.videoUrl != null && post.videoThumbUrl != null) {
                 setupVideoDisplay(post);
             } else {
+                // Không có video thì ẩn container
+                if (videoContainer != null) {
+                    videoContainer.setVisibility(View.GONE);
+                }
+            }
+
+            // Setup images (nếu có)
+            if (post.imageUrls != null && !post.imageUrls.isEmpty()) {
+                imageContainer.setVisibility(View.VISIBLE);
                 setupImagesDynamic(post);
+            } else {
+                imageContainer.setVisibility(View.GONE);
             }
 
             ivAuthorAvatar.setOnClickListener(v -> openProfile(post.authorId));
@@ -607,9 +618,6 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         }
 
         private void setupVideoDisplay(Post post) {
-            // Hide image container
-            imageContainer.setVisibility(View.GONE);
-            
             // Show video container
             videoContainer.setVisibility(View.VISIBLE);
             
