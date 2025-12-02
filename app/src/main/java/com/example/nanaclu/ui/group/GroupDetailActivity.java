@@ -51,6 +51,9 @@ public class GroupDetailActivity extends AppCompatActivity {
     private boolean reachedEnd = false;
     private SwipeRefreshLayout swipeRefreshLayout;
 
+    // Base title for the approve members menu item
+    private String approveMembersBaseTitle;
+
 
     // Backup groupId for debugging
     private String backupGroupId;
@@ -324,6 +327,7 @@ public class GroupDetailActivity extends AppCompatActivity {
             public void onSuccess(Member member) {
                 currentUserMember = member;
                 updateMenuVisibility();
+                refreshPendingMembersCount();
             }
 
             @Override
@@ -351,8 +355,56 @@ public class GroupDetailActivity extends AppCompatActivity {
         MenuItem approveItem = menu.findItem(R.id.action_approve_members);
         if (approveItem != null) {
             approveItem.setVisible(isAdminOrOwner);
+            if (approveMembersBaseTitle == null) {
+                approveMembersBaseTitle = approveItem.getTitle() != null
+                        ? approveItem.getTitle().toString()
+                        : "Duyệt thành viên";
+            }
         }
 
+    }
+
+    private void refreshPendingMembersCount() {
+        if (groupId == null) return;
+
+        boolean isAdminOrOwner = currentUserMember != null &&
+                ("admin".equals(currentUserMember.role) || "owner".equals(currentUserMember.role));
+        if (!isAdminOrOwner) return;
+
+        groupRepository.getPendingUsers(groupId, new GroupRepository.IdsCallback() {
+            @Override
+            public void onSuccess(java.util.List<String> ids) {
+                int count = (ids != null) ? ids.size() : 0;
+                updateApproveMembersTitle(count);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                updateApproveMembersTitle(0);
+            }
+        });
+    }
+
+    private void updateApproveMembersTitle(int pendingCount) {
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        if (toolbar == null) return;
+        android.view.Menu menu = toolbar.getMenu();
+        if (menu == null) return;
+
+        MenuItem approveItem = menu.findItem(R.id.action_approve_members);
+        if (approveItem == null) return;
+
+        if (approveMembersBaseTitle == null) {
+            approveMembersBaseTitle = approveItem.getTitle() != null
+                    ? approveItem.getTitle().toString()
+                    : "Duyệt thành viên";
+        }
+
+        if (pendingCount > 0) {
+            approveItem.setTitle(approveMembersBaseTitle + " (" + pendingCount + ")");
+        } else {
+            approveItem.setTitle(approveMembersBaseTitle);
+        }
     }
 
     private void updateUI(Group group) {
@@ -798,6 +850,8 @@ public class GroupDetailActivity extends AppCompatActivity {
         System.out.println("GroupDetailActivity: onResume() - groupId = " + groupId);
         // Always reload group data when activity resumes
         loadGroupData();
+        // Refresh pending members count for the approve menu item
+        refreshPendingMembersCount();
     }
 
     private void showTextAvatar(ImageView imgAvatar, String displayName, String email) {

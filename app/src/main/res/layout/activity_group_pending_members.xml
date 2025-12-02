@@ -18,7 +18,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="12dp">
+        android:padding="12dp"
+        android:gravity="center_vertical">
 
         <Button
             android:id="@+id/btnApprove"
@@ -37,6 +38,16 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Từ chối" />
+
+        <View
+            android:layout_width="12dp"
+            android:layout_height="0dp"/>
+
+        <CheckBox
+            android:id="@+id/cbSelectAll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Chọn tất cả" />
     </LinearLayout>
 
     <TextView

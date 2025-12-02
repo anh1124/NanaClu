@@ -86,7 +86,7 @@ public class FeedFragment extends BaseFragment {
         } else {
             android.util.Log.w(TAG, "Toolbar is null in layout");
         }
-
+        
         postRepository = new PostRepository(FirebaseFirestore.getInstance());
         groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
         noticeCenter = NoticeCenter.getInstance();
@@ -182,6 +182,7 @@ public class FeedFragment extends BaseFragment {
                     joinedGroupIds.addAll(ids);
                     if (joinedGroupIds.isEmpty()) {
                         android.util.Log.w(TAG, "User chưa tham gia group nào");
+                        setupJoinGroupEmptyState(tvEmpty);
                         tvEmpty.setVisibility(View.VISIBLE);
                         rvFeed.setVisibility(View.GONE);
                         isLoading = false; reachedEnd = true;
@@ -262,9 +263,11 @@ public class FeedFragment extends BaseFragment {
                     if (root != null) {
                         android.widget.TextView tvEmpty = root.findViewById(R.id.tvEmpty);
                         if (top.isEmpty()) {
-                            tvEmpty.setText(joinedGroupIds.isEmpty()
-                                    ? "Hãy tham gia group để xem bài viết của thành viên khác!"
-                                    : "Ở đây hơi trống thì phải, group của bạn chưa có ai đăng bài");
+                            if (joinedGroupIds.isEmpty()) {
+                                setupJoinGroupEmptyState(tvEmpty);
+                            } else {
+                                tvEmpty.setText("Ở đây hơi trống thì phải, group của bạn chưa có ai đăng bài");
+                            }
                             tvEmpty.setVisibility(View.VISIBLE);
                             rvFeed.setVisibility(View.GONE);
                         } else {
@@ -294,6 +297,128 @@ public class FeedFragment extends BaseFragment {
                 }
             });
         }
+    }
+
+    private void setupJoinGroupEmptyState(android.widget.TextView tvEmpty) {
+        String full = "Hãy tham gia group để xem bài viết của thành viên khác!";
+        String clickable = "tham gia group";
+        int start = full.indexOf(clickable);
+        android.text.SpannableString spannable = new android.text.SpannableString(full);
+        if (start >= 0) {
+            int end = start + clickable.length();
+            final int linkColor = android.graphics.Color.parseColor("#1E88E5"); // blue
+
+            spannable.setSpan(new android.text.style.ForegroundColorSpan(linkColor),
+                    start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new android.text.style.UnderlineSpan(),
+                    start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new android.text.style.ClickableSpan() {
+                @Override
+                public void onClick(android.view.View widget) {
+                    showJoinGroupDialog();
+                }
+
+                @Override
+                public void updateDrawState(android.text.TextPaint ds) {
+                    super.updateDrawState(ds);
+                    ds.setColor(linkColor);
+                    ds.setUnderlineText(true);
+                }
+            }, start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+
+        tvEmpty.setText(spannable);
+        tvEmpty.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
+        tvEmpty.setHighlightColor(android.graphics.Color.TRANSPARENT);
+    }
+
+    private void showJoinGroupDialog() {
+        if (getContext() == null) return;
+
+        android.view.View dialogView = getLayoutInflater().inflate(R.layout.dialog_join_group, null);
+
+        android.widget.EditText etGroupCode = dialogView.findViewById(R.id.etGroupCode);
+        android.widget.ImageButton btnPaste = dialogView.findViewById(R.id.btnPaste);
+
+        etGroupCode.setFilters(new android.text.InputFilter[]{
+                new android.text.InputFilter.LengthFilter(6)
+        });
+
+        btnPaste.setOnClickListener(v -> {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                    requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            if (cm != null && cm.hasPrimaryClip()) {
+                android.content.ClipData cd = cm.getPrimaryClip();
+                if (cd != null && cd.getItemCount() > 0) {
+                    CharSequence text = cd.getItemAt(0).coerceToText(requireContext());
+                    if (text != null) etGroupCode.setText(text.toString().trim());
+                }
+            }
+        });
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Tham gia nhóm bằng mã")
+                .setView(dialogView)
+                .setPositiveButton("Tham gia", (d, w) -> {
+                    String code = etGroupCode.getText() != null
+                            ? etGroupCode.getText().toString().trim()
+                            : "";
+                    if (code.isEmpty()) {
+                        android.widget.Toast.makeText(requireContext(), "Vui lòng nhập mã", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    android.util.Log.d(TAG, "Joining group with code from feed: " + code);
+                    final String upper = code.toUpperCase();
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            .collection("groups").whereEqualTo("code", upper).limit(1).get()
+                            .addOnSuccessListener(qs -> {
+                                final boolean needApproval;
+                                if (!qs.isEmpty()) {
+                                    com.google.firebase.firestore.DocumentSnapshot ddoc = qs.getDocuments().get(0);
+                                    Boolean ra = ddoc.getBoolean("requireApproval");
+                                    needApproval = ra != null && ra;
+                                } else {
+                                    needApproval = false;
+                                }
+
+                                Runnable doJoin = () -> {
+                                    com.example.nanaclu.data.repository.GroupRepository repo =
+                                            new com.example.nanaclu.data.repository.GroupRepository(
+                                                    com.google.firebase.firestore.FirebaseFirestore.getInstance());
+                                    repo.joinGroupByCode(upper)
+                                            .addOnSuccessListener(vv -> {
+                                                android.util.Log.d(TAG, "Join request success from feed");
+                                                if (needApproval) {
+                                                    android.widget.Toast.makeText(requireContext(), "Đã gửi yêu cầu tham gia", android.widget.Toast.LENGTH_SHORT).show();
+                                                } else {
+                                                    android.widget.Toast.makeText(requireContext(), "Đã tham gia nhóm", android.widget.Toast.LENGTH_SHORT).show();
+                                                }
+                                            })
+                                            .addOnFailureListener(e2 -> {
+                                                android.util.Log.e(TAG, "Failed to join group: " + e2.getMessage());
+                                                android.widget.Toast.makeText(requireContext(), e2.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                                            });
+                                };
+
+                                if (needApproval) {
+                                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                                            .setTitle(getString(R.string.join_need_approval_title))
+                                            .setMessage(getString(R.string.join_need_approval_text))
+                                            .setPositiveButton(getString(R.string.ok), (dd, ww) -> doJoin.run())
+                                            .setNegativeButton(getString(R.string.cancel), null)
+                                            .show();
+                                } else {
+                                    doJoin.run();
+                                }
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.e(TAG, "Failed to check code: " + e.getMessage());
+                                android.widget.Toast.makeText(requireContext(), e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                            });
+                })
+                .setNegativeButton("Hủy", null)
+                .show();
     }
 
     private void loadMore() {
