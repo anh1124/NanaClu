@@ -96,11 +96,11 @@
                     app:cardBackgroundColor="@color/light_gray">
 
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:src="@drawable/ic_add_photo"
-                        android:scaleType="centerInside"
-                        android:padding="16dp" />
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_image"
+                        android:scaleType="centerInside" />
 
                 </com.google.android.material.card.MaterialCardView>
 
@@ -114,11 +114,11 @@
                     app:cardBackgroundColor="@color/light_gray">
 
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="center"
                         android:src="@drawable/ic_video_24"
-                        android:scaleType="centerInside"
-                        android:padding="16dp" />
+                        android:scaleType="centerInside" />
 
                 </com.google.android.material.card.MaterialCardView>
 
