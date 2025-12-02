@@ -8,4 +8,14 @@
         android:icon="@drawable/ic_report"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_view_voters"
+        android:title="Xem danh sách"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_view_results"
+        android:title="Xem kết quả"
+        app:showAsAction="never" />
+
 </menu>

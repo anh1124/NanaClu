@@ -128,6 +128,18 @@ public class CreatePostActivity extends AppCompatActivity {
     
     private void setupToolbar() {
         toolbar.setNavigationOnClickListener(v -> finish());
+
+        // Add vote (poll) action in the toolbar
+        toolbar.inflateMenu(R.menu.menu_create_post);
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_create_poll) {
+                android.content.Intent intent = new android.content.Intent(this, com.example.nanaclu.ui.post.PollCreateActivity.class);
+                intent.putExtra("group_id", groupId);
+                startActivity(intent);
+                return true;
+            }
+            return false;
+        });
     }
 
     private void setupRecyclerView() {

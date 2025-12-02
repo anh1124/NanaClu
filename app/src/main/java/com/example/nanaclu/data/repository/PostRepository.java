@@ -869,6 +869,258 @@ public void removeUserFromLeftMembers(String groupId, String userId) {
                 .addOnFailureListener(onFailure);
     }
 
+    // ---------- Poll API ----------
+
+    /**
+     * Tạo poll post mới cùng lúc với các lựa chọn trong subcollection options
+     */
+    public void createPoll(Post pollPost, java.util.List<String> optionTexts, PostCallback callback) {
+        try {
+            if (pollPost == null) {
+                callback.onError(new IllegalArgumentException("Post cannot be null"));
+                return;
+            }
+
+            if (pollPost.groupId == null || pollPost.groupId.isEmpty()) {
+                callback.onError(new IllegalArgumentException("GroupId is required"));
+                return;
+            }
+
+            if (pollPost.authorId == null || pollPost.authorId.isEmpty()) {
+                callback.onError(new IllegalArgumentException("AuthorId is required"));
+                return;
+            }
+
+            // Cho phép tạo poll với số lượng lựa chọn bất kỳ (yêu cầu mới)
+
+            if (pollPost.pollTitle == null || pollPost.pollTitle.trim().isEmpty()) {
+                callback.onError(new IllegalArgumentException("Poll title is required"));
+                return;
+            }
+
+            if (pollPost.postId == null || pollPost.postId.isEmpty()) {
+                pollPost.postId = java.util.UUID.randomUUID().toString();
+            }
+
+            long now = System.currentTimeMillis();
+            pollPost.createdAt = now;
+            pollPost.likeCount = 0;
+            pollPost.commentCount = 0;
+            if (pollPost.type == null || pollPost.type.isEmpty()) {
+                pollPost.type = "poll";
+            }
+
+            com.google.firebase.firestore.WriteBatch batch = db.batch();
+
+            com.google.firebase.firestore.DocumentReference postRef = db.collection(GROUPS_COLLECTION)
+                    .document(pollPost.groupId)
+                    .collection(POSTS_COLLECTION)
+                    .document(pollPost.postId);
+
+            batch.set(postRef, pollPost);
+
+            com.google.firebase.firestore.CollectionReference optionsCol = postRef.collection("options");
+            for (String text : optionTexts) {
+                if (text == null) continue;
+                String trimmed = text.trim();
+                if (trimmed.isEmpty()) continue;
+
+                String optionId = java.util.UUID.randomUUID().toString();
+                com.google.firebase.firestore.DocumentReference optRef = optionsCol.document(optionId);
+                java.util.Map<String, Object> data = new java.util.HashMap<>();
+                data.put("optionId", optionId);
+                data.put("text", trimmed);
+                data.put("voteCount", 0L);
+                data.put("createdAt", now);
+                data.put("createdBy", pollPost.authorId);
+                batch.set(optRef, data);
+            }
+
+            com.google.firebase.firestore.DocumentReference groupRef = db.collection(GROUPS_COLLECTION)
+                    .document(pollPost.groupId);
+            batch.update(groupRef, "postCount", com.google.firebase.firestore.FieldValue.increment(1));
+
+            batch.commit()
+                    .addOnSuccessListener(aVoid -> {
+                        callback.onSuccess(pollPost);
+                        LogRepository logRepo = new LogRepository(db);
+                        String snippet = pollPost.pollTitle != null && pollPost.pollTitle.length() > 60
+                                ? pollPost.pollTitle.substring(0, 60) + "..." : pollPost.pollTitle;
+                        logRepo.logGroupAction(pollPost.groupId, "poll_created", "post", pollPost.postId, snippet, null);
+                    })
+                    .addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                        callback.onError(e);
+                    });
+
+        } catch (Exception e) {
+            callback.onError(e);
+        }
+    }
+
+    /**
+     * Vote / unvote cho một option trong poll bằng transaction
+     * Hỗ trợ cả single-choice (pollMultiple=false) và multiple-choice (true)
+     */
+    public void voteOption(String groupId, String postId, String optionId, String userId,
+                           com.google.android.gms.tasks.OnSuccessListener<Void> onSuccess,
+                           com.google.android.gms.tasks.OnFailureListener onFailure) {
+        com.google.firebase.firestore.DocumentReference postRef = db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(POSTS_COLLECTION)
+                .document(postId);
+
+        // B1: Lấy danh sách option refs trước (ngoài transaction)
+        postRef.collection("options").get()
+                .addOnSuccessListener(optionsSnap -> {
+                    java.util.List<com.google.firebase.firestore.DocumentReference> optionRefs = new java.util.ArrayList<>();
+                    for (com.google.firebase.firestore.DocumentSnapshot d : optionsSnap.getDocuments()) {
+                        optionRefs.add(d.getReference());
+                    }
+
+                    // B2: Thực thi transaction với danh sách optionRefs đã có
+                    db.runTransaction(transaction -> {
+                        com.google.firebase.firestore.DocumentSnapshot postSnap = transaction.get(postRef);
+                        Post post = postSnap.toObject(Post.class);
+                        if (post == null || post.type == null || !"poll".equals(post.type)) {
+                            throw new IllegalStateException("Not a poll post");
+                        }
+
+                        long now = System.currentTimeMillis();
+                        if (post.pollDeadline != null && now > post.pollDeadline) {
+                            throw new IllegalStateException("Poll has ended");
+                        }
+
+                        boolean multiple = post.pollMultiple != null && post.pollMultiple;
+
+                        com.google.firebase.firestore.DocumentReference optionRef = postRef.collection("options").document(optionId);
+
+                        if (!multiple) {
+                            // READS PHASE: read all vote docs first
+                            boolean hadSelected = false;
+                            java.util.List<com.google.firebase.firestore.DocumentReference> deleteVoteRefs = new java.util.ArrayList<>();
+                            java.util.List<com.google.firebase.firestore.DocumentReference> decOptionRefs = new java.util.ArrayList<>();
+                            for (com.google.firebase.firestore.DocumentReference optRef : optionRefs) {
+                                com.google.firebase.firestore.DocumentReference voteRef = optRef.collection("votes").document(userId);
+                                com.google.firebase.firestore.DocumentSnapshot voteSnap = transaction.get(voteRef);
+                                if (voteSnap.exists()) {
+                                    deleteVoteRefs.add(voteRef);
+                                    decOptionRefs.add(optRef);
+                                    if (optRef.getId().equals(optionId)) hadSelected = true;
+                                }
+                            }
+
+                            // WRITES PHASE: perform deletes and decrements
+                            for (int i = 0; i < deleteVoteRefs.size(); i++) {
+                                com.google.firebase.firestore.DocumentReference vRef = deleteVoteRefs.get(i);
+                                com.google.firebase.firestore.DocumentReference oRef = decOptionRefs.get(i);
+                                transaction.delete(vRef);
+                                transaction.update(oRef, "voteCount",
+                                        com.google.firebase.firestore.FieldValue.increment(-1));
+                            }
+
+                            // If previously not selected, add selection for clicked option
+                            if (!hadSelected) {
+                                com.google.firebase.firestore.DocumentReference myVoteRef = optionRef.collection("votes").document(userId);
+                                java.util.Map<String, Object> voteData = new java.util.HashMap<>();
+                                voteData.put("userId", userId);
+                                voteData.put("createdAt", now);
+                                transaction.set(myVoteRef, voteData);
+                                transaction.update(optionRef, "voteCount",
+                                        com.google.firebase.firestore.FieldValue.increment(1));
+                            }
+                        } else {
+                            // Multiple-choice: read once and toggle for selected option only
+                            com.google.firebase.firestore.DocumentReference myVoteRef = optionRef.collection("votes").document(userId);
+                            com.google.firebase.firestore.DocumentSnapshot myVoteSnap = transaction.get(myVoteRef);
+                            if (myVoteSnap.exists()) {
+                                transaction.delete(myVoteRef);
+                                transaction.update(optionRef, "voteCount",
+                                        com.google.firebase.firestore.FieldValue.increment(-1));
+                            } else {
+                                java.util.Map<String, Object> voteData = new java.util.HashMap<>();
+                                voteData.put("userId", userId);
+                                voteData.put("createdAt", now);
+                                transaction.set(myVoteRef, voteData);
+                                transaction.update(optionRef, "voteCount",
+                                        com.google.firebase.firestore.FieldValue.increment(1));
+                            }
+                        }
+
+                        return null;
+                    }).addOnSuccessListener(aVoid -> {
+                        if (onSuccess != null) onSuccess.onSuccess(null);
+                    }).addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                        if (onFailure != null) onFailure.onFailure(e);
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                    if (onFailure != null) onFailure.onFailure(e);
+                });
+    }
+
+    /**
+     * Lắng nghe realtime danh sách options của poll (bao gồm voteCount)
+     */
+    public com.google.firebase.firestore.ListenerRegistration listenPollOptions(
+            String groupId,
+            String postId,
+            com.google.android.gms.tasks.OnSuccessListener<java.util.List<com.google.firebase.firestore.DocumentSnapshot>> onChanged,
+            com.google.android.gms.tasks.OnFailureListener onFailure) {
+
+        return db.collection(GROUPS_COLLECTION)
+                .document(groupId)
+                .collection(POSTS_COLLECTION)
+                .document(postId)
+                .collection("options")
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.ASCENDING)
+                .addSnapshotListener((snapshot, e) -> {
+                    if (e != null) {
+                        onFailure.onFailure(e);
+                        return;
+                    }
+                    if (snapshot == null) {
+                        onChanged.onSuccess(new java.util.ArrayList<>());
+                        return;
+                    }
+                    onChanged.onSuccess(snapshot.getDocuments());
+                });
+    }
+
+    /**
+     * Thêm một lựa chọn mới vào poll hiện có
+     */
+    public void addPollOption(String groupId, String postId, String text,
+                              com.google.android.gms.tasks.OnSuccessListener<Void> onSuccess,
+                              com.google.android.gms.tasks.OnFailureListener onFailure) {
+        try {
+            if (text == null || text.trim().isEmpty()) {
+                throw new IllegalArgumentException("Option text is empty");
+            }
+            com.google.firebase.firestore.DocumentReference postRef = db.collection(GROUPS_COLLECTION)
+                    .document(groupId)
+                    .collection(POSTS_COLLECTION)
+                    .document(postId);
+            com.google.firebase.firestore.DocumentReference newOptionRef = postRef.collection("options").document();
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("text", text.trim());
+            data.put("voteCount", 0L);
+            data.put("createdAt", System.currentTimeMillis());
+            String uid = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+            data.put("createdBy", uid);
+            newOptionRef.set(data)
+                    .addOnSuccessListener(aVoid -> { if (onSuccess != null) onSuccess.onSuccess(null); })
+                    .addOnFailureListener(e -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);
+                        if (onFailure != null) onFailure.onFailure(e);
+                    });
+        } catch (Exception e) {
+            if (onFailure != null) onFailure.onFailure(e);
+        }
+    }
+
     // ---------- Video Upload API ----------
     
     /**

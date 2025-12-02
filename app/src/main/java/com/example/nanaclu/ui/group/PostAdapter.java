@@ -117,6 +117,13 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         View btnMore;
         ViewGroup imageContainer;
         TextView tvLikeCount, tvCommentCount;
+
+        // Poll views
+        LinearLayout layoutPoll;
+        LinearLayout layoutPollOptions;
+        TextView tvPollTitle, tvPollDescription, tvPollStatus;
+        com.google.firebase.firestore.ListenerRegistration pollOptionsListener;
+        java.util.List<com.google.firebase.firestore.ListenerRegistration> myVoteListeners = new java.util.ArrayList<>();
         
         // State for text expansion
         private boolean isTextExpanded = false;
@@ -153,6 +160,11 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             imageContainer = itemView.findViewById(R.id.imageContainer);
             tvLikeCount = itemView.findViewById(R.id.tvLikeCount);
             tvCommentCount = itemView.findViewById(R.id.tvCommentCount);
+            layoutPoll = itemView.findViewById(R.id.layoutPoll);
+            layoutPollOptions = itemView.findViewById(R.id.layoutPollOptions);
+            tvPollTitle = itemView.findViewById(R.id.tvPollTitle);
+            tvPollDescription = itemView.findViewById(R.id.tvPollDescription);
+            tvPollStatus = itemView.findViewById(R.id.tvPollStatus);
             
             // Video views
             videoContainer = itemView.findViewById(R.id.videoContainer);
@@ -163,6 +175,19 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
         void bind(Post post) {
             android.util.Log.d("PostAdapter", "bind: Post ID: " + post.postId + ", GroupID: " + post.groupId);
+
+            // Clear previous poll listener (nếu có) để tránh leak khi ViewHolder được reuse
+            if (pollOptionsListener != null) {
+                pollOptionsListener.remove();
+                pollOptionsListener = null;
+            }
+            // Clear my vote listeners
+            if (!myVoteListeners.isEmpty()) {
+                for (com.google.firebase.firestore.ListenerRegistration reg : myVoteListeners) {
+                    try { if (reg != null) reg.remove(); } catch (Exception ignored) {}
+                }
+                myVoteListeners.clear();
+            }
 
             // Group name (only show in feed)
             if (showGroupName && tvGroupName != null) {
@@ -245,26 +270,53 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                 }
             });
 
-            // Setup video (nếu có)
-            if (post.hasVideo && post.videoUrl != null && post.videoThumbUrl != null) {
-                setupVideoDisplay(post);
-            } else {
-                // Không có video thì ẩn container
+            boolean isPoll = post.type != null && "poll".equals(post.type);
+
+            if (isPoll) {
+                // Ẩn media khi là poll để giao diện rõ ràng
                 if (videoContainer != null) {
                     videoContainer.setVisibility(View.GONE);
                 }
-            }
-
-            // Setup images (nếu có)
-            if (post.imageUrls != null && !post.imageUrls.isEmpty()) {
-                imageContainer.setVisibility(View.VISIBLE);
-                setupImagesDynamic(post);
-            } else {
                 imageContainer.setVisibility(View.GONE);
+                setupPollDisplay(post);
+            } else {
+                // Ẩn phần poll nếu không phải poll
+                if (layoutPoll != null) {
+                    layoutPoll.setVisibility(View.GONE);
+                }
+
+                // Setup video (nếu có)
+                if (post.hasVideo && post.videoUrl != null && post.videoThumbUrl != null) {
+                    setupVideoDisplay(post);
+                } else {
+                    // Không có video thì ẩn container
+                    if (videoContainer != null) {
+                        videoContainer.setVisibility(View.GONE);
+                    }
+                }
+
+                // Setup images (nếu có)
+                if (post.imageUrls != null && !post.imageUrls.isEmpty()) {
+                    imageContainer.setVisibility(View.VISIBLE);
+                    setupImagesDynamic(post);
+                } else {
+                    imageContainer.setVisibility(View.GONE);
+                }
             }
 
             ivAuthorAvatar.setOnClickListener(v -> openProfile(post.authorId));
             tvAuthorName.setOnClickListener(v -> openProfile(post.authorId));
+            // Open detail when tap anywhere on item
+            itemView.setOnClickListener(v -> {
+                try {
+                    android.content.Intent intent = new android.content.Intent(itemView.getContext(), com.example.nanaclu.ui.post.PostDetailActivity.class);
+                    intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_GROUP_ID, post.groupId);
+                    intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_POST_ID, post.postId);
+                    itemView.getContext().startActivity(intent);
+                } catch (Exception e) {
+                    android.util.Log.e("PostAdapter", "Open detail failed", e);
+                }
+            });
 
             // Set icon like ban đầu theo trạng thái
             if (currentUserId != null) {
@@ -340,30 +392,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             btnShare.setOnClickListener(v -> {
                 if (actionListener != null) actionListener.onShare(post);
             });
-
-            btnMore.setOnClickListener(v -> {
-                android.widget.PopupMenu menu = new android.widget.PopupMenu(itemView.getContext(), btnMore);
-                if (currentUserId != null && currentUserId.equals(post.authorId)) {
-                    menu.getMenu().add("Xóa bài đăng").setOnMenuItemClickListener(item -> {
-                        // Hiển thị dialog xác nhận trước khi xóa
-                        new androidx.appcompat.app.AlertDialog.Builder(itemView.getContext())
-                                .setTitle("Xóa bài đăng")
-                                .setMessage("Bạn có chắc muốn xóa bài đăng này? Hành động này không thể hoàn tác.")
-                                .setPositiveButton("Xóa", (dialog, which) -> {
-                                    if (actionListener != null) actionListener.onDelete(post);
-                                })
-                                .setNegativeButton("Hủy", null)
-                                .show();
-                        return true;
-                    });
-                } else {
-                    menu.getMenu().add("Báo cáo").setOnMenuItemClickListener(item -> {
-                        if (actionListener != null) actionListener.onReport(post);
-                        return true;
-                    });
-                }
-                menu.show();
-            });
+            // End of bind
         }
 
         private void setupExpandableContent(String content) {
@@ -451,6 +480,181 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
                     })
                     .addOnFailureListener(e -> {
                         android.util.Log.e("PostAdapter", "Error fetching like count", e);
+                    });
+        }
+
+        private void setupPollDisplay(Post post) {
+            if (layoutPoll == null || layoutPollOptions == null) return;
+
+            layoutPoll.setVisibility(View.VISIBLE);
+            tvPollTitle.setText(post.pollTitle != null ? post.pollTitle : "");
+            tvPollDescription.setText(post.pollDescription != null ? post.pollDescription : "");
+
+            boolean ended = post.pollDeadline != null && System.currentTimeMillis() > post.pollDeadline;
+            if (ended) {
+                tvPollStatus.setText("Đã kết thúc");
+            } else if (post.pollDeadline != null) {
+                java.text.DateFormat df = android.text.format.DateFormat.getMediumDateFormat(itemView.getContext());
+                String dateStr = df.format(new java.util.Date(post.pollDeadline));
+                tvPollStatus.setText("Kết thúc: " + dateStr);
+            } else {
+                tvPollStatus.setText("");
+            }
+
+            layoutPollOptions.removeAllViews();
+            // Clean previous my vote listeners
+            if (!myVoteListeners.isEmpty()) {
+                for (com.google.firebase.firestore.ListenerRegistration reg : myVoteListeners) {
+                    try { if (reg != null) reg.remove(); } catch (Exception ignored) {}
+                }
+                myVoteListeners.clear();
+            }
+
+            pollOptionsListener = postRepository.listenPollOptions(
+                    post.groupId,
+                    post.postId,
+                    optionDocs -> {
+                        layoutPollOptions.removeAllViews();
+
+                        long totalVotes = 0L;
+                        for (com.google.firebase.firestore.DocumentSnapshot d : optionDocs) {
+                            Long c = d.getLong("voteCount");
+                            if (c != null) totalVotes += c;
+                        }
+
+                        final boolean hideResult = post.pollHideResult != null && post.pollHideResult;
+
+                        for (com.google.firebase.firestore.DocumentSnapshot d : optionDocs) {
+                            String optionId = d.getId();
+                            String text = d.getString("text");
+                            Long c = d.getLong("voteCount");
+                            long count = c != null ? c : 0L;
+                            int percent = (totalVotes > 0) ? (int) (count * 100 / totalVotes) : 0;
+
+                            android.widget.LinearLayout row = new android.widget.LinearLayout(itemView.getContext());
+                            row.setOrientation(android.widget.LinearLayout.VERTICAL);
+                            row.setPadding(0, (int) (4 * itemView.getResources().getDisplayMetrics().density), 0,
+                                    (int) (4 * itemView.getResources().getDisplayMetrics().density));
+
+                            android.widget.LinearLayout firstLine = new android.widget.LinearLayout(itemView.getContext());
+                            firstLine.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                            firstLine.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+                            android.widget.CheckBox cb = new android.widget.CheckBox(itemView.getContext());
+                            cb.setEnabled(!ended);
+
+                            android.widget.TextView tvOptionText = new android.widget.TextView(itemView.getContext());
+                            android.widget.LinearLayout.LayoutParams lpText = new android.widget.LinearLayout.LayoutParams(0,
+                                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                            tvOptionText.setLayoutParams(lpText);
+                            tvOptionText.setText(text != null ? text : "");
+
+                            android.widget.TextView tvCount = new android.widget.TextView(itemView.getContext());
+                            if (hideResult) {
+                                tvCount.setVisibility(android.view.View.GONE);
+                            } else {
+                                tvCount.setVisibility(android.view.View.VISIBLE);
+                                tvCount.setText(count + " phiếu");
+                            }
+
+                            firstLine.addView(cb);
+                            firstLine.addView(tvOptionText);
+                            firstLine.addView(tvCount);
+
+                            android.widget.ProgressBar bar = new android.widget.ProgressBar(
+                                    itemView.getContext(), null,
+                                    android.R.attr.progressBarStyleHorizontal);
+                            android.widget.LinearLayout.LayoutParams lpBar = new android.widget.LinearLayout.LayoutParams(
+                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                    (int) (4 * itemView.getResources().getDisplayMetrics().density));
+                            lpBar.topMargin = (int) (2 * itemView.getResources().getDisplayMetrics().density);
+                            bar.setLayoutParams(lpBar);
+                            bar.setMax(100);
+                            bar.setProgress(percent);
+                            if (hideResult) {
+                                bar.setVisibility(android.view.View.GONE);
+                            }
+
+                            row.addView(firstLine);
+                            row.addView(bar);
+
+                            row.setOnClickListener(v -> cb.performClick());
+
+                            cb.setOnClickListener(v -> {
+                                if (currentUserId == null) return;
+                                if (!NetworkUtils.isNetworkAvailable(itemView.getContext())) {
+                                    android.widget.Toast.makeText(itemView.getContext(),
+                                            "Không có kết nối Internet",
+                                            android.widget.Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+                                android.util.Log.d("PollVote", "voteOption click: group="+post.groupId+", post="+post.postId+", option="+optionId+", user="+currentUserId);
+                                postRepository.voteOption(post.groupId, post.postId, optionId, currentUserId,
+                                        aVoid -> android.util.Log.d("PollVote", "voteOption success for option="+optionId),
+                                        e -> android.util.Log.e("PollVote", "voteOption error", e));
+                            });
+
+                            // Xem danh sách người đã chọn nếu không ẩn danh
+                            boolean anonymous = post.pollAnonymous != null && post.pollAnonymous;
+                            boolean allowViewVoters = !anonymous;
+                            tvOptionText.setOnClickListener(v -> {
+                                if (!allowViewVoters || anonymous) return;
+                                // TODO: mở bottom sheet hiển thị danh sách user vote option này
+                            });
+
+                            layoutPollOptions.addView(row);
+
+                            // Listen my vote for this option to keep checkbox state
+                            if (currentUserId != null) {
+                                com.google.firebase.firestore.DocumentReference optRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                        .collection("groups").document(post.groupId)
+                                        .collection("posts").document(post.postId)
+                                        .collection("options").document(optionId);
+                                com.google.firebase.firestore.ListenerRegistration reg = optRef
+                                        .collection("votes").document(currentUserId)
+                                        .addSnapshotListener((snap, err) -> {
+                                            if (err != null) {
+                                                android.util.Log.e("PollVote", "listen my vote error", err);
+                                                return;
+                                            }
+                                            boolean checked = snap != null && snap.exists();
+                                            cb.setOnCheckedChangeListener(null);
+                                            cb.setChecked(checked);
+                                            // reattach click listener (already set)
+                                        });
+                                myVoteListeners.add(reg);
+                            }
+                        }
+
+                        // Add "Thêm lựa chọn" button if allowed
+                        boolean allowAdd = post.pollAllowAddOption != null && post.pollAllowAddOption && !ended;
+                        if (allowAdd) {
+                            android.widget.TextView tvAdd = new android.widget.TextView(itemView.getContext());
+                            tvAdd.setText("+ Thêm lựa chọn");
+                            tvAdd.setTextColor(0xFF1976D2);
+                            tvAdd.setPadding(0, (int)(8*itemView.getResources().getDisplayMetrics().density), 0, 0);
+                            tvAdd.setOnClickListener(v -> {
+                                android.widget.EditText input = new android.widget.EditText(itemView.getContext());
+                                input.setHint("Nhập lựa chọn");
+                                new androidx.appcompat.app.AlertDialog.Builder(itemView.getContext())
+                                        .setTitle("Thêm lựa chọn")
+                                        .setView(input)
+                                        .setPositiveButton("Thêm", (dialog, which) -> {
+                                            String txt = input.getText() != null ? input.getText().toString().trim() : "";
+                                            if (txt.isEmpty()) return;
+                                            postRepository.addPollOption(post.groupId, post.postId, txt,
+                                                    aVoid -> android.util.Log.d("PollVote", "add option success"),
+                                                    e -> android.util.Log.e("PollVote", "add option error", e));
+                                        })
+                                        .setNegativeButton("Hủy", null)
+                                        .show();
+                            });
+                            layoutPollOptions.addView(tvAdd);
+                        }
+                    },
+                    error -> {
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostAdapter", error);
+                        android.util.Log.e("PollVote", "listenPollOptions error", error);
                     });
         }
 

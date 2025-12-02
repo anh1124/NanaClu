@@ -67,10 +67,22 @@ public class PostDetailActivity extends AppCompatActivity {
     private LinearLayout btnLike;
     private ImageView ivLike;
 
+    // Poll views
+    private LinearLayout layoutPoll;
+    private LinearLayout layoutPollOptions;
+    private TextView tvPollTitle, tvPollDescription, tvPollStatus;
+    private com.google.firebase.firestore.ListenerRegistration pollOptionsListener;
+    private final java.util.List<com.google.firebase.firestore.ListenerRegistration> myVoteListeners = new java.util.ArrayList<>();
+
     private String groupId;
     private String postId;
     private String postAuthorId;
     private boolean isTextExpanded = false;
+    // Poll flags for menu conditions
+    private Boolean pollAnonymousFlag = null;
+    private Boolean pollHideResultFlag = null;
+    private String currentUserId;
+    private String currentUserRole; // owner | admin | member
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -107,6 +119,13 @@ public class PostDetailActivity extends AppCompatActivity {
         ivPlayOverlay = findViewById(R.id.ivPlayOverlay);
         tvVideoDuration = findViewById(R.id.tvVideoDuration);
 
+        // Poll views
+        layoutPoll = findViewById(R.id.layoutPoll);
+        tvPollTitle = findViewById(R.id.tvPollTitle);
+        tvPollDescription = findViewById(R.id.tvPollDescription);
+        layoutPollOptions = findViewById(R.id.layoutPollOptions);
+        tvPollStatus = findViewById(R.id.tvPollStatus);
+
         rvComments = findViewById(R.id.rvComments);
         rvComments.setLayoutManager(new LinearLayoutManager(this));
         adapter = new CommentsAdapter(new ArrayList<>(), authorId -> {
@@ -116,6 +135,8 @@ public class PostDetailActivity extends AppCompatActivity {
             startActivity(intent);
         }, this);
         rvComments.setAdapter(adapter);
+
+        currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
 
         EditText edtComment = findViewById(R.id.edtComment);
         View btnSend = findViewById(R.id.btnSendComment);
@@ -143,6 +164,48 @@ public class PostDetailActivity extends AppCompatActivity {
 
         loadPost();
         loadComments();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.post_detail_menu, menu);
+        // Initially hide extra actions; will update once post & role loaded
+        menu.findItem(R.id.action_view_voters).setVisible(false);
+        menu.findItem(R.id.action_view_results).setVisible(false);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        if (pollAnonymousFlag != null) {
+            boolean anonymous = Boolean.TRUE.equals(pollAnonymousFlag);
+            menu.findItem(R.id.action_view_voters).setVisible(!anonymous);
+        }
+        if (pollHideResultFlag != null) {
+            boolean hideResult = Boolean.TRUE.equals(pollHideResultFlag);
+            boolean elevated = "owner".equals(currentUserRole) || "admin".equals(currentUserRole);
+            menu.findItem(R.id.action_view_results).setVisible(hideResult && elevated);
+        }
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == android.R.id.home) { finish(); return true; }
+        if (id == R.id.action_report) {
+            showReportDialog();
+            return true;
+        }
+        if (id == R.id.action_view_voters) {
+            openVotersList();
+            return true;
+        }
+        if (id == R.id.action_view_results) {
+            openPollResults();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void loadPost() {
@@ -181,11 +244,199 @@ public class PostDetailActivity extends AppCompatActivity {
                     setupExpandableContent(post.content);
                     
                     // Setup images or video
-                    if (post.videoUrl != null && !post.videoUrl.isEmpty()) {
-                        setupVideo(post);
+                    boolean isPoll = post.type != null && "poll".equals(post.type);
+                    if (isPoll) {
+                        // Show poll, hide media
+                        if (imageArea != null) imageArea.setVisibility(View.GONE);
+                        if (videoContainer != null) videoContainer.setVisibility(View.GONE);
+                        setupPollDisplay(post);
+                        // update flags for menu
+                        pollAnonymousFlag = post.pollAnonymous != null && post.pollAnonymous;
+                        pollHideResultFlag = post.pollHideResult != null && post.pollHideResult;
+                        // load current user's group role
+                        if (currentUserId != null) {
+                            new com.example.nanaclu.data.repository.GroupRepository(FirebaseFirestore.getInstance())
+                                    .getMemberById(groupId, currentUserId, new com.example.nanaclu.data.repository.GroupRepository.MemberCallback() {
+                                        @Override
+                                        public void onSuccess(com.example.nanaclu.data.model.Member member) {
+                                            currentUserRole = member != null ? member.role : null;
+                                            invalidateOptionsMenu();
+                                        }
+                                        @Override
+                                        public void onError(Exception e) {
+                                            currentUserRole = null;
+                                            invalidateOptionsMenu();
+                                        }
+                                    });
+                        } else {
+                            invalidateOptionsMenu();
+                        }
                     } else {
-                        setupImages(post.imageUrls);
+                        if (post.videoUrl != null && !post.videoUrl.isEmpty()) {
+                            setupVideo(post);
+                        } else {
+                            setupImages(post.imageUrls);
+                        }
                     }
+                });
+    }
+
+    private void clearPollListeners() {
+        if (pollOptionsListener != null) { try { pollOptionsListener.remove(); } catch (Exception ignored) {} pollOptionsListener = null; }
+        if (!myVoteListeners.isEmpty()) {
+            for (com.google.firebase.firestore.ListenerRegistration reg : myVoteListeners) {
+                try { if (reg != null) reg.remove(); } catch (Exception ignored) {}
+            }
+            myVoteListeners.clear();
+        }
+    }
+
+    private void setupPollDisplay(Post post) {
+        if (layoutPoll == null || layoutPollOptions == null) return;
+        layoutPoll.setVisibility(View.VISIBLE);
+        // Full title & description (no ellipsize)
+        tvPollTitle.setText(post.pollTitle != null ? post.pollTitle : "");
+        tvPollDescription.setText(post.pollDescription != null ? post.pollDescription : "");
+
+        boolean ended = post.pollDeadline != null && System.currentTimeMillis() > post.pollDeadline;
+        if (ended) {
+            tvPollStatus.setText("Đã kết thúc");
+        } else if (post.pollDeadline != null) {
+            java.text.DateFormat df = android.text.format.DateFormat.getMediumDateFormat(this);
+            String dateStr = df.format(new java.util.Date(post.pollDeadline));
+            tvPollStatus.setText("Kết thúc: " + dateStr);
+        } else {
+            tvPollStatus.setText("");
+        }
+
+        layoutPollOptions.removeAllViews();
+        clearPollListeners();
+
+        pollOptionsListener = new com.example.nanaclu.data.repository.PostRepository(FirebaseFirestore.getInstance())
+                .listenPollOptions(post.groupId, post.postId, optionDocs -> {
+                    layoutPollOptions.removeAllViews();
+
+                    long totalVotes = 0L;
+                    for (com.google.firebase.firestore.DocumentSnapshot d : optionDocs) {
+                        Long c = d.getLong("voteCount");
+                        if (c != null) totalVotes += c;
+                    }
+                    final boolean hideResult = post.pollHideResult != null && post.pollHideResult;
+
+                    for (com.google.firebase.firestore.DocumentSnapshot d : optionDocs) {
+                        String optionId = d.getId();
+                        String text = d.getString("text");
+                        Long c = d.getLong("voteCount");
+                        long count = c != null ? c : 0L;
+                        int percent = (totalVotes > 0) ? (int) (count * 100 / totalVotes) : 0;
+
+                        LinearLayout row = new LinearLayout(this);
+                        row.setOrientation(LinearLayout.VERTICAL);
+                        int pad = (int) (4 * getResources().getDisplayMetrics().density);
+                        row.setPadding(0, pad, 0, pad);
+
+                        LinearLayout firstLine = new LinearLayout(this);
+                        firstLine.setOrientation(LinearLayout.HORIZONTAL);
+                        firstLine.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+                        android.widget.CheckBox cb = new android.widget.CheckBox(this);
+                        cb.setEnabled(!ended);
+
+                        TextView tvOptionText = new TextView(this);
+                        LinearLayout.LayoutParams lpText = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                        tvOptionText.setLayoutParams(lpText);
+                        tvOptionText.setText(text != null ? text : "");
+
+                        TextView tvCount = new TextView(this);
+                        if (hideResult) {
+                            tvCount.setVisibility(View.GONE);
+                        } else {
+                            tvCount.setVisibility(View.VISIBLE);
+                            tvCount.setText(count + " phiếu");
+                        }
+
+                        firstLine.addView(cb);
+                        firstLine.addView(tvOptionText);
+                        firstLine.addView(tvCount);
+
+                        android.widget.ProgressBar bar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+                        LinearLayout.LayoutParams lpBar = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (4 * getResources().getDisplayMetrics().density));
+                        lpBar.topMargin = (int) (2 * getResources().getDisplayMetrics().density);
+                        bar.setLayoutParams(lpBar);
+                        bar.setMax(100);
+                        bar.setProgress(percent);
+
+                        row.addView(firstLine);
+                        row.addView(bar);
+
+                        row.setOnClickListener(v -> cb.performClick());
+                        cb.setOnClickListener(v -> {
+                            String currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                            if (currentUserId == null) return;
+                            if (!com.example.nanaclu.utils.NetworkUtils.isNetworkAvailable(this)) {
+                                Toast.makeText(this, "Không có kết nối Internet", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            android.util.Log.d("PollVote", "[Detail] voteOption click: group="+post.groupId+", post="+post.postId+", option="+optionId+", user="+currentUserId);
+                            new com.example.nanaclu.data.repository.PostRepository(FirebaseFirestore.getInstance())
+                                    .voteOption(post.groupId, post.postId, optionId, currentUserId,
+                                            aVoid -> android.util.Log.d("PollVote", "[Detail] vote success for option="+optionId),
+                                            e -> android.util.Log.e("PollVote", "[Detail] vote error", e));
+                        });
+
+                        // Keep my checked state
+                        String currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+                        if (currentUserId != null) {
+                            com.google.firebase.firestore.DocumentReference optRef = FirebaseFirestore.getInstance()
+                                    .collection("groups").document(post.groupId)
+                                    .collection("posts").document(post.postId)
+                                    .collection("options").document(optionId);
+                            com.google.firebase.firestore.ListenerRegistration reg = optRef
+                                    .collection("votes").document(currentUserId)
+                                    .addSnapshotListener((snap, err) -> {
+                                        if (err != null) {
+                                            android.util.Log.e("PollVote", "[Detail] listen my vote error", err);
+                                            return;
+                                        }
+                                        boolean checked = snap != null && snap.exists();
+                                        cb.setOnCheckedChangeListener(null);
+                                        cb.setChecked(checked);
+                                    });
+                            myVoteListeners.add(reg);
+                        }
+
+                        layoutPollOptions.addView(row);
+                    }
+
+                    // Add option button if allowed
+                    boolean allowAdd = post.pollAllowAddOption != null && post.pollAllowAddOption && !ended;
+                    if (allowAdd) {
+                        TextView tvAdd = new TextView(this);
+                        tvAdd.setText("+ Thêm lựa chọn");
+                        tvAdd.setTextColor(0xFF1976D2);
+                        tvAdd.setPadding(0, (int)(8*getResources().getDisplayMetrics().density), 0, 0);
+                        tvAdd.setOnClickListener(v -> {
+                            android.widget.EditText input = new android.widget.EditText(this);
+                            input.setHint("Nhập lựa chọn");
+                            new androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("Thêm lựa chọn")
+                                    .setView(input)
+                                    .setPositiveButton("Thêm", (dialog, which) -> {
+                                        String txt = input.getText() != null ? input.getText().toString().trim() : "";
+                                        if (txt.isEmpty()) return;
+                                        new com.example.nanaclu.data.repository.PostRepository(FirebaseFirestore.getInstance())
+                                                .addPollOption(post.groupId, post.postId, txt,
+                                                        aVoid -> android.util.Log.d("PollVote", "[Detail] add option success"),
+                                                        e -> android.util.Log.e("PollVote", "[Detail] add option error", e));
+                                    })
+                                    .setNegativeButton("Hủy", null)
+                                    .show();
+                        });
+                        layoutPollOptions.addView(tvAdd);
+                    }
+                }, error -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostDetailActivity", error);
+                    android.util.Log.e("PollVote", "[Detail] listenPollOptions error", error);
                 });
     }
 
@@ -638,6 +889,20 @@ public class PostDetailActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    private void openVotersList() {
+        Intent i = new Intent(this, VotersListActivity.class);
+        i.putExtra(VotersListActivity.EXTRA_GROUP_ID, groupId);
+        i.putExtra(VotersListActivity.EXTRA_POST_ID, postId);
+        startActivity(i);
+    }
+
+    private void openPollResults() {
+        Intent i = new Intent(this, PollResultsActivity.class);
+        i.putExtra(PollResultsActivity.EXTRA_GROUP_ID, groupId);
+        i.putExtra(PollResultsActivity.EXTRA_POST_ID, postId);
+        startActivity(i);
+    }
+
     private void loadComments() {
         if (groupId == null || postId == null) {
             android.util.Log.e("PostDetailActivity", "❌ groupId or postId is null - groupId: " + groupId + ", postId: " + postId);
@@ -681,21 +946,6 @@ public class PostDetailActivity extends AppCompatActivity {
                     // Load user info for all comments
                     loadUserInfoForComments(list);
                 });
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.post_detail_menu, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_report) {
-            showReportDialog();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     private void showReportDialog() {
