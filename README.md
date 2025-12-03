@@ -13,18 +13,29 @@ Dự án được thiết kế để mô phỏng một hệ thống mạng xã h
 - **Nhóm (Groups)**  
   - Tạo nhóm (public/private).  
   - Quản lý thành viên (mời, chấp nhận, từ chối, phân quyền admin/owner).  
-  - Xóa/đổi tên nhóm.  
+  - Xóa/đổi tên nhóm; cài đặt thông báo nhóm; thống kê & nhật ký nhóm; chuyển quyền owner.  
 - **Bài viết (Posts)**  
-  - Tạo bài viết (văn bản + ảnh Firebase Storage).  
-  - Bình luận, like/unlike.  
-  - Xóa hoặc chỉnh sửa bài viết.
+  - Tạo bài viết (văn bản + ảnh Firebase Storage), chỉnh sửa/xóa.  
+  - Bình luận realtime, like/unlike, phân trang feed đa‑group.  
+  - Duyệt bài chờ (pending) nếu nhóm bật kiểm duyệt.  
+- **Khảo sát/Bình chọn (Polls)**  
+  - Tạo poll, xem kết quả, danh sách người bình chọn.  
 - **Chat**  
-  - Chat riêng (private).  
-  - Chat nhóm.  
+  - Chat riêng (private) và chat nhóm, realtime bằng Firestore listeners.  
+  - Thư viện ảnh/tệp trong phòng chat; ẩn hội thoại một phía.  
 - **Sự kiện (Events)**  
-  - Tạo sự kiện trong nhóm.  
-  - Tham gia/hủy tham gia.  
-  - Quản lý trạng thái sự kiện (scheduled, canceled, end).  
+  - Tạo sự kiện trong nhóm; tham gia/hủy tham gia (RSVP); lịch tháng; thảo luận sự kiện.  
+- **Bạn bè & chặn (Friends/Blocking)**  
+  - Gửi/duyệt yêu cầu kết bạn, danh sách bạn bè, danh sách chặn.  
+- **Thông báo trong ứng dụng (In‑app Notices)**  
+  - Badge/unread và danh sách thông báo ngay trong app (chưa dùng FCM push).  
+- **Tìm kiếm (Search)**  
+  - Tìm người dùng/nhóm, xem kết quả.  
+- **Media**  
+  - Ảnh: upload qua Firebase Storage, hiển thị Glide.  
+  - Video: phát bằng ExoPlayer (Media3) trong VideoPlayerActivity.  
+- **Bảo mật ứng dụng**  
+  - Mã PIN khóa ứng dụng (App‑lock).
 
 ---
 
@@ -34,13 +45,13 @@ Dự án được thiết kế để mô phỏng một hệ thống mạng xã h
 - **Database:** Firebase Firestore (NoSQL)  
 - **Authentication:** Firebase Auth (Google, Email/Password)  
 - **Storage:** Firebase Storage (thay thế base64 cho lưu trữ ảnh)  
-- **Realtime:** Firestore snapshot listeners cho chat/bình luận; Realtime Database (tuỳ chọn) cho trạng thái online/offline
-  
+- **Realtime:** Firestore snapshot listeners cho chat/bình luận/feed; Realtime Database (tuỳ chọn) cho trạng thái online/offline  
+- **UI/Media:** Glide cho ảnh; Media3/ExoPlayer cho phát video
 
 📌 MVVM flow:
 - **Model:** Các `POJO` class (User, Group, Post, Event, Chat, …) map trực tiếp với Firestore.  
 - **Repository:** Chịu trách nhiệm đọc/ghi dữ liệu từ Firestore.  
-- **ViewModel:** Xử lý logic, cung cấp `LiveData` cho UI.  
+- **ViewModel:** Xử lý logic, cung cấp `LiveData` cho UI (bao gồm Auth, ChatList/Room, Group, Post, Event, Notice, ...).  
 - **View (Activity/Fragment):** Quan sát dữ liệu từ ViewModel và hiển thị UI.  
 
 ---
