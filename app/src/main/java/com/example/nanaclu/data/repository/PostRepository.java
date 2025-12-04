@@ -578,6 +578,33 @@ public class PostRepository {
     }
 
     /**
+     * Gửi thông báo khi có poll mới tới tất cả thành viên nhóm và người rời nhóm trong 7 ngày
+     */
+    private void notifyGroupMembersAboutNewPoll(Post pollPost) {
+        // Lấy danh sách người cần thông báo (thành viên hiện tại + đã rời trong 7 ngày)
+        getUsersToNotifyForNewPost(pollPost.groupId, pollPost.authorId, userList -> {
+            if (userList == null || userList.isEmpty()) {
+                return;
+            }
+
+            // Chuẩn bị snippet tiêu đề poll để hiển thị trong thông báo
+            String content = pollPost.pollTitle != null ? pollPost.pollTitle.trim() : "";
+            String snippet = content.length() > 60 ? content.substring(0, 60) + "..." : content;
+
+            // Tạo Notice cho từng user trong users/{uid}/notices
+            NoticeRepository noticeRepo = new NoticeRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance());
+            noticeRepo.createGroupPollNotice(
+                    pollPost.groupId,
+                    pollPost.postId,
+                    pollPost.authorId,
+                    null,           // actorName sẽ được fill sau nếu cần, hiện tại để null
+                    userList,
+                    snippet
+            );
+        });
+    }
+
+    /**
      * Lấy danh sách user cần thông báo khi có bài viết mới
      * - Thành viên hiện tại (trừ tác giả)
      * - Thành viên đã rời nhóm trong vòng 7 ngày
@@ -947,6 +974,9 @@ public void removeUserFromLeftMembers(String groupId, String userId) {
                         String snippet = pollPost.pollTitle != null && pollPost.pollTitle.length() > 60
                                 ? pollPost.pollTitle.substring(0, 60) + "..." : pollPost.pollTitle;
                         logRepo.logGroupAction(pollPost.groupId, "poll_created", "post", pollPost.postId, snippet, null);
+
+                        // Gửi thông báo cho các thành viên
+                        notifyGroupMembersAboutNewPoll(pollPost);
                     })
                     .addOnFailureListener(e -> {
                         com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("PostRepository", e);

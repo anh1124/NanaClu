@@ -48,6 +48,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onImageClick(Message message);
         void onFileClick(FileAttachment file);
         void onFileDownload(FileAttachment file);
+        void onAvatarClick(String userId);
     }
 
     public MessageAdapter(List<Message> messages, OnMessageClickListener listener) {
@@ -320,6 +321,15 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
             // Load avatar (left) optimized with cache
             loadAvatar(message);
+
+            // Add click listener for avatar to open user profile
+            if (ivAvatarLeft != null && listener != null) {
+                ivAvatarLeft.setOnClickListener(v -> {
+                    if (message.authorId != null) {
+                        listener.onAvatarClick(message.authorId);
+                    }
+                });
+            }
 
             // Handle deleted messages
             if (message.deletedAt != null && message.deletedAt > 0) {

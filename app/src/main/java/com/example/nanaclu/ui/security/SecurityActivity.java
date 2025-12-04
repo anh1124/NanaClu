@@ -21,6 +21,7 @@ public class SecurityActivity extends AppCompatActivity {
     private LinearLayout changePasswordRow;
     private TextView pinStatus;
     private com.google.android.material.materialswitch.MaterialSwitch switchPinEnabled;
+    private com.google.android.material.materialswitch.MaterialSwitch switchAllowStrangerMessages;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +55,7 @@ public class SecurityActivity extends AppCompatActivity {
         changePasswordRow = findViewById(R.id.changePasswordRow);
         pinStatus = findViewById(R.id.pinStatus);
         switchPinEnabled = findViewById(R.id.switchPinEnabled);
+        switchAllowStrangerMessages = findViewById(R.id.switchAllowStrangerMessages);
 
         pinRow.setOnClickListener(v -> showSetupPinDialog());
         changePasswordRow.setOnClickListener(v -> {
@@ -65,8 +67,64 @@ public class SecurityActivity extends AppCompatActivity {
             }
         });
 
-        // Setup switch listener
+        // Setup switch listeners
         switchPinEnabled.setOnCheckedChangeListener(this::onSwitchChanged);
+        switchAllowStrangerMessages.setOnCheckedChangeListener(this::onStrangerMessagesSwitchChanged);
+
+        // Load stranger messages setting
+        loadStrangerMessagesSetting();
+    }
+
+    private void onStrangerMessagesSwitchChanged(android.widget.CompoundButton buttonView, boolean isChecked) {
+        // Save setting to Firebase
+        saveStrangerMessagesSetting(isChecked);
+    }
+
+    private void loadStrangerMessagesSetting() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(currentUser.getUid())
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        Boolean allowStrangerMessages = doc.getBoolean("allowStrangerMessages");
+                        // Default to true if not set
+                        boolean isEnabled = allowStrangerMessages != null ? allowStrangerMessages : true;
+                        switchAllowStrangerMessages.setOnCheckedChangeListener(null);
+                        switchAllowStrangerMessages.setChecked(isEnabled);
+                        switchAllowStrangerMessages.setOnCheckedChangeListener(this::onStrangerMessagesSwitchChanged);
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.e("SecurityActivity", "Failed to load stranger messages setting", e);
+                        // Default to true
+                        switchAllowStrangerMessages.setOnCheckedChangeListener(null);
+                        switchAllowStrangerMessages.setChecked(true);
+                        switchAllowStrangerMessages.setOnCheckedChangeListener(this::onStrangerMessagesSwitchChanged);
+                    });
+        }
+    }
+
+    private void saveStrangerMessagesSetting(boolean isEnabled) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(currentUser.getUid())
+                    .update("allowStrangerMessages", isEnabled)
+                    .addOnSuccessListener(aVoid -> {
+                        String message = isEnabled ? "Đã bật nhận tin nhắn từ người lạ" : "Đã tắt nhận tin nhắn từ người lạ";
+                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        android.util.Log.e("SecurityActivity", "Failed to save stranger messages setting", e);
+                        Toast.makeText(this, "Lỗi khi lưu cài đặt", Toast.LENGTH_SHORT).show();
+                        // Revert switch
+                        switchAllowStrangerMessages.setOnCheckedChangeListener(null);
+                        switchAllowStrangerMessages.setChecked(!isEnabled);
+                        switchAllowStrangerMessages.setOnCheckedChangeListener(this::onStrangerMessagesSwitchChanged);
+                    });
+        }
     }
 
     private void onSwitchChanged(android.widget.CompoundButton buttonView, boolean isChecked) {

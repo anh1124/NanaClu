@@ -120,19 +120,65 @@ public class ProfileActivity extends AppCompatActivity {
             }
         });
 
-        // Chat button → create private chat and open ChatRoomActivity
+        // Chat button → check permission then create private chat and open ChatRoomActivity
         if (btnChat != null) {
             btnChat.setOnClickListener(v -> {
                 String currentUid = FirebaseAuth.getInstance().getCurrentUser() != null
                     ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
                 if (currentUid != null && userId != null && !currentUid.equals(userId)) {
-                    createPrivateChatAndOpen(currentUid, userId);
+                    checkChatPermissionAndOpen(currentUid, userId);
                 } else {
-                    Toast.makeText(this, "Cannot chat with yourself", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Không thể nhắn tin với chính mình", Toast.LENGTH_SHORT).show();
                 }
             });
         }
 
+    }
+
+    private void checkChatPermissionAndOpen(String currentUid, String otherUid) {
+        // First check if they are friends
+        friendshipRepository.getStatus(currentUid, otherUid)
+            .addOnSuccessListener(status -> {
+                if ("accepted".equals(status)) {
+                    // They are friends, allow chat
+                    createPrivateChatAndOpen(currentUid, otherUid);
+                } else {
+                    // Not friends, check if the other user allows stranger messages
+                    userRepository.getUserById(otherUid, new UserRepository.UserCallback() {
+                        @Override
+                        public void onSuccess(User user) {
+                            if (user != null) {
+                                Boolean allowStrangerMessages = user.allowStrangerMessages;
+                                // Default to true if not set
+                                boolean allowsStrangers = allowStrangerMessages != null ? allowStrangerMessages : true;
+
+                                if (allowsStrangers) {
+                                    // User allows stranger messages, create chat
+                                    createPrivateChatAndOpen(currentUid, otherUid);
+                                } else {
+                                    // User doesn't allow stranger messages, block chat
+                                    String displayName = user.displayName != null ? user.displayName : "người dùng này";
+                                    Toast.makeText(ProfileActivity.this,
+                                        displayName + " không cho phép nhận tin nhắn từ người lạ",
+                                        Toast.LENGTH_LONG).show();
+                                }
+                            } else {
+                                Toast.makeText(ProfileActivity.this, "Không thể tải thông tin người dùng", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            android.util.Log.e("ProfileActivity", "Error loading user for chat permission check", e);
+                            Toast.makeText(ProfileActivity.this, "Lỗi khi kiểm tra quyền nhắn tin", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            })
+            .addOnFailureListener(e -> {
+                android.util.Log.e("ProfileActivity", "Error checking friendship status for chat", e);
+                Toast.makeText(this, "Lỗi khi kiểm tra trạng thái kết bạn", Toast.LENGTH_SHORT).show();
+            });
     }
 
     private void createPrivateChatAndOpen(String currentUid, String otherUid) {
@@ -456,4 +502,3 @@ public class ProfileActivity extends AppCompatActivity {
                 });
     }
 }
-

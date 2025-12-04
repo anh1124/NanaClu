@@ -1,5 +1,6 @@
 package com.example.nanaclu.data.model;
 
+import com.google.firebase.Timestamp;
 import java.util.List;
 
 /**
@@ -21,7 +22,7 @@ public class Friendship {
         // Default constructor cho Firestore
     }
 
-    public Friendship(String pairKey, List<String> members, String status, 
+    public Friendship(String pairKey, List<String> members, String status,
                      String requesterId, String addresseeId) {
         this.pairKey = pairKey;
         this.members = members;
@@ -30,6 +31,41 @@ public class Friendship {
         this.addresseeId = addresseeId;
         this.createdAt = System.currentTimeMillis();
         this.updatedAt = System.currentTimeMillis();
+    }
+
+    // Custom setter to handle Timestamp from Firestore
+    public void setCreatedAt(Object createdAt) {
+        if (createdAt instanceof Timestamp) {
+            this.createdAt = ((Timestamp) createdAt).toDate().getTime();
+        } else if (createdAt instanceof Long) {
+            this.createdAt = (Long) createdAt;
+        } else if (createdAt instanceof Number) {
+            this.createdAt = ((Number) createdAt).longValue();
+        }
+    }
+
+    // Custom setter to handle Timestamp from Firestore
+    public void setUpdatedAt(Object updatedAt) {
+        if (updatedAt instanceof Timestamp) {
+            this.updatedAt = ((Timestamp) updatedAt).toDate().getTime();
+        } else if (updatedAt instanceof Long) {
+            this.updatedAt = (Long) updatedAt;
+        } else if (updatedAt instanceof Number) {
+            this.updatedAt = ((Number) updatedAt).longValue();
+        }
+    }
+
+    // Custom setter to handle Timestamp from Firestore
+    public void setAcceptedAt(Object acceptedAt) {
+        if (acceptedAt == null) {
+            this.acceptedAt = null;
+        } else if (acceptedAt instanceof Timestamp) {
+            this.acceptedAt = ((Timestamp) acceptedAt).toDate().getTime();
+        } else if (acceptedAt instanceof Long) {
+            this.acceptedAt = (Long) acceptedAt;
+        } else if (acceptedAt instanceof Number) {
+            this.acceptedAt = ((Number) acceptedAt).longValue();
+        }
     }
 
     /**

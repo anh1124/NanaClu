@@ -108,7 +108,10 @@ public class ChatRoomActivity extends BaseActivity {
         setupRecyclerView();
         setupViewModel();
         setupClickListeners();
-        
+
+        // Check if we need to show stranger message warning for private chats
+        checkAndShowStrangerMessageWarning();
+
         // Set active chat for notification suppression
         ActiveScreenTracker.setActiveChatId(chatId);
     }
@@ -244,6 +247,14 @@ public class ChatRoomActivity extends BaseActivity {
             public void onFileDownload(com.example.nanaclu.data.model.FileAttachment file) {
                 // Dùng util: tải (nếu chưa) rồi mở
                 chatFileActions.handleFileClick(file);
+            }
+
+            @Override
+            public void onAvatarClick(String userId) {
+                // Open user profile
+                Intent intent = new Intent(ChatRoomActivity.this, com.example.nanaclu.ui.profile.ProfileActivity.class);
+                intent.putExtra("userId", userId);
+                startActivity(intent);
             }
         });
         rvMessages.setAdapter(adapter);
@@ -717,5 +728,198 @@ public class ChatRoomActivity extends BaseActivity {
         super.onDestroy();
         // Clear active chat
         ActiveScreenTracker.setActiveChatId(null);
+    }
+
+    /**
+     * Check and show warning dialog for stranger messages in private chats
+     */
+    private void checkAndShowStrangerMessageWarning() {
+        android.util.Log.d("StrangerWarning", "=== START checkAndShowStrangerMessageWarning ===");
+        android.util.Log.d("StrangerWarning", "chatType: " + chatType + ", chatId: " + chatId);
+
+        // Only check for private chats
+        if (!"private".equals(chatType)) {
+            android.util.Log.d("StrangerWarning", "Not a private chat, skipping");
+            return;
+        }
+
+        String currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+        android.util.Log.d("StrangerWarning", "currentUid: " + currentUid);
+
+        if (currentUid == null) {
+            android.util.Log.d("StrangerWarning", "currentUid is null, skipping");
+            return;
+        }
+
+        // Get chat participants to find the other user
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("chats")
+                .document(chatId)
+                .get()
+                .addOnSuccessListener(chatDoc -> {
+                    android.util.Log.d("StrangerWarning", "Chat document exists: " + chatDoc.exists());
+
+                    if (!chatDoc.exists()) {
+                        android.util.Log.d("StrangerWarning", "Chat document doesn't exist");
+                        return;
+                    }
+
+                    // Get other user from pairKey (format: userId1_userId2)
+                    String pairKey = chatDoc.getString("pairKey");
+                    android.util.Log.d("StrangerWarning", "Full chat document data: " + chatDoc.getData());
+                    android.util.Log.d("StrangerWarning", "pairKey: " + pairKey);
+
+                    if (pairKey == null || pairKey.isEmpty()) {
+                        android.util.Log.d("StrangerWarning", "pairKey is null or empty");
+                        return;
+                    }
+
+                    // Parse pairKey to get other user ID
+                    String[] userIds = pairKey.split("_");
+                    if (userIds.length != 2) {
+                        android.util.Log.d("StrangerWarning", "Invalid pairKey format: " + pairKey);
+                        return;
+                    }
+
+                    final String otherUid;
+                    if (userIds[0].equals(currentUid)) {
+                        otherUid = userIds[1];
+                    } else if (userIds[1].equals(currentUid)) {
+                        otherUid = userIds[0];
+                    } else {
+                        android.util.Log.d("StrangerWarning", "Current user not found in pairKey: " + pairKey);
+                        return;
+                    }
+
+                    android.util.Log.d("StrangerWarning", "otherUid from pairKey: " + otherUid);
+
+                    // Check friendship status first
+                    com.example.nanaclu.data.repository.FriendshipRepository friendshipRepo =
+                            new com.example.nanaclu.data.repository.FriendshipRepository(
+                                    com.google.firebase.firestore.FirebaseFirestore.getInstance());
+
+                    friendshipRepo.getStatus(currentUid, otherUid)
+                            .addOnSuccessListener(status -> {
+                                android.util.Log.d("StrangerWarning", "Friendship status between " + currentUid + " and " + otherUid + ": " + status);
+
+                                if ("accepted".equals(status)) {
+                                    // They are friends, no warning needed
+                                    android.util.Log.d("StrangerWarning", "Users are friends, no warning dialog needed");
+                                    return;
+                                }
+
+                                android.util.Log.d("StrangerWarning", "Users are NOT friends, checking current user's stranger message settings");
+
+                                // Check current user's allowStrangerMessages setting
+                                com.example.nanaclu.data.repository.UserRepository userRepo =
+                                        new com.example.nanaclu.data.repository.UserRepository(
+                                                com.google.firebase.firestore.FirebaseFirestore.getInstance());
+
+                                userRepo.getUserById(currentUid, new com.example.nanaclu.data.repository.UserRepository.UserCallback() {
+                                    @Override
+                                    public void onSuccess(com.example.nanaclu.data.model.User user) {
+                                        android.util.Log.d("StrangerWarning", "Current user loaded: " + (user != null ? user.userId : "null"));
+
+                                        if (user != null) {
+                                            Boolean allowStrangerMessages = user.allowStrangerMessages;
+                                            boolean allowsStrangers = allowStrangerMessages != null ? allowStrangerMessages : true;
+
+                                            android.util.Log.d("StrangerWarning", "Current user allowStrangerMessages: " + allowStrangerMessages + ", allowsStrangers: " + allowsStrangers);
+
+                                            // Always show warning dialog for strangers
+                                            android.util.Log.d("StrangerWarning", "Strangers detected, showing warning dialog");
+                                            showStrangerMessageWarningDialog(otherUid);
+                                        } else {
+                                            android.util.Log.d("StrangerWarning", "Current user is null");
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onError(Exception e) {
+                                        android.util.Log.e("StrangerWarning", "Error checking current user stranger message settings", e);
+                                    }
+                                });
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.e("StrangerWarning", "Error checking friendship status", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("StrangerWarning", "Error getting chat info", e);
+                });
+    }
+
+    /**
+     * Show warning dialog for stranger messages
+     */
+    private void showStrangerMessageWarningDialog(String strangerUserId) {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("Cảnh báo");
+
+        // Create spannable text for clickable "đây"
+        android.text.SpannableString message = new android.text.SpannableString(
+                "Đây là tin nhắn từ người lạ. Nếu bạn thấy phiền có thể ấn vào đây để chặn người này.");
+
+        android.text.style.ClickableSpan clickableSpan = new android.text.style.ClickableSpan() {
+            @Override
+            public void onClick(android.view.View widget) {
+                // Block the stranger user and navigate to SecurityActivity
+                blockStrangerUser(strangerUserId);
+                Intent intent = new Intent(ChatRoomActivity.this, com.example.nanaclu.ui.security.SecurityActivity.class);
+                startActivity(intent);
+            }
+
+            @Override
+            public void updateDrawState(android.text.TextPaint ds) {
+                super.updateDrawState(ds);
+                ds.setColor(android.graphics.Color.parseColor("#1976D2")); // Blue color
+                ds.setUnderlineText(true);
+            }
+        };
+
+        // Find position of "đây"
+        String text = message.toString();
+        int start = text.indexOf("đây");
+        if (start >= 0) {
+            int end = start + "đây".length();
+            message.setSpan(clickableSpan, start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+
+        builder.setMessage(message);
+        builder.setPositiveButton("OK", null);
+
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Make the text clickable
+        ((android.widget.TextView) dialog.findViewById(android.R.id.message)).setMovementMethod(
+                android.text.method.LinkMovementMethod.getInstance());
+    }
+
+    /**
+     * Block a stranger user
+     */
+    private void blockStrangerUser(String strangerUserId) {
+        String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null
+                ? com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+        if (currentUserId == null || strangerUserId == null) {
+            return;
+        }
+
+        com.example.nanaclu.data.repository.FriendshipRepository friendshipRepo =
+                new com.example.nanaclu.data.repository.FriendshipRepository(
+                        com.google.firebase.firestore.FirebaseFirestore.getInstance());
+
+        friendshipRepo.block(currentUserId, strangerUserId)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(this, "Đã chặn người dùng", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("ChatRoomActivity", "Error blocking user", e);
+                    Toast.makeText(this, "Lỗi khi chặn người dùng", Toast.LENGTH_SHORT).show();
+                });
     }
 }

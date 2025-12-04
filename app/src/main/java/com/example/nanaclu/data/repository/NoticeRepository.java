@@ -62,7 +62,9 @@ public class NoticeRepository {
                 }
                 return notices;
             } else {
-                throw task.getException();
+                Exception e = task.getException();
+                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+                throw e;
             }
         });
     }
@@ -75,7 +77,10 @@ public class NoticeRepository {
                 .document(uid)
                 .collection("notices")
                 .document(noticeId)
-                .update("seen", true);
+                .update("seen", true)
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+                });
     }
 
     /**
@@ -84,7 +89,10 @@ public class NoticeRepository {
     public Task<Void> markAllSeen(String uid) {
         return db.collection("users")
                 .document(uid)
-                .update("lastSeenAt", System.currentTimeMillis());
+                .update("lastSeenAt", System.currentTimeMillis())
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+                });
     }
 
     /**
@@ -102,7 +110,9 @@ public class NoticeRepository {
                     .document(id);
             batch.update(ref, "seen", true);
         }
-        return batch.commit();
+        return batch.commit().addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+        });
     }
 
     /**
@@ -159,7 +169,68 @@ public class NoticeRepository {
             batch.set(noticeRef, notice.toMap());
         }
 
-        return batch.commit();
+        return batch.commit().addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+        });
+    }
+
+    /**
+     * Tạo thông báo khi có poll mới trong group cho danh sách memberIds
+     * Lưu vào users/{uid}/notices để hiển thị trong NotificationsActivity
+     */
+    public Task<Void> createGroupPollNotice(String groupId,
+                                            String pollId,
+                                            String actorId,
+                                            String actorName,
+                                            List<String> memberIds,
+                                            String pollSnippet) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return Tasks.forResult(null);
+        }
+
+        WriteBatch batch = db.batch();
+        String title = "Bình chọn mới trong nhóm";
+        String baseMessage;
+        if (actorName != null && !actorName.trim().isEmpty()) {
+            baseMessage = actorName + " đã tạo một bình chọn mới";
+        } else {
+            baseMessage = "Có bình chọn mới trong nhóm";
+        }
+
+        if (pollSnippet != null && !pollSnippet.trim().isEmpty()) {
+            baseMessage = baseMessage + ": \"" + pollSnippet + "\"";
+        }
+
+        for (String memberId : memberIds) {
+            if (actorId != null && actorId.equals(memberId)) {
+                continue; // Không tạo thông báo cho chính mình
+            }
+
+            String noticeId = UUID.randomUUID().toString();
+            Notice notice = new Notice(
+                    noticeId,
+                    "new_poll",
+                    actorId,
+                    actorName,
+                    "post",
+                    pollId,
+                    groupId,
+                    title,
+                    baseMessage,
+                    memberId
+            );
+
+            DocumentReference noticeRef = db.collection("users")
+                    .document(memberId)
+                    .collection("notices")
+                    .document(noticeId);
+
+            batch.set(noticeRef, notice.toMap());
+        }
+
+        return batch.commit().addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+        });
     }
 
     /**
@@ -229,7 +300,10 @@ public class NoticeRepository {
                 .document(targetUid)
                 .collection("notices")
                 .document(noticeId)
-                .set(notice.toMap());
+                .set(notice.toMap())
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+                });
     }
 
     /**
@@ -283,6 +357,7 @@ public class NoticeRepository {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Failed to save notice to Firestore", e);
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
                 });
     }
 
@@ -418,6 +493,7 @@ public class NoticeRepository {
             android.util.Log.d("NoticeRepository", "Successfully committed " + finalNoticeCount + " event notices to Firestore");
         }).addOnFailureListener(e -> {
             android.util.Log.e("NoticeRepository", "Failed to commit event notices batch", e);
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
         });
     }
 
@@ -448,7 +524,9 @@ public class NoticeRepository {
                 .collection("notices")
                 .document(noticeId);
 
-        return noticeRef.set(notice.toMap());
+        return noticeRef.set(notice.toMap()).addOnFailureListener(e -> {
+            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+        });
     }
 
     /**
@@ -499,8 +577,10 @@ public class NoticeRepository {
                         }
                         return batch.commit();
                     } else {
-                        Log.e(TAG, "Error fetching notifications to delete", task.getException());
-                        return Tasks.forException(task.getException());
+                        Exception e = task.getException();
+                        Log.e(TAG, "Error fetching notifications to delete", e);
+                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+                        return Tasks.forException(e);
                     }
                 })
                 .continueWith(task -> {

@@ -56,7 +56,7 @@ public class PostDetailActivity extends AppCompatActivity {
 
     private RecyclerView rvComments;
     private CommentsAdapter adapter;
-    private TextView tvAuthor, tvTime, tvContent, tvShowMore, tvLikeCount;
+    private TextView tvAuthor, tvTime, tvContent, tvShowMore, tvLikeCount, tvGroupName;
     private ViewGroup layoutTextControls;
     private View btnShare;
     private android.widget.ImageView imgAuthorAvatar;
@@ -107,6 +107,7 @@ public class PostDetailActivity extends AppCompatActivity {
         tvTime = findViewById(R.id.tvTime);
         tvContent = findViewById(R.id.tvContent);
         tvShowMore = findViewById(R.id.tvShowMore);
+        tvGroupName = findViewById(R.id.tvGroupName);
         layoutTextControls = findViewById(R.id.layoutTextControls);
         imgAuthorAvatar = findViewById(R.id.imgAuthorAvatar);
         imageArea = findViewById(R.id.imageArea);
@@ -237,8 +238,9 @@ public class PostDetailActivity extends AppCompatActivity {
                     postAuthorId = post.authorId;
                     android.util.Log.d("PostDetailActivity", "Post loaded successfully. postAuthorId: " + postAuthorId);
                     
-                    // Load author name
+                    // Load author name and group name
                     loadAuthorName(post.authorId);
+                    loadGroupName(groupId);
                     
                     tvTime.setText(android.text.format.DateUtils.getRelativeTimeSpanString(post.createdAt));
                     setupExpandableContent(post.content);
@@ -445,7 +447,7 @@ public class PostDetailActivity extends AppCompatActivity {
             tvAuthor.setText("Unknown User");
             return;
         }
-        
+
         // Load user profile from Firestore
         db.collection("users").document(authorId)
                 .get()
@@ -458,7 +460,7 @@ public class PostDetailActivity extends AppCompatActivity {
                             String email = userDoc.getString("email");
                             tvAuthor.setText(email != null ? email : "User");
                         }
-                        
+
                         // Load avatar
                         String photoUrl = userDoc.getString("photoUrl");
                         if (photoUrl != null && !photoUrl.isEmpty()) {
@@ -471,6 +473,19 @@ public class PostDetailActivity extends AppCompatActivity {
                         } else {
                             imgAuthorAvatar.setImageResource(R.mipmap.ic_launcher_round);
                         }
+
+                        // Add click listeners for author avatar and name
+                        imgAuthorAvatar.setOnClickListener(v -> {
+                            Intent intent = new Intent(PostDetailActivity.this, ProfileActivity.class);
+                            intent.putExtra("userId", authorId);
+                            startActivity(intent);
+                        });
+
+                        tvAuthor.setOnClickListener(v -> {
+                            Intent intent = new Intent(PostDetailActivity.this, ProfileActivity.class);
+                            intent.putExtra("userId", authorId);
+                            startActivity(intent);
+                        });
                     } else {
                         tvAuthor.setText("Unknown User");
                         imgAuthorAvatar.setImageResource(R.mipmap.ic_launcher_round);
@@ -479,6 +494,41 @@ public class PostDetailActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     tvAuthor.setText("Unknown User");
                     imgAuthorAvatar.setImageResource(R.mipmap.ic_launcher_round);
+                });
+    }
+
+    private void loadGroupName(String groupId) {
+        if (groupId == null) {
+            tvGroupName.setText("");
+            return;
+        }
+
+        // Load group info from Firestore
+        db.collection("groups").document(groupId)
+                .get()
+                .addOnSuccessListener(groupDoc -> {
+                    if (groupDoc.exists()) {
+                        String groupName = groupDoc.getString("name");
+                        if (groupName != null && !groupName.isEmpty()) {
+                            tvGroupName.setText(groupName);
+                            tvGroupName.setVisibility(View.VISIBLE);
+
+                            // Add click listener for group name
+                            tvGroupName.setOnClickListener(v -> {
+                                Intent intent = new Intent(PostDetailActivity.this, com.example.nanaclu.ui.group.GroupDetailActivity.class);
+                                intent.putExtra("groupId", groupId);
+                                startActivity(intent);
+                            });
+                        } else {
+                            tvGroupName.setVisibility(View.GONE);
+                        }
+                    } else {
+                        tvGroupName.setVisibility(View.GONE);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("PostDetailActivity", "Error loading group name", e);
+                    tvGroupName.setVisibility(View.GONE);
                 });
     }
 
@@ -1235,4 +1285,3 @@ public class PostDetailActivity extends AppCompatActivity {
         }
     }
 }
-

@@ -104,6 +104,11 @@ public class FriendshipRepository {
                     updates.put("acceptedAt", FieldValue.serverTimestamp());
                     updates.put("updatedAt", FieldValue.serverTimestamp());
                     transaction.update(docRef, updates);
+
+                    // Tạo notice cho cả 2 users khi auto-accept
+                    createFriendAcceptedNotice(currentUid, existingRequesterId); // Notice cho người đã gửi request cũ
+                    createFriendAcceptedNotice(existingRequesterId, currentUid); // Notice cho người vừa gửi request mới
+
                     return "auto_accepted";
                 }
             }
@@ -114,47 +119,89 @@ public class FriendshipRepository {
 
     /**
      * Accept lời mời kết bạn (chỉ addressee mới accept được)
+     * Logic: Xóa tất cả pending requests giữa 2 users và tạo accepted friendship
      */
     public Task<Void> acceptFriendRequest(String currentUid, String requesterUid) {
-        String pairKey = createPairKey(currentUid, requesterUid);
-        if (pairKey == null) {
-            return Tasks.forException(new IllegalArgumentException("Invalid pair key"));
+        if (currentUid == null || requesterUid == null) {
+            return Tasks.forException(new IllegalArgumentException("Invalid user IDs"));
         }
 
         return db.runTransaction((Transaction.Function<Void>) transaction -> {
-            DocumentReference docRef = db.collection(FRIENDSHIPS_COLLECTION).document(pairKey);
-            DocumentSnapshot snapshot = transaction.get(docRef);
+            // Bước 1: Tìm tất cả friendship documents giữa 2 users
+            // (có thể có multiple documents do race conditions hoặc edge cases)
+            List<DocumentSnapshot> allFriendships = new ArrayList<>();
 
-            if (!snapshot.exists()) {
-                throw new RuntimeException("Friendship not found");
+            // Query theo cả 2 hướng possible (A->B và B->A)
+            String pairKey1 = createPairKey(currentUid, requesterUid);
+            String pairKey2 = createPairKey(requesterUid, currentUid);
+
+            // Thêm cả 2 pairKey nếu chúng khác nhau (edge case)
+            List<String> pairKeys = new ArrayList<>();
+            if (pairKey1 != null) pairKeys.add(pairKey1);
+            if (pairKey2 != null && !pairKey2.equals(pairKey1)) pairKeys.add(pairKey2);
+
+            // Lấy tất cả documents
+            for (String pairKey : pairKeys) {
+                DocumentReference docRef = db.collection(FRIENDSHIPS_COLLECTION).document(pairKey);
+                DocumentSnapshot snapshot = transaction.get(docRef);
+                if (snapshot.exists()) {
+                    allFriendships.add(snapshot);
+                }
             }
 
-            String status = snapshot.getString("status");
-            String addresseeId = snapshot.getString("addresseeId");
-            String requesterId = snapshot.getString("requesterId");
-
-            if (!"pending".equals(status)) {
-                throw new RuntimeException("Friendship is not pending");
+            if (allFriendships.isEmpty()) {
+                throw new RuntimeException("No friendship found between users");
             }
 
-            // Kiểm tra xem currentUid có phải là addressee không
-            // (người nhận lời mời kết bạn)
-            android.util.Log.d("FriendshipRepository", "Checking accept permission: currentUid=" + currentUid + ", addresseeId=" + addresseeId + ", requesterId=" + requesterId);
-            if (!currentUid.equals(addresseeId)) {
-                android.util.Log.e("FriendshipRepository", "Current user " + currentUid + " is not the addressee " + addresseeId + " for requester " + requesterId);
-                throw new RuntimeException("Only addressee can accept friend request");
+            // Bước 2: Validate và tìm pending request mà currentUid có thể accept
+            DocumentSnapshot targetFriendship = null;
+            for (DocumentSnapshot friendship : allFriendships) {
+                String status = friendship.getString("status");
+                String addresseeId = friendship.getString("addresseeId");
+                String requesterId = friendship.getString("requesterId");
+
+                // Tìm pending request mà currentUid là addressee và requesterUid là requester
+                if ("pending".equals(status) &&
+                    currentUid.equals(addresseeId) &&
+                    requesterUid.equals(requesterId)) {
+                    targetFriendship = friendship;
+                    break;
+                }
             }
 
-            // Accept friend request
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("status", "accepted");
-            updates.put("acceptedAt", FieldValue.serverTimestamp());
-            updates.put("updatedAt", FieldValue.serverTimestamp());
-            transaction.update(docRef, updates);
+            if (targetFriendship == null) {
+                throw new RuntimeException("No pending friend request found to accept");
+            }
+
+            // Bước 3: Xóa tất cả pending/accepted friendships giữa 2 users để tránh duplicate
+            for (DocumentSnapshot friendship : allFriendships) {
+                String status = friendship.getString("status");
+                if ("pending".equals(status) || "accepted".equals(status)) {
+                    transaction.delete(friendship.getReference());
+                }
+            }
+
+            // Bước 4: Tạo lại friendship với status accepted
+            String finalPairKey = createPairKey(currentUid, requesterUid);
+            DocumentReference finalDocRef = db.collection(FRIENDSHIPS_COLLECTION).document(finalPairKey);
+
+            List<String> members = Arrays.asList(currentUid, requesterUid);
+            Map<String, Object> data = new HashMap<>();
+            data.put("pairKey", finalPairKey);
+            data.put("members", members);
+            data.put("status", "accepted");
+            data.put("requesterId", requesterUid); // Người đã gửi request
+            data.put("addresseeId", currentUid);   // Người đã accept
+            data.put("createdAt", FieldValue.serverTimestamp());
+            data.put("acceptedAt", FieldValue.serverTimestamp());
+            data.put("updatedAt", FieldValue.serverTimestamp());
+
+            transaction.set(finalDocRef, data);
 
             // Tạo notice cho người gửi lời mời
-            createFriendAcceptedNotice(currentUid, requesterId);
+            createFriendAcceptedNotice(currentUid, requesterUid);
 
+            android.util.Log.d("FriendshipRepository", "Successfully accepted friend request and cleaned up duplicates");
             return null;
         });
     }

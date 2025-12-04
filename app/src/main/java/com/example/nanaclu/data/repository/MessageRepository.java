@@ -8,6 +8,7 @@ import com.example.nanaclu.data.model.Message;
 import com.example.nanaclu.data.model.User;
 import com.example.nanaclu.data.repository.ChatRepository;
 import com.example.nanaclu.data.repository.UserRepository;
+import com.example.nanaclu.data.repository.FriendshipRepository;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
@@ -41,49 +42,90 @@ public class MessageRepository {
         this.userRepository = new UserRepository(db);
     }
 
+    /**
+     * Ensure that for private chats the recipient has not blocked the author.
+     * If blocked_by_them -> return failed Task to prevent send.
+     * For group chats, this is a no-op.
+     */
+    private Task<Void> ensureNotBlocked(String chatId, String authorId, String chatType) {
+        if ("group".equals(chatType)) {
+            return Tasks.forResult(null);
+        }
+        if (chatId == null || authorId == null) {
+            return Tasks.forException(new IllegalArgumentException("null"));
+        }
+        FriendshipRepository friendshipRepository = new FriendshipRepository(db);
+        return chatRepository.getChatMembers(chatId).continueWithTask(t -> {
+            if (!t.isSuccessful() || t.getResult() == null || t.getResult().isEmpty()) {
+                return Tasks.forException(new IllegalStateException("Cannot resolve chat members"));
+            }
+            java.util.List<String> members = t.getResult();
+            String otherUid = null;
+            for (String uid : members) {
+                if (uid != null && !uid.equals(authorId)) { otherUid = uid; break; }
+            }
+            if (otherUid == null) {
+                return Tasks.forException(new IllegalStateException("Cannot resolve recipient"));
+            }
+            return friendshipRepository.getStatus(authorId, otherUid).continueWithTask(st -> {
+                if (!st.isSuccessful()) {
+                    Exception e = st.getException();
+                    return Tasks.forException(e != null ? e : new IllegalStateException("Status check failed"));
+                }
+                String status = st.getResult();
+                if ("blocked_by_them".equals(status)) {
+                    return Tasks.forException(new SecurityException("Recipient has blocked you"));
+                }
+                return Tasks.forResult(null);
+            });
+        });
+    }
+
     public Task<String> sendText(String chatId, String authorId, String text, String chatType, String groupId) {
         if (chatId == null || authorId == null || text == null) return Tasks.forException(new IllegalArgumentException("null"));
 
-        // For now, use a simple approach - get current user's name from FirebaseAuth
-        String authorName = "Unknown";
-        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser != null && currentUser.getDisplayName() != null) {
-            authorName = currentUser.getDisplayName();
-        }
+        // Check block (only applies for private chats)
+        return ensureNotBlocked(chatId, authorId, chatType).continueWithTask(nb -> {
+            if (!nb.isSuccessful()) return Tasks.forException(nb.getException());
 
-        // Determine correct collection path based on chat type
-        CollectionReference msgs;
-        if ("group".equals(chatType) && groupId != null) {
-            // Group chat: groups/{groupId}/chats/{chatId}/messages
-            msgs = db.collection("groups")
-                    .document(groupId)
-                    .collection("chats")
-                    .document(chatId)
-                    .collection(MESSAGES);
-        } else {
-            // Private chat: chats/{chatId}/messages
-            msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
-        }
-
-        DocumentReference msgRef = msgs.document();
-        Map<String, Object> data = new HashMap<>();
-        data.put("messageId", msgRef.getId());
-        data.put("authorId", authorId);
-        data.put("authorName", authorName);
-        data.put("type", "text");
-        data.put("content", text);
-        data.put("createdAt", FieldValue.serverTimestamp());
-        return msgRef.set(data).continueWithTask(t -> {
-            if (!t.isSuccessful()) {
-                Exception e = t.getException();
-                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
-                throw e;
+            // For now, use a simple approach - get current user's name from FirebaseAuth
+            String authorName = "Unknown";
+            com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null && currentUser.getDisplayName() != null) {
+                authorName = currentUser.getDisplayName();
             }
-            // Chain: update last meta -> unarchive recipients -> return id
-            long now = System.currentTimeMillis();
-            return chatRepository.updateLastMessageMeta(chatId, text, authorId, now)
-                    .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
-                    .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+
+            // Determine correct collection path based on chat type
+            CollectionReference msgs;
+            if ("group".equals(chatType) && groupId != null) {
+                msgs = db.collection("groups")
+                        .document(groupId)
+                        .collection("chats")
+                        .document(chatId)
+                        .collection(MESSAGES);
+            } else {
+                msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+            }
+
+            DocumentReference msgRef = msgs.document();
+            Map<String, Object> data = new HashMap<>();
+            data.put("messageId", msgRef.getId());
+            data.put("authorId", authorId);
+            data.put("authorName", authorName);
+            data.put("type", "text");
+            data.put("content", text);
+            data.put("createdAt", FieldValue.serverTimestamp());
+            return msgRef.set(data).continueWithTask(t -> {
+                if (!t.isSuccessful()) {
+                    Exception e = t.getException();
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                    throw e;
+                }
+                long now = System.currentTimeMillis();
+                return chatRepository.updateLastMessageMeta(chatId, text, authorId, now)
+                        .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
+                        .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+            });
         });
     }
 
@@ -94,118 +136,122 @@ public class MessageRepository {
 
     public Task<String> sendImage(String chatId, String authorId, Uri imageUri) {
         if (chatId == null || authorId == null || imageUri == null) return Tasks.forException(new IllegalArgumentException("null"));
-        String path = "chat_images/" + chatId + "/" + System.currentTimeMillis() + "_" + Math.abs(imageUri.hashCode()) + ".jpg";
-        StorageReference ref = storage.getReference().child(path);
+        // Block check for legacy private path
+        return ensureNotBlocked(chatId, authorId, "private").continueWithTask(nb -> {
+            if (!nb.isSuccessful()) return Tasks.forException(nb.getException());
 
-        // Get display name once for authorName field
-        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        final String finalAuthorName = (currentUser != null && currentUser.getDisplayName() != null)
-                ? currentUser.getDisplayName() : "Unknown";
+            String path = "chat_images/" + chatId + "/" + System.currentTimeMillis() + "_" + Math.abs(imageUri.hashCode()) + ".jpg";
+            StorageReference ref = storage.getReference().child(path);
 
-        return ref.putFile(imageUri)
-                .continueWithTask(ut -> {
-                    if (!ut.isSuccessful()) {
-                        Exception e = ut.getException();
-                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
-                        return Tasks.forException(e);
-                    }
-                    return ref.getDownloadUrl();
-                })
-                .continueWithTask(t -> {
-                    if (!t.isSuccessful()) {
-                        Exception e = t.getException();
-                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
-                        return Tasks.forException(e);
-                    }
-                    String url = t.getResult() != null ? t.getResult().toString() : null;
-                    if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
+            com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            final String finalAuthorName = (currentUser != null && currentUser.getDisplayName() != null)
+                    ? currentUser.getDisplayName() : "Unknown";
 
-                    // Use private chat path for backward compatibility
-                    CollectionReference msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
-                    DocumentReference msgRef = msgs.document();
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("messageId", msgRef.getId());
-                    data.put("authorId", authorId);
-                    data.put("authorName", finalAuthorName);
-                    data.put("type", "image");
-                    data.put("content", url);
-                    data.put("createdAt", FieldValue.serverTimestamp());
-                    return msgRef.set(data).continueWithTask(done -> {
-                        if (!done.isSuccessful()) {
-                            Exception e = done.getException();
+            return ref.putFile(imageUri)
+                    .continueWithTask(ut -> {
+                        if (!ut.isSuccessful()) {
+                            Exception e = ut.getException();
                             com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
-                            throw e;
+                            return Tasks.forException(e);
                         }
-                        long now = System.currentTimeMillis();
-                        return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
-                                .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
-                                .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+                        return ref.getDownloadUrl();
+                    })
+                    .continueWithTask(t -> {
+                        if (!t.isSuccessful()) {
+                            Exception e = t.getException();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                            return Tasks.forException(e);
+                        }
+                        String url = t.getResult() != null ? t.getResult().toString() : null;
+                        if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
+
+                        CollectionReference msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+                        DocumentReference msgRef = msgs.document();
+                        Map<String, Object> data = new HashMap<>();
+                        data.put("messageId", msgRef.getId());
+                        data.put("authorId", authorId);
+                        data.put("authorName", finalAuthorName);
+                        data.put("type", "image");
+                        data.put("content", url);
+                        data.put("createdAt", FieldValue.serverTimestamp());
+                        return msgRef.set(data).continueWithTask(done -> {
+                            if (!done.isSuccessful()) {
+                                Exception e = done.getException();
+                                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                                throw e;
+                            }
+                            long now = System.currentTimeMillis();
+                            return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
+                                    .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
+                                    .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+                        });
                     });
-                });
+        });
     }
 
     public Task<String> sendImage(String chatId, String authorId, Uri imageUri, String chatType, String groupId) {
         if (chatId == null || authorId == null || imageUri == null) return Tasks.forException(new IllegalArgumentException("null"));
-        String path = "chat_images/" + chatId + "/" + System.currentTimeMillis() + "_" + Math.abs(imageUri.hashCode()) + ".jpg";
-        StorageReference ref = storage.getReference().child(path);
+        // Check block for private chats first (avoid uploading if blocked)
+        return ensureNotBlocked(chatId, authorId, chatType).continueWithTask(nb -> {
+            if (!nb.isSuccessful()) return Tasks.forException(nb.getException());
 
-        // Get display name once for authorName field
-        com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        final String finalAuthorName = (currentUser != null && currentUser.getDisplayName() != null)
-                ? currentUser.getDisplayName() : "Unknown";
+            String path = "chat_images/" + chatId + "/" + System.currentTimeMillis() + "_" + Math.abs(imageUri.hashCode()) + ".jpg";
+            StorageReference ref = storage.getReference().child(path);
 
-        return ref.putFile(imageUri)
-                .continueWithTask(ut -> {
-                    if (!ut.isSuccessful()) {
-                        Exception e = ut.getException();
-                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
-                        return Tasks.forException(e);
-                    }
-                    return ref.getDownloadUrl();
-                })
-                .continueWithTask(t -> {
-                    if (!t.isSuccessful()) {
-                        Exception e = t.getException();
-                        com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
-                        return Tasks.forException(e);
-                    }
-                    String url = t.getResult() != null ? t.getResult().toString() : null;
-                    if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
+            com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            final String finalAuthorName = (currentUser != null && currentUser.getDisplayName() != null)
+                    ? currentUser.getDisplayName() : "Unknown";
 
-                    // Determine correct collection path based on chat type
-                    CollectionReference msgs;
-                    if ("group".equals(chatType) && groupId != null) {
-                        // Group chat: groups/{groupId}/chats/{chatId}/messages
-                        msgs = db.collection("groups")
-                                .document(groupId)
-                                .collection("chats")
-                                .document(chatId)
-                                .collection(MESSAGES);
-                    } else {
-                        // Private chat: chats/{chatId}/messages
-                        msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
-                    }
-
-                    DocumentReference msgRef = msgs.document();
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("messageId", msgRef.getId());
-                    data.put("authorId", authorId);
-                    data.put("authorName", finalAuthorName);
-                    data.put("type", "image");
-                    data.put("content", url);
-                    data.put("createdAt", FieldValue.serverTimestamp());
-                    return msgRef.set(data).continueWithTask(done -> {
-                        if (!done.isSuccessful()) {
-                            Exception e = done.getException();
+            return ref.putFile(imageUri)
+                    .continueWithTask(ut -> {
+                        if (!ut.isSuccessful()) {
+                            Exception e = ut.getException();
                             com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
-                            throw e;
+                            return Tasks.forException(e);
                         }
-                        long now = System.currentTimeMillis();
-                        return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
-                                .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
-                                .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+                        return ref.getDownloadUrl();
+                    })
+                    .continueWithTask(t -> {
+                        if (!t.isSuccessful()) {
+                            Exception e = t.getException();
+                            com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                            return Tasks.forException(e);
+                        }
+                        String url = t.getResult() != null ? t.getResult().toString() : null;
+                        if (url == null) return Tasks.forException(new IllegalStateException("No download url"));
+
+                        CollectionReference msgs;
+                        if ("group".equals(chatType) && groupId != null) {
+                            msgs = db.collection("groups")
+                                    .document(groupId)
+                                    .collection("chats")
+                                    .document(chatId)
+                                    .collection(MESSAGES);
+                        } else {
+                            msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+                        }
+
+                        DocumentReference msgRef = msgs.document();
+                        Map<String, Object> data = new HashMap<>();
+                        data.put("messageId", msgRef.getId());
+                        data.put("authorId", authorId);
+                        data.put("authorName", finalAuthorName);
+                        data.put("type", "image");
+                        data.put("content", url);
+                        data.put("createdAt", FieldValue.serverTimestamp());
+                        return msgRef.set(data).continueWithTask(done -> {
+                            if (!done.isSuccessful()) {
+                                Exception e = done.getException();
+                                com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("MessageRepository", e);
+                                throw e;
+                            }
+                            long now = System.currentTimeMillis();
+                            return chatRepository.updateLastMessageMeta(chatId, "📷 Image", authorId, now)
+                                    .continueWithTask(x -> performUnarchiveAfterSend(chatId, authorId))
+                                    .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+                        });
                     });
-                });
+        });
     }
 
     /**
@@ -456,41 +502,43 @@ public class MessageRepository {
     public Task<String> sendMessage(String chatId, Message message, String chatType, String groupId) {
         if (chatId == null || message == null) return Tasks.forException(new IllegalArgumentException("null"));
 
-        // Get author name if not set
-        if (message.authorName == null || message.authorName.isEmpty()) {
-            com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            message.authorName = (currentUser != null && currentUser.getDisplayName() != null)
-                ? currentUser.getDisplayName() : "Unknown";
-        }
+        // Block check for private chats
+        String authorId = message.authorId;
+        return ensureNotBlocked(chatId, authorId, chatType).continueWithTask(nb -> {
+            if (!nb.isSuccessful()) return Tasks.forException(nb.getException());
 
-        CollectionReference msgs;
-        if ("group".equals(chatType) && groupId != null) {
-            // Group chat: groups/{groupId}/chats/{chatId}/messages
-            msgs = db.collection("groups")
-                    .document(groupId)
-                    .collection("chats")
-                    .document(chatId)
-                    .collection(MESSAGES);
-        } else {
-            // Private chat: chats/{chatId}/messages
-            msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
-        }
+            // Get author name if not set
+            if (message.authorName == null || message.authorName.isEmpty()) {
+                com.google.firebase.auth.FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                message.authorName = (currentUser != null && currentUser.getDisplayName() != null)
+                    ? currentUser.getDisplayName() : "Unknown";
+            }
 
-        DocumentReference msgRef = msgs.document();
-        message.messageId = msgRef.getId();
+            CollectionReference msgs;
+            if ("group".equals(chatType) && groupId != null) {
+                msgs = db.collection("groups")
+                        .document(groupId)
+                        .collection("chats")
+                        .document(chatId)
+                        .collection(MESSAGES);
+            } else {
+                msgs = db.collection(CHATS).document(chatId).collection(MESSAGES);
+            }
 
-        // Set server timestamp if not set
-        if (message.createdAt == 0) {
-            message.createdAt = System.currentTimeMillis();
-        }
+            DocumentReference msgRef = msgs.document();
+            message.messageId = msgRef.getId();
 
-        return msgRef.set(message).continueWithTask(task -> {
-            if (!task.isSuccessful()) throw task.getException();
-            // Update last meta -> unarchive recipients -> return id
-            String lastMessageContent = getLastMessageContent(message);
-            return chatRepository.updateLastMessageMeta(chatId, lastMessageContent, message.authorId, message.createdAt)
-                    .continueWithTask(x -> performUnarchiveAfterSend(chatId, message.authorId))
-                    .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+            if (message.createdAt == 0) {
+                message.createdAt = System.currentTimeMillis();
+            }
+
+            return msgRef.set(message).continueWithTask(task -> {
+                if (!task.isSuccessful()) throw task.getException();
+                String lastMessageContent = getLastMessageContent(message);
+                return chatRepository.updateLastMessageMeta(chatId, lastMessageContent, message.authorId, message.createdAt)
+                        .continueWithTask(x -> performUnarchiveAfterSend(chatId, message.authorId))
+                        .continueWithTask(x -> Tasks.forResult(msgRef.getId()));
+            });
         });
     }
 

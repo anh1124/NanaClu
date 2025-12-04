@@ -11,6 +11,7 @@ import com.example.nanaclu.data.model.FileAttachment;
 import com.example.nanaclu.data.model.Message;
 import com.example.nanaclu.data.repository.ChatRepository;
 import com.example.nanaclu.data.repository.FileRepository;
+import com.example.nanaclu.data.repository.FriendshipRepository;
 import com.example.nanaclu.data.repository.MessageRepository;
 import com.example.nanaclu.data.repository.NoticeRepository;
 import com.example.nanaclu.data.repository.UserRepository;
@@ -256,15 +257,22 @@ _messages.postValue(updated);
         String uid = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
         if (uid == null) return;
-        _sending.postValue(true);
-        msgRepo.sendText(chatId, uid, text, chatType, groupId)
-                .addOnSuccessListener(id -> {
-                    _sending.postValue(false);
-                    // Rely on realtime listener to update UI
-                    // Create notice for other chat members
-                    createMessageNotice(text);
-                })
-                .addOnFailureListener(e -> { _sending.postValue(false); _error.postValue(e.getMessage()); });
+
+        // Check if recipient has blocked sender for private chats
+        if ("private".equals(chatType)) {
+            checkBlockStatusAndSend(text, null, null);
+        } else {
+            // For group chats, send normally
+            _sending.postValue(true);
+            msgRepo.sendText(chatId, uid, text, chatType, groupId)
+                    .addOnSuccessListener(id -> {
+                        _sending.postValue(false);
+                        // Rely on realtime listener to update UI
+                        // Create notice for other chat members
+                        createMessageNotice(text);
+                    })
+                    .addOnFailureListener(e -> { _sending.postValue(false); _error.postValue(e.getMessage()); });
+        }
     }
 
     public void sendImage(Uri uri) {
@@ -521,6 +529,121 @@ _messages.postValue(updated);
         void onError(Exception e);
     }
 
+    /**
+     * Check if recipient has blocked sender before sending message
+     */
+    private void checkBlockStatusAndSend(String text, Uri imageUri, List<FileAttachment> fileAttachments) {
+        if (chatId == null) return;
+
+        String senderUid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (senderUid == null) return;
+
+        // Get recipient UID from pairKey
+        FirebaseFirestore.getInstance()
+                .collection("chats")
+                .document(chatId)
+                .get()
+                .addOnSuccessListener(chatDoc -> {
+                    if (!chatDoc.exists()) return;
+
+                    String pairKey = chatDoc.getString("pairKey");
+                    if (pairKey == null || pairKey.isEmpty()) return;
+
+                    String[] userIds = pairKey.split("_");
+                    if (userIds.length != 2) return;
+
+                    String recipientUid = null;
+                    if (userIds[0].equals(senderUid)) {
+                        recipientUid = userIds[1];
+                    } else if (userIds[1].equals(senderUid)) {
+                        recipientUid = userIds[0];
+                    }
+
+                    if (recipientUid == null) return;
+
+                    // Check if recipient has blocked sender
+                    FriendshipRepository friendshipRepo = new FriendshipRepository(FirebaseFirestore.getInstance());
+                    friendshipRepo.getStatus(recipientUid, senderUid)
+                            .addOnSuccessListener(status -> {
+                                if ("blocked_by_them".equals(status)) {
+                                    // Recipient has blocked sender, cannot send message
+                                    android.util.Log.d("ChatRoomVM", "Cannot send message: recipient has blocked sender");
+                                    _error.postValue("Hành động không thành công");
+                                    return;
+                                }
+
+                                // Can send message, proceed
+                                sendMessage(text, imageUri, fileAttachments);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.e("ChatRoomVM", "Error checking block status", e);
+                                // If cannot check, allow sending to avoid blocking legitimate messages
+                                sendMessage(text, imageUri, fileAttachments);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("ChatRoomVM", "Error getting chat info for block check", e);
+                    // If cannot check, allow sending to avoid blocking legitimate messages
+                    sendMessage(text, imageUri, fileAttachments);
+                });
+    }
+
+    /**
+     * Send message after block check
+     */
+    private void sendMessage(String text, Uri imageUri, List<FileAttachment> fileAttachments) {
+        if (chatId == null) return;
+
+        String uid = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+        if (uid == null) return;
+
+        _sending.postValue(true);
+
+        if (text != null) {
+            // Send text message
+            msgRepo.sendText(chatId, uid, text, chatType, groupId)
+                    .addOnSuccessListener(id -> {
+                        _sending.postValue(false);
+                        createMessageNotice(text);
+                    })
+                    .addOnFailureListener(e -> {
+                        _sending.postValue(false);
+                        _error.postValue(e.getMessage());
+                    });
+        } else if (imageUri != null) {
+            // Send image message
+            msgRepo.sendImage(chatId, uid, imageUri, chatType, groupId)
+                    .addOnSuccessListener(id -> {
+                        _sending.postValue(false);
+                        createMessageNotice("Đã gửi ảnh");
+                    })
+                    .addOnFailureListener(e -> {
+                        _sending.postValue(false);
+                        _error.postValue(e.getMessage());
+                    });
+        } else if (fileAttachments != null && !fileAttachments.isEmpty()) {
+            // Send file message
+            Message message = new Message();
+            message.authorId = uid;
+            message.type = "file";
+            message.content = fileAttachments.size() + " file(s)";
+            message.fileAttachments = fileAttachments;
+            message.createdAt = System.currentTimeMillis();
+
+            msgRepo.sendMessage(chatId, message, chatType, groupId)
+                    .addOnSuccessListener(messageId -> {
+                        _sending.postValue(false);
+                        createMessageNotice("Đã gửi file");
+                    })
+                    .addOnFailureListener(e -> {
+                        _sending.postValue(false);
+                        _fileError.postValue("Lỗi gửi tin nhắn: " + e.getMessage());
+                    });
+        }
+    }
+
     @Override
     protected void onCleared() {
         super.onCleared();
@@ -531,4 +654,3 @@ _messages.postValue(updated);
         }
     }
 }
-

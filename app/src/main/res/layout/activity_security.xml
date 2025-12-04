@@ -151,6 +151,52 @@
 
             </LinearLayout>
 
+            <!-- Stranger Messages Switch -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_message"
+                    app:tint="#666666"
+                    android:layout_marginEnd="16dp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cho phép nhận tin nhắn từ người lạ"
+                        android:textSize="16sp"
+                        android:textColor="#333333"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cho phép người không phải bạn bè nhắn tin riêng"
+                        android:textSize="14sp"
+                        android:textColor="#666666"
+                        android:layout_marginTop="2dp" />
+
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchAllowStrangerMessages"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
             <!-- Change Password Row -->
             <LinearLayout
                 android:id="@+id/changePasswordRow"
