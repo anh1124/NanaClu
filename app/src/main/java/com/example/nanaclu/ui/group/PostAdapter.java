@@ -392,6 +392,9 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             btnShare.setOnClickListener(v -> {
                 if (actionListener != null) actionListener.onShare(post);
             });
+
+            // Setup menu button
+            setupMenuButton(post);
             // End of bind
         }
 
@@ -903,6 +906,45 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             } catch (Exception e) {
                 android.widget.Toast.makeText(ctx, "Không thể mở hồ sơ", android.widget.Toast.LENGTH_SHORT).show();
             }
+        }
+
+        private void setupMenuButton(Post post) {
+            btnMore.setOnClickListener(v -> showPostMenu(post));
+        }
+
+        /**
+         * Show post menu (Delete for own posts, Report for others)
+         */
+        private void showPostMenu(Post post) {
+            android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(itemView.getContext(), btnMore);
+            android.view.Menu menu = popupMenu.getMenu();
+
+            if (currentUserId != null && currentUserId.equals(post.authorId)) {
+                // Own post - show delete option
+                menu.add(0, 1, 0, "Xóa bài đăng");
+            } else {
+                // Others' post - show report option
+                menu.add(0, 2, 0, "Báo cáo");
+            }
+
+            popupMenu.setOnMenuItemClickListener(item -> {
+                switch (item.getItemId()) {
+                    case 1: // Delete
+                        if (actionListener != null) {
+                            actionListener.onDelete(post);
+                        }
+                        return true;
+                    case 2: // Report
+                        if (actionListener != null) {
+                            actionListener.onReport(post);
+                        }
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+
+            popupMenu.show();
         }
 
         private void loadGroupName(String groupId) {
