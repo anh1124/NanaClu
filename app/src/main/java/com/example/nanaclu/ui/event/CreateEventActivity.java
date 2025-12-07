@@ -109,6 +109,12 @@ public class CreateEventActivity extends AppCompatActivity {
     private void setupToolbar() {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        // Apply theme color to toolbar
+        int toolbarColor = com.example.nanaclu.utils.ThemeUtils.getThemeColor(this);
+        toolbar.setBackgroundColor(toolbarColor);
+        toolbar.setTitleTextColor(android.graphics.Color.WHITE);
+
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("Tạo sự kiện mới");

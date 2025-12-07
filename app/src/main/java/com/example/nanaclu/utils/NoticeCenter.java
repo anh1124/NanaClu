@@ -151,7 +151,7 @@ public class NoticeCenter {
         }
 
         // Không hiển thị banner cho tin nhắn nếu đang ở chat room đó
-        if ("message".equals(notice.getType()) && 
+        if ("message".equals(notice.getType()) &&
             ActiveScreenTracker.isInChatRoom(notice.getObjectId())) {
             return;
         }
@@ -169,9 +169,22 @@ public class NoticeCenter {
 
         Context context = application.getApplicationContext();
         Toast.makeText(context, notice.getTitle() + ": " + notice.getMessage(), Toast.LENGTH_LONG).show();
-        
+
         // TODO: Thay thế Toast bằng Snackbar hoặc custom banner view
         // Có thể thêm click listener để mở màn hình đích
+    }
+
+    /**
+     * Hiển thị toast với số lượng thông báo chưa đọc
+     */
+    public void showUnreadCountToast() {
+        if (application == null) return;
+
+        Integer count = unreadCount.getValue();
+        if (count != null && count > 0) {
+            Context context = application.getApplicationContext();
+            Toast.makeText(context, "Bạn có " + count + " thông báo chưa đọc", Toast.LENGTH_LONG).show();
+        }
     }
 
     /**

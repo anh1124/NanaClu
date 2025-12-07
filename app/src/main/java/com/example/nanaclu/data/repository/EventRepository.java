@@ -370,11 +370,7 @@ public class EventRepository {
         rsvpEvent(groupId, eventId, rsvp)
                 .addOnSuccessListener(result -> {
                     android.util.Log.d("EventRepository", "Attendance updated successfully");
-                    // Log RSVP
-                    LogRepository logRepo = new LogRepository(db);
-                    Map<String, Object> metadata = new HashMap<>();
-                    metadata.put("status", status.getValue());
-                    logRepo.logGroupAction(groupId, "event_rsvp", "event", eventId, null, metadata);
+                    // RSVP logging removed as per requirements
                     onSuccess.onSuccess(result);
                 })
                 .addOnFailureListener(error -> {

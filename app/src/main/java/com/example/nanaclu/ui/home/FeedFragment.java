@@ -91,6 +91,9 @@ public class FeedFragment extends BaseFragment {
         groupRepository = new GroupRepository(FirebaseFirestore.getInstance());
         noticeCenter = NoticeCenter.getInstance();
 
+        // Show unread count toast when FeedFragment opens
+        noticeCenter.showUnreadCountToast();
+
         // Setup notification badge after noticeCenter is initialized
         if (toolbar != null) {
             setupNotificationBadge(toolbar);
