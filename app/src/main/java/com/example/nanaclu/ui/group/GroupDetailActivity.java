@@ -196,17 +196,8 @@ public class GroupDetailActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Also make individual elements clickable for better UX
-        View btnAddImage = findViewById(R.id.btnAddImage);
+        // Also make the text clickable for better UX
         TextView edtPost = findViewById(R.id.edtPost);
-
-        // These will also open CreatePostActivity
-        btnAddImage.setOnClickListener(v -> {
-            Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
-            intent.putExtra("group_id", groupId);
-            startActivity(intent);
-        });
-
         edtPost.setOnClickListener(v -> {
             Intent intent = new Intent(this, com.example.nanaclu.ui.post.CreatePostActivity.class);
             intent.putExtra("group_id", groupId);

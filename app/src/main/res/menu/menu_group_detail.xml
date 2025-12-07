@@ -5,7 +5,7 @@
     <item
         android:id="@+id/action_search_posts"
         android:title="Tìm kiếm bài viết"
-        android:icon="@android:drawable/ic_menu_search"
+        android:icon="@drawable/ic_search"
         app:showAsAction="always" />
 
     <item
