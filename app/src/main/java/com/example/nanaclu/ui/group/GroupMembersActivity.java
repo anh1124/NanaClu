@@ -75,10 +75,54 @@ public class GroupMembersActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        android.util.Log.d("GroupMembersActivity", "=== Setting up toolbar ===");
+        android.util.Log.d("GroupMembersActivity", "Toolbar found: " + (toolbar != null));
+
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle("Thành viên nhóm");
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            android.util.Log.d("GroupMembersActivity", "SupportActionBar is available, title set to: Thành viên nhóm");
+        } else {
+            android.util.Log.w("GroupMembersActivity", "SupportActionBar is null!");
         }
+
+        // Check toolbar theme and styling
+        if (toolbar != null) {
+            android.util.Log.d("GroupMembersActivity", "Toolbar background: " + toolbar.getBackground());
+            android.util.Log.d("GroupMembersActivity", "Toolbar theme: " + toolbar.getContext().getTheme());
+            android.util.Log.d("GroupMembersActivity", "Toolbar popup theme: " + toolbar.getPopupTheme());
+        }
+
+        // Inflate the menu for admin/owner
+        toolbar.inflateMenu(R.menu.menu_group_members);
+        toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
+        updateMenuVisibility();
+    }
+
+    private void updateMenuVisibility() {
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        if (toolbar == null) return;
+        android.view.Menu menu = toolbar.getMenu();
+        if (menu == null) return;
+
+        boolean isAdminOrOwner = currentUserMember != null &&
+                ("admin".equals(currentUserMember.role) || "owner".equals(currentUserMember.role));
+
+        MenuItem blockedUsersItem = menu.findItem(R.id.action_blocked_users);
+        if (blockedUsersItem != null) {
+            blockedUsersItem.setVisible(isAdminOrOwner);
+        }
+    }
+
+    private boolean onMenuItemClick(android.view.MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_blocked_users) {
+            Intent intent = new Intent(this, GroupBlockedUsersActivity.class);
+            intent.putExtra("groupId", groupId);
+            startActivity(intent);
+            return true;
+        }
+        return false;
     }
 
     private void setupUI() {
@@ -132,6 +176,7 @@ public class GroupMembersActivity extends AppCompatActivity {
             public void onSuccess(Member member) {
                 android.util.Log.d("GroupMembers", "Current user member found: " + member.role);
                 currentUserMember = member;
+                updateMenuVisibility();
                 loadMembers();
             }
 
@@ -296,7 +341,7 @@ public class GroupMembersActivity extends AppCompatActivity {
                 changeMemberRole(member);
                 break;
             case "Kick":
-                kickMember(member);
+                kickMember(member, groupId);
                 break;
             case "Block":
                 blockMember(member);
@@ -367,9 +412,9 @@ public class GroupMembersActivity extends AppCompatActivity {
             String[] roles = new String[]{"Owner", "Admin", "Member"};
             int checked = "owner".equals(targetRole) ? 0 : ("admin".equals(targetRole) ? 1 : 2);
             new AlertDialog.Builder(this)
-                    .setTitle("Chn vai tr0")
+                    .setTitle("Chọn vai trò")
                     .setSingleChoiceItems(roles, checked, null)
-                    .setPositiveButton("Xcn nh0n", (d, w) -> {
+                    .setPositiveButton("Xác nhận", (d, w) -> {
                         AlertDialog ad = (AlertDialog) d;
                         int idx = ad.getListView().getCheckedItemPosition();
                         if (idx == 0) {
@@ -380,55 +425,55 @@ public class GroupMembersActivity extends AppCompatActivity {
                             }
                             groupRepository.transferOwnership(groupId, currentUserId, member.userId, new GroupRepository.UpdateCallback() {
                                 @Override public void onSuccess() {
-                                    Toast.makeText(GroupMembersActivity.this, "0t chuyfn owner", Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(GroupMembersActivity.this, "Đã chuyển owner", Toast.LENGTH_SHORT).show();
                                     loadMembers();
                                 }
                                 @Override public void onError(Exception e) {
-                                    Toast.makeText(GroupMembersActivity.this, "L 112i chuy 1fn owner: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(GroupMembersActivity.this, "Lỗi chuyển owner: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                                 }
                             });
                         } else if (idx == 1) {
                             groupRepository.updateMemberRole(groupId, member.userId, "admin", new GroupRepository.UpdateCallback() {
-                                @Override public void onSuccess() { Toast.makeText(GroupMembersActivity.this, "0 1f n 1fng quy 15n th 10nh admin", Toast.LENGTH_SHORT).show(); loadMembers(); }
-                                @Override public void onError(Exception e) { Toast.makeText(GroupMembersActivity.this, "L 112i: " + e.getMessage(), Toast.LENGTH_SHORT).show(); }
+                                @Override public void onSuccess() { Toast.makeText(GroupMembersActivity.this, "Đã nâng quyền thành admin", Toast.LENGTH_SHORT).show(); loadMembers(); }
+                                @Override public void onError(Exception e) { Toast.makeText(GroupMembersActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show(); }
                             });
                         } else {
                             groupRepository.updateMemberRole(groupId, member.userId, "member", new GroupRepository.UpdateCallback() {
-                                @Override public void onSuccess() { Toast.makeText(GroupMembersActivity.this, "0 1f chuy 1fn th 10nh vi 17n", Toast.LENGTH_SHORT).show(); loadMembers(); }
-                                @Override public void onError(Exception e) { Toast.makeText(GroupMembersActivity.this, "L 112i: " + e.getMessage(), Toast.LENGTH_SHORT).show(); }
+                                @Override public void onSuccess() { Toast.makeText(GroupMembersActivity.this, "Đã chuyển thành viên", Toast.LENGTH_SHORT).show(); loadMembers(); }
+                                @Override public void onError(Exception e) { Toast.makeText(GroupMembersActivity.this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show(); }
                             });
                         }
                     })
-                    .setNegativeButton("H0y", null)
+                    .setNegativeButton("Hủy", null)
                     .show();
         } else if ("admin".equals(myRole)) {
             // Admin: only promote member -> admin
             if (!"member".equals(targetRole)) {
-                Toast.makeText(this, "Ch0 c 11 th 15y 11 15i vai tr 10 kh 15c", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Chỉ có thể thay đổi vai trò khác", Toast.LENGTH_SHORT).show();
                 return;
             }
             groupRepository.updateMemberRole(groupId, member.userId, "admin", new GroupRepository.UpdateCallback() {
-                @Override public void onSuccess() { Toast.makeText(GroupMembersActivity.this, "0 1f n 1fng quy 15n th 10nh admin", Toast.LENGTH_SHORT).show(); loadMembers(); }
-                @Override public void onError(Exception e) { Toast.makeText(GroupMembersActivity.this, "L 112i thay 11 15i: " + e.getMessage(), Toast.LENGTH_SHORT).show(); }
+                @Override public void onSuccess() { Toast.makeText(GroupMembersActivity.this, "Đã nâng quyền thành admin", Toast.LENGTH_SHORT).show(); loadMembers(); }
+                @Override public void onError(Exception e) { Toast.makeText(GroupMembersActivity.this, "Lỗi thay đổi: " + e.getMessage(), Toast.LENGTH_SHORT).show(); }
             });
         } else {
-            Toast.makeText(this, "Ban kh 15ng c 11 quy 15n", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Bạn không có quyền", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void blockMember(Member member) {
         // Only allow block for member targets
         if (!"member".equals(member.role)) {
-            Toast.makeText(this, "Ch ch 11n th 10nh vi 17n th 15ng", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Chỉ chọn thành viên thường", Toast.LENGTH_SHORT).show();
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle("Chn th 10nh vi 17n? ")
-                .setMessage("Th eam v e0o danh s e1ch chb1n, kh 15ng th 15 tham gia lai nh f3m")
+                .setTitle("Chọn thành viên? ")
+                .setMessage("Thêm vào danh sách chặn, không thể tham gia lại nhóm")
                 .setPositiveButton("Block", (d, w) -> {
                     groupRepository.blockUser(groupId, member.userId, new GroupRepository.UpdateCallback() {
                         @Override public void onSuccess() {
-                            Toast.makeText(GroupMembersActivity.this, "0 1f ch 11n th 10nh c f4ng", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(GroupMembersActivity.this, "Đã chặn thành công", Toast.LENGTH_SHORT).show();
                             // Remove from current list
                             for (int i = 0; i < allMembers.size(); i++) {
                                 if (allMembers.get(i).userId.equals(member.userId)) { allMembers.remove(i); break; }
@@ -436,22 +481,20 @@ public class GroupMembersActivity extends AppCompatActivity {
                             filterMembers(currentQuery);
                         }
                         @Override public void onError(Exception e) {
-                            Toast.makeText(GroupMembersActivity.this, "L 112i block: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(GroupMembersActivity.this, "Lỗi block: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                         }
                     });
                 })
-                .setNegativeButton("Hy", null)
+                .setNegativeButton("Hủy", null)
                 .show();
     }
 
-
-
-    private void kickMember(Member member) {
+    private void kickMember(Member member, String groupId) {
         new AlertDialog.Builder(this)
                 .setTitle("Xác nhận kick thành viên")
                 .setMessage("Bạn có chắc chắn muốn kick thành viên này khỏi nhóm không?")
                 .setPositiveButton("Kick", (dialog, which) -> {
-                    // Quy tắc đã lọc từ menu, nhưng vẫn kiểm tra an toàn
+                    // Quy tắc để kích hoạt menu, nhưng vẫn kiểm tra an toàn
                     String myRole = currentUserMember != null ? currentUserMember.role : null;
                     String targetRole = member.role != null ? member.role : "member";
                     if ("admin".equals(myRole) && !"member".equals(targetRole)) {
@@ -462,22 +505,90 @@ public class GroupMembersActivity extends AppCompatActivity {
                         Toast.makeText(this, "Không thể kick owner", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    groupRepository.removeMember(groupId, member.userId, new GroupRepository.UpdateCallback() {
-                        @Override public void onSuccess() {
-                            Toast.makeText(GroupMembersActivity.this, "Đã kick thành viên", Toast.LENGTH_SHORT).show();
-                            // Cập nhật danh sách tại chỗ
-                            for (int i = 0; i < allMembers.size(); i++) {
-                                if (allMembers.get(i).userId.equals(member.userId)) { allMembers.remove(i); break; }
-                            }
-                            filterMembers(currentQuery);
-                        }
-                        @Override public void onError(Exception e) {
-                            Toast.makeText(GroupMembersActivity.this, "Lỗi kick: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        }
-                    });
+
+                    // Kick from group and group chat
+                    kickUserFromGroupAndChat(member, groupId);
                 })
                 .setNegativeButton("Hủy", null)
                 .show();
+    }
+
+    private void kickUserFromGroupAndChat(Member member, String groupId) {
+        // First, kick from group membership
+        groupRepository.removeMember(groupId, member.userId, new GroupRepository.UpdateCallback() {
+            @Override
+            public void onSuccess() {
+                android.util.Log.d("GroupMembers", "Successfully removed member from group: " + member.userId);
+
+                // Send kick notice to user
+                sendKickNotice(member, groupId);
+
+                // Try to kick from group chat
+                kickUserFromGroupChat(member, groupId);
+
+                // Remove from current list
+                for (int i = 0; i < allMembers.size(); i++) {
+                    if (allMembers.get(i).userId.equals(member.userId)) {
+                        allMembers.remove(i);
+                        break;
+                    }
+                }
+                filterMembers(currentQuery);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Toast.makeText(GroupMembersActivity.this, "Lỗi kick thành viên: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void kickUserFromGroupChat(Member member, String groupId) {
+        // Get or create group chat to ensure it exists
+        com.example.nanaclu.data.repository.ChatRepository chatRepo = new com.example.nanaclu.data.repository.ChatRepository(FirebaseFirestore.getInstance());
+
+        chatRepo.getOrCreateGroupChat(groupId)
+                .addOnSuccessListener(chatId -> {
+                    android.util.Log.d("GroupMembers", "Found group chat: " + chatId + " for group: " + groupId);
+
+                    // Remove user from chat membership
+                    chatRepo.removeMember(chatId, member.userId)
+                            .addOnSuccessListener(aVoid -> {
+                                android.util.Log.d("GroupMembers", "Successfully removed user from group chat: " + member.userId);
+                            })
+                            .addOnFailureListener(e -> {
+                                android.util.Log.e("GroupMembers", "Failed to remove user from group chat: " + e.getMessage());
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("GroupMembers", "Failed to get group chat for group: " + groupId + ", error: " + e.getMessage());
+                });
+    }
+
+    private void sendKickNotice(Member member, String groupId) {
+        // Get group name for the notice
+        FirebaseFirestore.getInstance().collection("groups").document(groupId)
+                .get()
+                .addOnSuccessListener(groupDoc -> {
+                    String groupName = groupDoc.getString("name");
+                    if (groupName == null) groupName = "Nhóm";
+
+                    // Create kick notice
+                    com.example.nanaclu.data.model.Notice notice = new com.example.nanaclu.data.model.Notice();
+                    notice.setType("group_kicked");
+                    notice.setTitle("Bị kick khỏi nhóm");
+                    notice.setMessage("Bạn đã bị kick khỏi nhóm '" + groupName + "'");
+                    notice.setObjectType("group");
+                    notice.setObjectId(groupId);
+                    notice.setTargetUserId(member.userId);
+                    notice.setSeen(false);
+                    notice.setCreatedAt(System.currentTimeMillis());
+
+                    // Send notice
+                    com.example.nanaclu.data.repository.NoticeRepository noticeRepo =
+                            new com.example.nanaclu.data.repository.NoticeRepository(FirebaseFirestore.getInstance());
+                    noticeRepo.createNotice(notice);
+                });
     }
 
     @Override

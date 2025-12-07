@@ -213,12 +213,42 @@ public class PostDetailActivity extends AppCompatActivity {
         android.util.Log.d("PostDetailActivity", "=== START loadPost ===");
         android.util.Log.d("PostDetailActivity", "groupId: " + groupId);
         android.util.Log.d("PostDetailActivity", "postId: " + postId);
-        
+
         if (groupId == null || postId == null) {
             android.util.Log.e("PostDetailActivity", "groupId or postId is null");
             return;
         }
-        
+
+        // First check if user is still a member of the group
+        if (currentUserId != null) {
+            android.util.Log.d("PostDetailActivity", "Checking group membership for user: " + currentUserId);
+            new com.example.nanaclu.data.repository.GroupRepository(FirebaseFirestore.getInstance())
+                    .getMemberById(groupId, currentUserId, new com.example.nanaclu.data.repository.GroupRepository.MemberCallback() {
+                        @Override
+                        public void onSuccess(com.example.nanaclu.data.model.Member member) {
+                            if (member == null) {
+                                // User is not a member anymore
+                                showNotGroupMemberDialog();
+                                return;
+                            }
+                            // User is still a member, proceed to load post
+                            loadPostContent();
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            android.util.Log.e("PostDetailActivity", "Error checking membership: " + e.getMessage());
+                            // On error, show dialog to be safe
+                            showNotGroupMemberDialog();
+                        }
+                    });
+        } else {
+            // No logged in user, show error
+            showNotGroupMemberDialog();
+        }
+    }
+
+    private void loadPostContent() {
         android.util.Log.d("PostDetailActivity", "Loading post from Firestore...");
         db.collection("groups").document(groupId)
                 .collection("posts").document(postId)
@@ -227,7 +257,7 @@ public class PostDetailActivity extends AppCompatActivity {
                     android.util.Log.d("PostDetailActivity", "Firestore query completed");
                     android.util.Log.d("PostDetailActivity", "Document exists: " + doc.exists());
                     android.util.Log.d("PostDetailActivity", "Document ID: " + doc.getId());
-                    
+
                     Post post = doc.toObject(Post.class);
                     if (post == null) {
                         android.util.Log.e("PostDetailActivity", "Post is null - document exists: " + doc.exists());
@@ -237,14 +267,14 @@ public class PostDetailActivity extends AppCompatActivity {
                     // store author for notices
                     postAuthorId = post.authorId;
                     android.util.Log.d("PostDetailActivity", "Post loaded successfully. postAuthorId: " + postAuthorId);
-                    
+
                     // Load author name and group name
                     loadAuthorName(post.authorId);
                     loadGroupName(groupId);
-                    
+
                     tvTime.setText(android.text.format.DateUtils.getRelativeTimeSpanString(post.createdAt));
                     setupExpandableContent(post.content);
-                    
+
                     // Setup images or video
                     boolean isPoll = post.type != null && "poll".equals(post.type);
                     if (isPoll) {
@@ -281,6 +311,17 @@ public class PostDetailActivity extends AppCompatActivity {
                         }
                     }
                 });
+    }
+
+    private void showNotGroupMemberDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Không thể xem bài viết")
+                .setMessage("Bạn không thuộc nhóm này hoặc đã bị kick khỏi nhóm.")
+                .setPositiveButton("OK", (dialog, which) -> {
+                    finish(); // Close the activity
+                })
+                .setCancelable(false)
+                .show();
     }
 
     private void clearPollListeners() {

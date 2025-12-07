@@ -144,13 +144,12 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
         String[] logTypes = {
             "Tất cả",
             "Tạo bài viết",
-            "Xóa bài viết", 
-            "Bình luận",
+            "Xóa bài viết",
             "Tạo sự kiện",
             "Hủy sự kiện",
-            "RSVP sự kiện",
             "Cập nhật nhóm",
             "Cập nhật ảnh nhóm",
+            "Thay đổi mã nhóm",
             "Duyệt thành viên",
             "Từ chối thành viên",
             "Xóa thành viên",
@@ -162,7 +161,7 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
             "Xóa nhóm"
         };
 
-        ArrayAdapter<String> typeAdapter = new ArrayAdapter<>(this, 
+        ArrayAdapter<String> typeAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line, logTypes);
         etTypeFilter.setAdapter(typeAdapter);
         etTypeFilter.setText("Tất cả", false);
@@ -310,12 +309,11 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
         switch (typeName) {
             case "Tạo bài viết": return GroupLog.TYPE_POST_CREATED;
             case "Xóa bài viết": return GroupLog.TYPE_POST_DELETED;
-            case "Bình luận": return GroupLog.TYPE_COMMENT_ADDED;
             case "Tạo sự kiện": return GroupLog.TYPE_EVENT_CREATED;
             case "Hủy sự kiện": return GroupLog.TYPE_EVENT_CANCELLED;
-            case "RSVP sự kiện": return GroupLog.TYPE_EVENT_RSVP;
             case "Cập nhật nhóm": return GroupLog.TYPE_GROUP_UPDATED;
             case "Cập nhật ảnh nhóm": return GroupLog.TYPE_GROUP_IMAGE_UPDATED;
+            case "Thay đổi mã nhóm": return GroupLog.TYPE_GROUP_CODE_CHANGED;
             case "Duyệt thành viên": return GroupLog.TYPE_MEMBER_APPROVED;
             case "Từ chối thành viên": return GroupLog.TYPE_MEMBER_REJECTED;
             case "Xóa thành viên": return GroupLog.TYPE_MEMBER_REMOVED;
@@ -338,28 +336,59 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
 
     @Override
     public void onLogClick(GroupLog log) {
-        // Navigate to related content based on targetType and targetId
-        // This is a simplified implementation - you can expand based on your needs
-        switch (log.targetType) {
-            case GroupLog.TARGET_POST:
+        // Navigate to related content based on log type and target information
+        switch (log.type) {
+            case GroupLog.TYPE_POST_CREATED:
+            case GroupLog.TYPE_POST_DELETED:
+            case GroupLog.TYPE_POLL_CREATED:
                 // Navigate to post detail
-                Toast.makeText(this, "Xem chi tiết bài viết: " + log.targetId, Toast.LENGTH_SHORT).show();
+                if (log.targetId != null && !log.targetId.isEmpty()) {
+                    if (log.type.equals(GroupLog.TYPE_POST_DELETED)) {
+                        Toast.makeText(this, "Bài viết đã bị xóa và không thể xem", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Intent intent = new Intent(this, com.example.nanaclu.ui.post.PostDetailActivity.class);
+                        intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_GROUP_ID, groupId);
+                        intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_POST_ID, log.targetId);
+                        startActivity(intent);
+                    }
+                } else {
+                    Toast.makeText(this, "Không thể tìm thấy bài viết", Toast.LENGTH_SHORT).show();
+                }
                 break;
-            case GroupLog.TARGET_EVENT:
+
+            case GroupLog.TYPE_EVENT_CREATED:
+            case GroupLog.TYPE_EVENT_UPDATED:
+            case GroupLog.TYPE_EVENT_CANCELLED:
                 // Navigate to event detail
-                Toast.makeText(this, "Xem chi tiết sự kiện: " + log.targetId, Toast.LENGTH_SHORT).show();
+                if (log.targetId != null && !log.targetId.isEmpty()) {
+                    Intent intent = new Intent(this, com.example.nanaclu.ui.event.EventDetailActivity.class);
+                    intent.putExtra("eventId", log.targetId);
+                    startActivity(intent);
+                } else {
+                    Toast.makeText(this, "Không thể tìm thấy sự kiện", Toast.LENGTH_SHORT).show();
+                }
                 break;
-            case GroupLog.TARGET_MEMBER:
-                // Navigate to member profile
-                Toast.makeText(this, "Xem thông tin thành viên: " + log.targetId, Toast.LENGTH_SHORT).show();
+
+            case GroupLog.TYPE_GROUP_CODE_CHANGED:
+            case GroupLog.TYPE_MEMBER_APPROVED:
+            case GroupLog.TYPE_MEMBER_REJECTED:
+            case GroupLog.TYPE_MEMBER_REMOVED:
+            case GroupLog.TYPE_MEMBER_BLOCKED:
+            case GroupLog.TYPE_MEMBER_UNBLOCKED:
+                // Navigate to ShowLogActivity for detailed information
+                Intent intent = new Intent(this, ShowLogActivity.class);
+                intent.putExtra("logId", log.logId);
+                intent.putExtra("groupId", groupId);
+                startActivity(intent);
                 break;
-            case GroupLog.TARGET_GROUP:
-            case GroupLog.TARGET_SETTINGS:
-                // Navigate to group settings
-                Toast.makeText(this, "Xem cài đặt nhóm", Toast.LENGTH_SHORT).show();
-                break;
+
             default:
-                Toast.makeText(this, "Không thể xem chi tiết cho loại này", Toast.LENGTH_SHORT).show();
+                // For other types, just show the message
+                if (log.message != null && !log.message.isEmpty()) {
+                    Toast.makeText(this, log.message, Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "Không thể xem chi tiết cho loại này", Toast.LENGTH_SHORT).show();
+                }
                 break;
         }
     }
@@ -374,6 +403,9 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_export_json) {
             exportToJson();
+            return true;
+        } else if (item.getItemId() == R.id.action_delete_all_logs) {
+            showDeleteAllLogsConfirmationDialog();
             return true;
         } else if (item.getItemId() == android.R.id.home) {
             finish();
@@ -446,5 +478,57 @@ public class GroupLogActivity extends AppCompatActivity implements GroupLogAdapt
         } catch (IOException e) {
             Toast.makeText(this, "Lỗi khi lưu file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void showDeleteAllLogsConfirmationDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Xác nhận xóa")
+                .setMessage("Bạn có chắc muốn xóa tất cả nhật ký hoạt động của nhóm này?\n\nHành động này không thể hoàn tác.")
+                .setPositiveButton("Xóa tất cả", (dialog, which) -> deleteAllLogs())
+                .setNegativeButton("Hủy", null)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
+    }
+
+    private void deleteAllLogs() {
+        showLoading(true);
+
+        // Delete all logs for this group from Firestore
+        FirebaseFirestore.getInstance()
+                .collection("groups")
+                .document(groupId)
+                .collection("logs")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) {
+                        showLoading(false);
+                        Toast.makeText(this, "Không có nhật ký nào để xóa", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // Use batch delete for efficiency
+                    com.google.firebase.firestore.WriteBatch batch = FirebaseFirestore.getInstance().batch();
+
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        batch.delete(doc.getReference());
+                    }
+
+                    batch.commit()
+                            .addOnSuccessListener(aVoid -> {
+                                showLoading(false);
+                                Toast.makeText(this, "Đã xóa tất cả nhật ký hoạt động", Toast.LENGTH_SHORT).show();
+
+                                // Refresh the list
+                                loadInitialData();
+                            })
+                            .addOnFailureListener(e -> {
+                                showLoading(false);
+                                Toast.makeText(this, "Lỗi khi xóa nhật ký: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    showLoading(false);
+                    Toast.makeText(this, "Lỗi khi tải danh sách nhật ký: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 }

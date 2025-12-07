@@ -68,6 +68,7 @@
         <activity android:name=".ui.group.GroupBlockedUsersActivity" android:exported="false" />
         <activity android:name=".ui.group.GroupPendingMembersActivity" android:exported="false" />
         <activity android:name=".ui.group.logs.GroupLogActivity" android:exported="false" />
+        <activity android:name=".ui.group.logs.ShowLogActivity" android:exported="false" />
         <activity android:name=".ui.group.statistics.GroupStatisticsActivity" android:exported="false" />
         <activity android:name=".ui.security.SecurityActivity" android:exported="false" />
         <activity android:name=".ui.security.PinEntryActivity" android:exported="false" />

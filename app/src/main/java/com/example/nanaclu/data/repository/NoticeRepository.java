@@ -560,11 +560,35 @@ public class NoticeRepository {
     }
 
     /**
+     * Tạo thông báo generic
+     */
+    public Task<Void> createNotice(Notice notice) {
+        if (notice.getTargetUserId() == null || notice.getTargetUserId().isEmpty()) {
+            return Tasks.forException(new IllegalArgumentException("targetUserId is required"));
+        }
+
+        String noticeId = notice.getId();
+        if (noticeId == null || noticeId.isEmpty()) {
+            noticeId = UUID.randomUUID().toString();
+            notice.setId(noticeId);
+        }
+
+        return db.collection("users")
+                .document(notice.getTargetUserId())
+                .collection("notices")
+                .document(noticeId)
+                .set(notice.toMap())
+                .addOnFailureListener(e -> {
+                    com.example.nanaclu.utils.NetworkErrorLogger.logIfNoNetwork("NoticeRepository", e);
+                });
+    }
+
+    /**
      * Xóa tất cả thông báo của user
      */
     public Task<Void> deleteAllNotifications(String uid) {
         Log.d(TAG, "Deleting all notifications for user: " + uid);
-        
+
         return db.collection("users")
                 .document(uid)
                 .collection("notices")

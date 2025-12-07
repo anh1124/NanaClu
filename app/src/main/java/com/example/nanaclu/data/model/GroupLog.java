@@ -27,6 +27,7 @@ public class GroupLog {
     public static final String TYPE_EVENT_RSVP = "event_rsvp";
     public static final String TYPE_GROUP_UPDATED = "group_updated";
     public static final String TYPE_GROUP_IMAGE_UPDATED = "group_image_updated";
+    public static final String TYPE_GROUP_CODE_CHANGED = "group_code_changed";
     public static final String TYPE_MEMBER_APPROVED = "member_approved";
     public static final String TYPE_MEMBER_REJECTED = "member_rejected";
     public static final String TYPE_MEMBER_REMOVED = "member_removed";
@@ -37,6 +38,7 @@ public class GroupLog {
     public static final String TYPE_ROLE_CHANGED = "role_changed";
     public static final String TYPE_POLICY_CHANGED = "policy_changed";
     public static final String TYPE_GROUP_DELETED = "group_deleted";
+    public static final String TYPE_POLL_CREATED = "poll_created";
 
     // Target type constants
     public static final String TARGET_GROUP = "group";

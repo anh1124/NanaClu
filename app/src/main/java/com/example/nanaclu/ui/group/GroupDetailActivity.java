@@ -51,8 +51,9 @@ public class GroupDetailActivity extends AppCompatActivity {
     private boolean reachedEnd = false;
     private SwipeRefreshLayout swipeRefreshLayout;
 
-    // Base title for the approve members menu item
+    // Base titles for menu items that show counts
     private String approveMembersBaseTitle;
+    private String manageReportsBaseTitle;
 
 
     // Backup groupId for debugging
@@ -352,6 +353,15 @@ public class GroupDetailActivity extends AppCompatActivity {
                         : "Duyệt thành viên";
             }
         }
+        MenuItem manageReportsItem = menu.findItem(R.id.action_manage_reports);
+        if (manageReportsItem != null) {
+            manageReportsItem.setVisible(isAdminOrOwner);
+            if (manageReportsBaseTitle == null) {
+                manageReportsBaseTitle = manageReportsItem.getTitle() != null
+                        ? manageReportsItem.getTitle().toString()
+                        : "Quản lý báo cáo";
+            }
+        }
 
     }
 
@@ -367,11 +377,38 @@ public class GroupDetailActivity extends AppCompatActivity {
             public void onSuccess(java.util.List<String> ids) {
                 int count = (ids != null) ? ids.size() : 0;
                 updateApproveMembersTitle(count);
+                // Also refresh pending reports count
+                refreshPendingReportsCount();
             }
 
             @Override
             public void onError(Exception e) {
                 updateApproveMembersTitle(0);
+                refreshPendingReportsCount();
+            }
+        });
+    }
+
+    private void refreshPendingReportsCount() {
+        if (groupId == null) return;
+
+        boolean isAdminOrOwner = currentUserMember != null &&
+                ("admin".equals(currentUserMember.role) || "owner".equals(currentUserMember.role));
+        if (!isAdminOrOwner) return;
+
+        com.example.nanaclu.data.repository.ReportRepository reportRepository =
+            new com.example.nanaclu.data.repository.ReportRepository(FirebaseFirestore.getInstance());
+
+        reportRepository.fetchGroupReports(groupId, "pending", new com.example.nanaclu.data.repository.ReportRepository.Callback<java.util.List<com.example.nanaclu.data.model.ReportModel>>() {
+            @Override
+            public void onSuccess(java.util.List<com.example.nanaclu.data.model.ReportModel> reports) {
+                int count = (reports != null) ? reports.size() : 0;
+                updateManageReportsTitle(count);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                updateManageReportsTitle(0);
             }
         });
     }
@@ -395,6 +432,28 @@ public class GroupDetailActivity extends AppCompatActivity {
             approveItem.setTitle(approveMembersBaseTitle + " (" + pendingCount + ")");
         } else {
             approveItem.setTitle(approveMembersBaseTitle);
+        }
+    }
+
+    private void updateManageReportsTitle(int pendingCount) {
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        if (toolbar == null) return;
+        android.view.Menu menu = toolbar.getMenu();
+        if (menu == null) return;
+
+        MenuItem manageReportsItem = menu.findItem(R.id.action_manage_reports);
+        if (manageReportsItem == null) return;
+
+        if (manageReportsBaseTitle == null) {
+            manageReportsBaseTitle = manageReportsItem.getTitle() != null
+                    ? manageReportsItem.getTitle().toString()
+                    : "Quản lý báo cáo";
+        }
+
+        if (pendingCount > 0) {
+            manageReportsItem.setTitle(manageReportsBaseTitle + " (" + pendingCount + ")");
+        } else {
+            manageReportsItem.setTitle(manageReportsBaseTitle);
         }
     }
 
@@ -609,6 +668,14 @@ public class GroupDetailActivity extends AppCompatActivity {
             Intent intent = new Intent(this, GroupPendingMembersActivity.class);
             intent.putExtra("groupId", groupId);
             startActivity(intent);
+            return true;
+        } else if (id == R.id.action_manage_reports) {
+            Intent intent = new Intent(this, com.example.nanaclu.ui.report.ActiveGroupReportDashboardFragment.class);
+            intent.putExtra("groupId", groupId);
+            // For now, start a simple activity that hosts the fragment
+            Intent activityIntent = new Intent(this, com.example.nanaclu.ui.report.GroupReportActivity.class);
+            activityIntent.putExtra("groupId", groupId);
+            startActivity(activityIntent);
             return true;
         } else if (id == R.id.action_group_settings) {
             // Open GroupSettingsActivity

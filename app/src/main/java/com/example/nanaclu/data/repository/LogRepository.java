@@ -49,17 +49,25 @@ public class LogRepository {
     /**
      * Log a group action (fire-and-forget)
      */
-    public void logGroupAction(String groupId, String type, String targetType, String targetId, 
+    public void logGroupAction(String groupId, String type, String targetType, String targetId,
                               String targetName, Map<String, Object> metadata) {
         try {
             android.util.Log.d("LogRepository", "🔍 Starting logGroupAction: groupId=" + groupId + ", type=" + type);
-            
+
+            // Skip logging for unwanted actions as per requirements
+            if (GroupLog.TYPE_COMMENT_ADDED.equals(type) ||
+                GroupLog.TYPE_COMMENT_DELETED.equals(type) ||
+                GroupLog.TYPE_EVENT_RSVP.equals(type)) {
+                android.util.Log.d("LogRepository", "⏭️ Skipping log for unwanted action type: " + type);
+                return;
+            }
+
             String currentUserId = getCurrentUserId();
             if (currentUserId == null) {
                 android.util.Log.e("LogRepository", "❌ Cannot log action: user not logged in");
                 return;
             }
-            
+
             android.util.Log.d("LogRepository", "✅ User authenticated: " + currentUserId);
 
             // Get current user name for caching
@@ -84,9 +92,9 @@ public class LogRepository {
                         .document(groupId)
                         .collection(LOGS_COLLECTION)
                         .add(logData)
-                        .addOnSuccessListener(docRef -> 
+                        .addOnSuccessListener(docRef ->
                             android.util.Log.d("LogRepository", "✅ Log uploaded successfully: " + docRef.getId()))
-                        .addOnFailureListener(e -> 
+                        .addOnFailureListener(e ->
                             android.util.Log.e("LogRepository", "❌ Failed to log action: " + type, e));
             });
         } catch (Exception e) {

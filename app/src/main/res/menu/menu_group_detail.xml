@@ -27,6 +27,12 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_manage_reports"
+        android:title="Quản lý báo cáo"
+        android:icon="@drawable/ic_report"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_group_settings"
         android:title="Cài đặt nhóm"
         android:icon="@android:drawable/ic_menu_preferences"

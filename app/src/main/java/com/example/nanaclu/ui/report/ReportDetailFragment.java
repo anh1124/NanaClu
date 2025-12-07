@@ -48,6 +48,7 @@ public class ReportDetailFragment extends Fragment {
     private TextView tvStatus;
     private TextView tvModeratorNote;
     private TextView tvAction;
+    private Map<String, String> userNameCache = new HashMap<>();
     
     private EditText etModeratorNote;
     private Button btnDismiss;
@@ -179,24 +180,11 @@ public class ReportDetailFragment extends Fragment {
         tvPostId.setText("Post ID: " + report.postId);
         tvPostId.setOnClickListener(v -> copyToClipboard(report.postId, "Post ID"));
         
-        // User bị báo cáo - click để copy
-        String reportedUserShort = report.reportedUserId != null && report.reportedUserId.length() > 8 
-            ? report.reportedUserId.substring(0, 8) + "..." 
-            : report.reportedUserId;
-        tvReportedUser.setText("User bị báo cáo: " + reportedUserShort);
-        tvReportedUser.setOnClickListener(v -> copyToClipboard(report.reportedUserId, "Reported User ID"));
-        
-        // Người báo cáo - click để copy
-        if (report.reporterUserId != null) {
-            String reporterShort = report.reporterUserId.length() > 8 
-                ? report.reporterUserId.substring(0, 8) + "..." 
-                : report.reporterUserId;
-            tvReporter.setText("Người báo cáo: " + reporterShort);
-            tvReporter.setOnClickListener(v -> copyToClipboard(report.reporterUserId, "Reporter User ID"));
-        } else {
-            tvReporter.setText("Người báo cáo: Ẩn danh");
-            tvReporter.setOnClickListener(null);
-        }
+        // User bị báo cáo - fetch name and display
+        displayReportedUserName();
+
+        // Người báo cáo - fetch name and display
+        displayReporterName();
         
         // Thời gian
         tvTimestamp.setText("Thời gian: " + formatTimestamp(report.timestamp));
@@ -298,7 +286,21 @@ public class ReportDetailFragment extends Fragment {
                 FirebaseFirestore.getInstance()
                     .collection("groups").document(groupId)
                     .update("memberCount", com.google.firebase.firestore.FieldValue.increment(-1));
-                
+
+                // Log the kick action
+                com.example.nanaclu.data.repository.LogRepository logRepository =
+                    new com.example.nanaclu.data.repository.LogRepository(FirebaseFirestore.getInstance());
+
+                Map<String, Object> logMetadata = new HashMap<>();
+                logMetadata.put("reason", "reported_content");
+                logMetadata.put("reportId", reportId);
+                if (!note.isEmpty()) {
+                    logMetadata.put("moderatorNote", note);
+                }
+
+                logRepository.logGroupAction(groupId, com.example.nanaclu.data.model.GroupLog.TYPE_MEMBER_REMOVED,
+                    "user", report.reportedUserId, null, logMetadata);
+
                 // Sau khi kick thành công, update report status
                 Map<String, Object> extra = new HashMap<>();
                 extra.put("moderatorId", FirebaseAuth.getInstance().getUid());
@@ -306,7 +308,7 @@ public class ReportDetailFragment extends Fragment {
                 if (!note.isEmpty()) {
                     extra.put("moderatorNote", note);
                 }
-                
+
                 updateReportStatus("action_taken", extra, "Đã kick user khỏi nhóm");
             })
             .addOnFailureListener(e -> {
@@ -319,10 +321,10 @@ public class ReportDetailFragment extends Fragment {
      */
     private void onViewPostClicked() {
         if (report != null && report.postId != null) {
-            // Mở PostDetailActivity với postId
+            // Mở PostDetailActivity với cả groupId và postId
             Intent intent = new Intent(requireContext(), com.example.nanaclu.ui.post.PostDetailActivity.class);
-            intent.putExtra("postId", report.postId);
-            intent.putExtra("groupId", groupId);
+            intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_GROUP_ID, groupId);
+            intent.putExtra(com.example.nanaclu.ui.post.PostDetailActivity.EXTRA_POST_ID, report.postId);
             startActivity(intent);
         } else {
             Toast.makeText(requireContext(), "Không thể mở bài đăng", Toast.LENGTH_SHORT).show();
@@ -411,16 +413,102 @@ public class ReportDetailFragment extends Fragment {
     }
     
     /**
+     * Display reported user name instead of ID
+     */
+    private void displayReportedUserName() {
+        if (report.reportedUserId != null) {
+            // Check cache first
+            if (userNameCache.containsKey(report.reportedUserId)) {
+                String cachedName = userNameCache.get(report.reportedUserId);
+                displayReportedUserText(cachedName != null ? cachedName : "Unknown User");
+            } else {
+                // Fetch from Firestore
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(report.reportedUserId)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        String displayName = null;
+                        if (doc.exists()) {
+                            displayName = doc.getString("displayName");
+                            if (displayName == null || displayName.isEmpty()) {
+                                displayName = doc.getString("name");
+                            }
+                        }
+                        String finalName = displayName != null ? displayName : "Unknown User";
+                        userNameCache.put(report.reportedUserId, finalName);
+                        displayReportedUserText(finalName);
+                    })
+                    .addOnFailureListener(e -> {
+                        userNameCache.put(report.reportedUserId, "Unknown User");
+                        displayReportedUserText("Unknown User");
+                    });
+            }
+        } else {
+            tvReportedUser.setText("User bị báo cáo: N/A");
+            tvReportedUser.setOnClickListener(null);
+        }
+    }
+
+    /**
+     * Display reporter name instead of ID
+     */
+    private void displayReporterName() {
+        if (report.reporterUserId != null) {
+            // Check cache first
+            if (userNameCache.containsKey(report.reporterUserId)) {
+                String cachedName = userNameCache.get(report.reporterUserId);
+                displayReporterText(cachedName != null ? cachedName : "Unknown User");
+            } else {
+                // Fetch from Firestore
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(report.reporterUserId)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        String displayName = null;
+                        if (doc.exists()) {
+                            displayName = doc.getString("displayName");
+                            if (displayName == null || displayName.isEmpty()) {
+                                displayName = doc.getString("name");
+                            }
+                        }
+                        String finalName = displayName != null ? displayName : "Unknown User";
+                        userNameCache.put(report.reporterUserId, finalName);
+                        displayReporterText(finalName);
+                    })
+                    .addOnFailureListener(e -> {
+                        userNameCache.put(report.reporterUserId, "Unknown User");
+                        displayReporterText("Unknown User");
+                    });
+            }
+        } else {
+            tvReporter.setText("Người báo cáo: Ẩn danh");
+            tvReporter.setOnClickListener(null);
+        }
+    }
+
+    private void displayReportedUserText(String userName) {
+        tvReportedUser.setText("User bị báo cáo: " + userName);
+        tvReportedUser.setOnClickListener(v -> copyToClipboard(report.reportedUserId, "Reported User ID"));
+    }
+
+    private void displayReporterText(String userName) {
+        tvReporter.setText("Người báo cáo: " + userName);
+        tvReporter.setOnClickListener(v -> copyToClipboard(report.reporterUserId, "Reporter User ID"));
+    }
+
+    /**
      * Copy text to clipboard
      */
     private void copyToClipboard(String text, String label) {
         if (text == null) return;
-        
-        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) 
+
+        android.content.ClipboardManager clipboard = (android.content.ClipboardManager)
             requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
         android.content.ClipData clip = android.content.ClipData.newPlainText(label, text);
         clipboard.setPrimaryClip(clip);
-        
+
         Toast.makeText(requireContext(), "Đã copy " + label, Toast.LENGTH_SHORT).show();
     }
 }

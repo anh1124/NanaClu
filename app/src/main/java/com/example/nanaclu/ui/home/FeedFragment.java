@@ -179,10 +179,16 @@ public class FeedFragment extends BaseFragment {
         if (swipeRefresh != null) swipeRefresh.setRefreshing(true);
         groupRepository.loadJoinedGroupIds()
                 .addOnSuccessListener(ids -> {
+                    android.util.Log.d(TAG, "=== loadJoinedGroupIds SUCCESS ===");
+                    android.util.Log.d(TAG, "Raw joined group IDs: " + ids);
+                    android.util.Log.d(TAG, "Number of joined groups: " + (ids != null ? ids.size() : "null"));
                     joinedGroupIds.clear();
                     joinedGroupIds.addAll(ids);
+                    android.util.Log.d(TAG, "joinedGroupIds after clearing and adding: " + joinedGroupIds);
+                    android.util.Log.d(TAG, "joinedGroupIds.isEmpty(): " + joinedGroupIds.isEmpty());
+
                     if (joinedGroupIds.isEmpty()) {
-                        android.util.Log.w(TAG, "User chưa tham gia group nào");
+                        android.util.Log.w(TAG, "User chưa tham gia group nào - showing join group message");
                         setupJoinGroupEmptyState(tvEmpty);
                         tvEmpty.setVisibility(View.VISIBLE);
                         rvFeed.setVisibility(View.GONE);
@@ -190,6 +196,7 @@ public class FeedFragment extends BaseFragment {
                         if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                         return;
                     }
+                    android.util.Log.d(TAG, "User has joined groups - hiding empty state and loading posts");
                     tvEmpty.setVisibility(View.GONE);
                     rvFeed.setVisibility(View.VISIBLE);
                     loadInitial();
@@ -216,13 +223,30 @@ public class FeedFragment extends BaseFragment {
     }
 
     private void refreshFeed() {
-        // Clear và tải lại từ đầu
+        // Clear và tải lại từ đầu, bao gồm cả joined group IDs
         reachedEnd = false;
         isLoading = false;
         loadedPostIds.clear();
         lastByGroup.clear();
         adapter.setItems(new java.util.ArrayList<>());
-        loadInitial();
+
+        // Reload joined group IDs trước khi load posts
+        android.util.Log.d(TAG, "=== Refreshing feed - reloading joined groups ===");
+        groupRepository.loadJoinedGroupIds()
+                .addOnSuccessListener(ids -> {
+                    android.util.Log.d(TAG, "Refresh: loaded joined group IDs: " + ids);
+                    joinedGroupIds.clear();
+                    joinedGroupIds.addAll(ids);
+                    android.util.Log.d(TAG, "Refresh: joinedGroupIds updated to: " + joinedGroupIds);
+
+                    // Sau đó mới load posts
+                    loadInitial();
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e(TAG, "Refresh: failed to reload joined groups: " + e.getMessage());
+                    // Nếu không thể load joined groups, vẫn thử load với danh sách hiện tại
+                    loadInitial();
+                });
     }
 
     private void loadInitial() {
@@ -263,15 +287,24 @@ public class FeedFragment extends BaseFragment {
                     View root = getView();
                     if (root != null) {
                         android.widget.TextView tvEmpty = root.findViewById(R.id.tvEmpty);
+                        android.util.Log.d(TAG, "=== Setting empty state ===");
+                        android.util.Log.d(TAG, "top.isEmpty(): " + top.isEmpty());
+                        android.util.Log.d(TAG, "joinedGroupIds.isEmpty(): " + joinedGroupIds.isEmpty());
+                        android.util.Log.d(TAG, "joinedGroupIds size: " + joinedGroupIds.size());
+                        android.util.Log.d(TAG, "joinedGroupIds contents: " + joinedGroupIds);
+
                         if (top.isEmpty()) {
                             if (joinedGroupIds.isEmpty()) {
+                                android.util.Log.d(TAG, "Showing JOIN GROUP empty state");
                                 setupJoinGroupEmptyState(tvEmpty);
                             } else {
+                                android.util.Log.d(TAG, "Showing GROUP HAS NO POSTS empty state");
                                 tvEmpty.setText("Ở đây hơi trống thì phải, group của bạn chưa có ai đăng bài");
                             }
                             tvEmpty.setVisibility(View.VISIBLE);
                             rvFeed.setVisibility(View.GONE);
                         } else {
+                            android.util.Log.d(TAG, "Hiding empty state, showing posts");
                             tvEmpty.setVisibility(View.GONE);
                             rvFeed.setVisibility(View.VISIBLE);
                         }
