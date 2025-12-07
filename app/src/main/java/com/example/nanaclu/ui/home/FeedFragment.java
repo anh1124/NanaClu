@@ -94,11 +94,6 @@ public class FeedFragment extends BaseFragment {
         // Show unread count toast when FeedFragment opens
         noticeCenter.showUnreadCountToast();
 
-        // Setup notification badge after noticeCenter is initialized
-        if (toolbar != null) {
-            setupNotificationBadge(toolbar);
-        }
-
         swipeRefresh = root.findViewById(R.id.swipeRefreshFeed);
         rvFeed = root.findViewById(R.id.rvFeed);
         final android.widget.TextView tvEmpty = root.findViewById(R.id.tvEmpty);
@@ -554,86 +549,5 @@ public class FeedFragment extends BaseFragment {
                 .show();
     }
 
-    private void setupNotificationBadge(androidx.appcompat.widget.Toolbar toolbar) {
-        // Check if noticeCenter is initialized
-        if (noticeCenter == null) {
-            android.util.Log.w(TAG, "NoticeCenter is null, cannot setup notification badge");
-            return;
-        }
 
-        // Tạo badge TextView để hiển thị số lượng notice chưa đọc
-        android.widget.TextView badgeView = new android.widget.TextView(requireContext());
-        badgeView.setBackgroundResource(R.drawable.circle_red);
-        badgeView.setTextColor(android.graphics.Color.WHITE);
-        badgeView.setTextSize(10);
-        badgeView.setGravity(android.view.Gravity.CENTER);
-        badgeView.setPadding(4, 2, 4, 2);
-        badgeView.setVisibility(android.view.View.GONE); // Ẩn ban đầu
-
-        // Layout params để position badge
-        androidx.appcompat.widget.Toolbar.LayoutParams badgeParams = new androidx.appcompat.widget.Toolbar.LayoutParams(
-                androidx.appcompat.widget.Toolbar.LayoutParams.WRAP_CONTENT,
-                androidx.appcompat.widget.Toolbar.LayoutParams.WRAP_CONTENT
-        );
-        badgeParams.gravity = android.view.Gravity.TOP | android.view.Gravity.END;
-        badgeView.setLayoutParams(badgeParams);
-
-        // Add badge vào toolbar
-        toolbar.addView(badgeView);
-
-        // Observe unread count và update badge
-        noticeCenter.getUnreadCount().observe(getViewLifecycleOwner(), unreadCount -> {
-            if (unreadCount != null && unreadCount > 0) {
-                // Có thông báo chưa đọc - dùng icon notification1 và hiển thị badge
-                toolbar.getMenu().findItem(R.id.action_notice).setIcon(R.drawable.ic_notifications_active_24);
-
-                // Hiển thị badge với số lượng
-                badgeView.setText(String.valueOf(unreadCount));
-                badgeView.setVisibility(android.view.View.VISIBLE);
-
-                // Position badge lên menu item
-                toolbar.post(() -> {
-                    try {
-                        android.view.View menuItemView = findMenuItemView(toolbar, R.id.action_notice);
-                        if (menuItemView != null) {
-                            int[] location = new int[2];
-                            menuItemView.getLocationOnScreen(location);
-                            int[] toolbarLocation = new int[2];
-                            toolbar.getLocationOnScreen(toolbarLocation);
-
-                            badgeParams.leftMargin = location[0] - toolbarLocation[0] + menuItemView.getWidth() - 20;
-                            badgeParams.topMargin = 8;
-                            badgeView.setLayoutParams(badgeParams);
-                        }
-                    } catch (Exception e) {
-                        android.util.Log.e(TAG, "Error positioning badge", e);
-                    }
-                });
-            } else {
-                // Không có thông báo chưa đọc - dùng icon notification0 và ẩn badge
-                toolbar.getMenu().findItem(R.id.action_notice).setIcon(R.drawable.ic_notifications_none_24);
-                badgeView.setVisibility(android.view.View.GONE);
-            }
-        });
-    }
-
-    private android.view.View findMenuItemView(androidx.appcompat.widget.Toolbar toolbar, int menuItemId) {
-        for (int i = 0; i < toolbar.getChildCount(); i++) {
-            android.view.View child = toolbar.getChildAt(i);
-            if (child instanceof androidx.appcompat.widget.ActionMenuView) {
-                androidx.appcompat.widget.ActionMenuView menuView = (androidx.appcompat.widget.ActionMenuView) child;
-                for (int j = 0; j < menuView.getChildCount(); j++) {
-                    android.view.View menuChild = menuView.getChildAt(j);
-                    if (menuChild instanceof androidx.appcompat.view.menu.ActionMenuItemView) {
-                        androidx.appcompat.view.menu.ActionMenuItemView itemView =
-                                (androidx.appcompat.view.menu.ActionMenuItemView) menuChild;
-                        if (itemView.getItemData() != null && itemView.getItemData().getItemId() == menuItemId) {
-                            return itemView;
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    }
 }
