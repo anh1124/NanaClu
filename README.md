@@ -1,3 +1,5 @@
+[![Video Demo](https://img.youtube.com/vi/m02R2U3QeCg/0.jpg)](https://youtu.be/m02R2U3QeCg)
+
 # NANACLU - Community & Group Management App
 
 A comprehensive Android application built with Firebase that enables users to create and manage communities, share content, communicate through real-time chat, and organize events. Designed as a mini social network platform with a focus on community building and group management.
