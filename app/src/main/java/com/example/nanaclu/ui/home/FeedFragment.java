@@ -94,6 +94,9 @@ public class FeedFragment extends BaseFragment {
         // Show unread count toast when FeedFragment opens
         noticeCenter.showUnreadCountToast();
 
+        // Setup notification icon based on unread count
+        setupNotificationIcon(toolbar);
+
         swipeRefresh = root.findViewById(R.id.swipeRefreshFeed);
         rvFeed = root.findViewById(R.id.rvFeed);
         final android.widget.TextView tvEmpty = root.findViewById(R.id.tvEmpty);
@@ -538,7 +541,7 @@ public class FeedFragment extends BaseFragment {
                             adapter.removePost(post.postId);
                             android.widget.Toast.makeText(requireContext(), "Đã xóa bài viết", android.widget.Toast.LENGTH_SHORT).show();
                         }
-                        
+
                         @Override
                         public void onError(Exception e) {
                             android.widget.Toast.makeText(requireContext(), "Lỗi xóa bài viết: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
@@ -547,6 +550,24 @@ public class FeedFragment extends BaseFragment {
                 })
                 .setNegativeButton("Hủy", null)
                 .show();
+    }
+
+    private void setupNotificationIcon(androidx.appcompat.widget.Toolbar toolbar) {
+        // Check if noticeCenter is initialized
+        if (noticeCenter == null || toolbar == null) {
+            return;
+        }
+
+        // Observe unread count and update icon accordingly
+        noticeCenter.getUnreadCount().observe(getViewLifecycleOwner(), unreadCount -> {
+            if (unreadCount != null && unreadCount > 0) {
+                // Có thông báo chưa đọc - dùng notification1.png
+                toolbar.getMenu().findItem(R.id.action_notice).setIcon(R.drawable.notification1);
+            } else {
+                // Không có thông báo chưa đọc - dùng notification0.png
+                toolbar.getMenu().findItem(R.id.action_notice).setIcon(R.drawable.notification0);
+            }
+        });
     }
 
 
