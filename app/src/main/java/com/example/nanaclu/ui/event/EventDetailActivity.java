@@ -270,8 +270,8 @@ public class EventDetailActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        String creatorName = documentSnapshot.getString("name");
-                        if (creatorName != null) {
+                        String creatorName = documentSnapshot.getString("displayName");
+                        if (creatorName != null && !creatorName.isEmpty()) {
                             getSupportActionBar().setSubtitle("Tạo bởi: " + creatorName);
                             // Update the event object
                             if (currentEvent != null) {

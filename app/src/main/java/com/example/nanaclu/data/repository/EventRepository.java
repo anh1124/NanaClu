@@ -534,41 +534,47 @@ public class EventRepository {
 
     // Check if user can delete event (admin, owner, or creator)
     public void canUserDeleteEvent(String groupId, String eventId, String userId, OnSuccessCallback<Boolean> onSuccess, OnErrorCallback onError) {
-        // First check if user is group admin/owner
+        // First check user's role in the group
         db.collection(GROUPS)
                 .document(groupId)
+                .collection("members")
+                .document(userId)
                 .get()
-                .addOnSuccessListener(groupDoc -> {
-                    if (groupDoc.exists()) {
-                        String ownerId = groupDoc.getString("ownerId");
-                        java.util.List<String> adminIds = (java.util.List<String>) groupDoc.get("adminIds");
+                .addOnSuccessListener(memberDoc -> {
+                    if (memberDoc.exists()) {
+                        String role = memberDoc.getString("role");
 
                         // Check if user is owner or admin
-                        boolean isOwner = userId.equals(ownerId);
-                        boolean isAdmin = adminIds != null && adminIds.contains(userId);
+                        boolean isOwnerOrAdmin = "owner".equals(role) || "admin".equals(role);
 
-                        if (isOwner || isAdmin) {
+                        if (isOwnerOrAdmin) {
+                            // Admin or owner can delete any event
                             onSuccess.onSuccess(true);
                             return;
+                        } else if ("member".equals(role)) {
+                            // Member can only delete their own events
+                            // Check if user is event creator
+                            db.collection(GROUPS)
+                                    .document(groupId)
+                                    .collection(EVENTS)
+                                    .document(eventId)
+                                    .get()
+                                    .addOnSuccessListener(eventDoc -> {
+                                        if (eventDoc.exists()) {
+                                            String creatorId = eventDoc.getString("creatorId");
+                                            boolean isCreator = userId.equals(creatorId);
+                                            onSuccess.onSuccess(isCreator);
+                                        } else {
+                                            onSuccess.onSuccess(false);
+                                        }
+                                    })
+                                    .addOnFailureListener(onError::onError);
+                        } else {
+                            // Unknown role, deny access
+                            onSuccess.onSuccess(false);
                         }
-
-                        // Check if user is event creator
-                        db.collection(GROUPS)
-                                .document(groupId)
-                                .collection(EVENTS)
-                                .document(eventId)
-                                .get()
-                                .addOnSuccessListener(eventDoc -> {
-                                    if (eventDoc.exists()) {
-                                        String creatorId = eventDoc.getString("creatorId");
-                                        boolean isCreator = userId.equals(creatorId);
-                                        onSuccess.onSuccess(isCreator);
-                                    } else {
-                                        onSuccess.onSuccess(false);
-                                    }
-                                })
-                                .addOnFailureListener(onError::onError);
                     } else {
+                        // User is not a member of the group
                         onSuccess.onSuccess(false);
                     }
                 })
