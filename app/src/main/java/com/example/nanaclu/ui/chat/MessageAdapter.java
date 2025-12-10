@@ -1,5 +1,12 @@
 package com.example.nanaclu.ui.chat;
 
+import android.content.Intent;
+import android.graphics.Color;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.TextPaint;
+import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,6 +22,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.example.nanaclu.utils.ShareLinkUtils;
 import com.example.nanaclu.R;
 import com.example.nanaclu.data.model.FileAttachment;
 import com.example.nanaclu.data.model.Message;
@@ -33,6 +41,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private static final int TYPE_MESSAGE_SENT = 1;
     private static final int TYPE_MESSAGE_RECEIVED = 2;
     private static final int TYPE_FILE_ATTACHMENT = 3;
+    // Regex pattern for post links
+    private static final java.util.regex.Pattern POST_LINK_PATTERN =
+        java.util.regex.Pattern.compile("@post:[a-zA-Z0-9_-]+");
     // Simple in-memory caches to minimize Firestore calls
     private static final ConcurrentHashMap<String, String> NAME_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> PHOTO_CACHE = new ConcurrentHashMap<>();
@@ -115,6 +126,61 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         return messages.size();
     }
 
+    /**
+     * Process message text to make post links clickable
+     */
+    private static void setupMessageText(TextView tvMessage, String content) {
+        if (content == null || content.isEmpty()) {
+            tvMessage.setText("");
+            return;
+        }
+
+        // Check if content contains post links
+        if (content.contains("@post:")) {
+            SpannableString spannableString = new SpannableString(content);
+            java.util.regex.Matcher matcher = POST_LINK_PATTERN.matcher(content);
+
+            while (matcher.find()) {
+                final String link = matcher.group(); // e.g., "@post:abc123"
+                final String postId = link.substring(6); // e.g., "abc123"
+
+                int start = matcher.start();
+                int end = matcher.end();
+
+                ClickableSpan clickableSpan = new ClickableSpan() {
+                    @Override
+                    public void onClick(@NonNull View widget) {
+                        // Open post using ShareLinkUtils
+                        android.app.Activity activity = null;
+                        android.content.Context context = widget.getContext();
+                        if (context instanceof android.app.Activity) {
+                            activity = (android.app.Activity) context;
+                        }
+
+                        if (activity != null) {
+                            ShareLinkUtils.openPostLink(activity, link);
+                        }
+                    }
+
+                    @Override
+                    public void updateDrawState(@NonNull TextPaint ds) {
+                        super.updateDrawState(ds);
+                        ds.setColor(Color.parseColor("#1976D2")); // Blue color
+                        ds.setUnderlineText(true); // Underlined
+                    }
+                };
+
+                spannableString.setSpan(clickableSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+
+            tvMessage.setText(spannableString);
+            tvMessage.setMovementMethod(LinkMovementMethod.getInstance());
+        } else {
+            // No links, just set normal text
+            tvMessage.setText(content);
+        }
+    }
+
     // ViewHolder for sent messages (right side)
     static class SentMessageViewHolder extends RecyclerView.ViewHolder {
         TextView tvMessage, tvTime, tvEdited;
@@ -153,7 +219,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
             // Xử lý theo type
             if ("text".equals(message.type)) {
-                tvMessage.setText(message.content);
+                setupMessageText(tvMessage, message.content);
                 tvMessage.setTextColor(0xFF000000);
                 tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
             } else if ("image".equals(message.type)) {
@@ -180,7 +246,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 // Nếu là mixed và có content, hiển thị text
                 if ("mixed".equals(message.type) && message.content != null && !message.content.trim().isEmpty()) {
                     tvMessage.setVisibility(View.VISIBLE);
-                    tvMessage.setText(message.content);
+                    setupMessageText(tvMessage, message.content);
                     tvMessage.setTextColor(0xFF000000);
                     tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
                 } else {
@@ -356,7 +422,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
                 // Xử lý theo type
                 if ("text".equals(message.type)) {
-                    tvMessage.setText(message.content);
+                    setupMessageText(tvMessage, message.content);
                     tvMessage.setTextColor(0xFF000000);
                     tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
                 } else if ("image".equals(message.type)) {
@@ -390,7 +456,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     // Hiển thị text content nếu là mixed type và có nội dung
                     if ("mixed".equals(message.type) && message.content != null && !message.content.trim().isEmpty()) {
                         tvMessage.setVisibility(View.VISIBLE);
-                        tvMessage.setText(message.content);
+                        setupMessageText(tvMessage, message.content);
                         tvMessage.setTextColor(0xFF000000);
                         tvMessage.setTypeface(null, android.graphics.Typeface.NORMAL);
                     } else {
